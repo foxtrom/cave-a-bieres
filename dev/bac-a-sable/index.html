@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="color-scheme" content="light dark">
+  <title>Bac à sable · Brasserie Ensen</title>
+  <link rel="icon" href="../../icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="systeme.css">
+  <link rel="stylesheet" href="bac-a-sable.css">
+  <script type="module" src="bac-a-sable.js"></script>
+</head>
+<body>
+  <header class="bs-entete">
+    <p class="bs-surtitre">Brasserie Ensen · refonte v1 · étape 1</p>
+    <h1>Bac à sable</h1>
+    <p class="bs-intro">Composants candidats, isolés de l’appli : rien n’est enregistré, rien n’est envoyé.</p>
+    <p class="bs-intro" id="date-du-jour"></p>
+    <div class="bs-reglages">
+      <div class="bs-reglage">
+        <span id="libelle-theme">Thème</span>
+        <div class="bs-segments" role="group" aria-labelledby="libelle-theme">
+          <button type="button" data-reglage="theme" data-valeur="auto" aria-pressed="true">Auto</button>
+          <button type="button" data-reglage="theme" data-valeur="clair" aria-pressed="false">Clair</button>
+          <button type="button" data-reglage="theme" data-valeur="sombre" aria-pressed="false">Sombre</button>
+        </div>
+      </div>
+      <div class="bs-reglage">
+        <span id="libelle-taille">Texte</span>
+        <div class="bs-segments" role="group" aria-labelledby="libelle-taille">
+          <button type="button" data-reglage="taille" data-valeur="systeme" aria-pressed="true">iPhone</button>
+          <button type="button" data-reglage="taille" data-valeur="21" aria-pressed="false">Grand</button>
+          <button type="button" data-reglage="taille" data-valeur="28" aria-pressed="false">Très grand</button>
+          <button type="button" data-reglage="taille" data-valeur="40" aria-pressed="false">Maxi</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="bs-page">
+    <section class="bs-section" aria-labelledby="titre-palette">
+      <h2 id="titre-palette">Palette</h2>
+      <p class="bs-intro" id="theme-actif"></p>
+      <div id="nuancier"></div>
+      <h3 class="bs-sous-titre">Contrastes mesurés</h3>
+      <p class="bs-intro">Rapport de contraste (WCAG) sur chaque fond où la couleur est posée. AA demande 4,5 pour le texte courant.</p>
+      <table class="bs-contrastes">
+        <thead><tr><th scope="col">Usage</th><th scope="col">Rapports</th><th scope="col">Niveau</th></tr></thead>
+        <tbody id="contrastes"></tbody>
+      </table>
+    </section>
+
+    <section class="bs-section" aria-labelledby="titre-typo">
+      <h2 id="titre-typo">Typographie</h2>
+      <p class="bs-intro">Polices système d’Apple. Les tailles suivent la taille du texte choisie sur l’iPhone (« Texte » ci-dessus pour la simuler).</p>
+      <div id="typographie"></div>
+    </section>
+
+    <section class="bs-section" aria-labelledby="titre-badges">
+      <h2 id="titre-badges">Badges</h2>
+      <p class="bs-intro">Le statut du brassin et l’état du stock sont deux familles distinctes. Chaque badge porte une icône : la couleur n’est jamais seule.</p>
+      <div id="badges"></div>
+    </section>
+
+    <section class="bs-section" aria-labelledby="titre-cartes">
+      <h2 id="titre-cartes">Cartes de la Cave</h2>
+      <p class="bs-intro">Brassins fictifs. Le stock total est le chiffre le plus visible ; le nom n’est jamais coupé.</p>
+      <div id="cartes"></div>
+    </section>
+
+    <section class="bs-section" aria-labelledby="titre-reels">
+      <h2 id="titre-reels">Vos brassins</h2>
+      <p class="bs-intro">Choisissez une sauvegarde (.json) : elle est seulement lue par cette page, qui ne garde rien.</p>
+      <label class="e-btn e-btn--secondaire bs-fichier">
+        Charger une sauvegarde…
+        <input type="file" id="fichier" accept=".json,application/json">
+      </label>
+      <div id="reels"></div>
+    </section>
+
+    <section class="bs-section" aria-labelledby="titre-boutons">
+      <h2 id="titre-boutons">Boutons</h2>
+      <p class="bs-intro">Une seule action principale par écran (cuivre plein), les autres en contour. Hauteur 52 px, au-delà du minimum de 44 px.</p>
+      <div id="boutons"></div>
+    </section>
+
+    <section class="bs-section" aria-labelledby="titre-blocs">
+      <h2 id="titre-blocs">Blocs de la fiche</h2>
+      <p class="bs-intro">Stock et caractéristiques techniques, tels qu’ils pourraient apparaître sur la fiche d’un brassin.</p>
+      <div id="blocs"></div>
+    </section>
+  </main>
+</body>
+</html>

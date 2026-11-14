@@ -1,0 +1,107 @@
+/* Mise en page du bac à sable seulement (préfixe « bs- ») : ne fait pas partie du système.
+   Les libellés de la page sont en px pour rester fixes ; les composants « e- » sont en rem
+   et suivent la taille du texte simulée. */
+
+/* Simulation de la taille du texte de l'iPhone (Réglages > Luminosité et affichage > Taille du texte) */
+html[data-taille="21"] { font-size: 21px; }
+html[data-taille="28"] { font-size: 28px; }
+html[data-taille="40"] { font-size: 40px; }
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--e-fond);
+  color: var(--e-texte);
+  font: 400 16px/1.45 var(--e-police);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.bs-entete,
+.bs-page { max-width: 430px; margin: 0 auto; padding: 0 16px; }
+.bs-entete { padding-top: max(20px, env(safe-area-inset-top)); }
+.bs-page { padding-bottom: max(48px, env(safe-area-inset-bottom)); }
+
+.bs-surtitre { margin: 0; color: var(--e-texte-2); font: 600 12px/1.3 var(--e-police); letter-spacing: 0.04em; text-transform: uppercase; }
+.bs-entete h1 { margin: 4px 0 6px; font: 800 30px/1.1 var(--e-police); letter-spacing: -0.02em; }
+.bs-intro { margin: 0 0 12px; color: var(--e-texte-2); font: 400 14px/1.45 var(--e-police); }
+
+/* Réglages d'affichage : contrôles segmentés */
+.bs-reglages { display: grid; gap: 10px; margin-top: 16px; padding: 12px; border: 1px solid var(--e-bordure); border-radius: 16px; background: var(--e-surface); }
+.bs-reglage { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: var(--e-texte-2); font: 600 13px/1.2 var(--e-police); }
+.bs-segments { display: inline-flex; padding: 2px; border-radius: 9px; background: var(--e-surface-2); }
+.bs-segments button {
+  appearance: none;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--e-texte);
+  font: 500 13px/1 var(--e-police);
+  cursor: pointer;
+}
+.bs-segments button[aria-pressed="true"] { background: var(--e-surface); box-shadow: 0 1px 3px rgb(0 0 0 / 0.15); font-weight: 650; }
+.bs-segments button:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: 1px; }
+
+/* Sections */
+.bs-section { margin-top: 40px; }
+.bs-section > h2 { margin: 0 0 4px; font: 750 22px/1.2 var(--e-police); letter-spacing: -0.01em; }
+.bs-sous-titre { margin: 20px 0 8px; font: 650 15px/1.3 var(--e-police); }
+.bs-cas { margin: 22px 0 8px; color: var(--e-texte-2); font: 650 13px/1.35 var(--e-police); }
+.bs-cas small { font: 400 13px/1.35 var(--e-police); }
+.bs-pile { display: grid; gap: 12px; }
+.bs-resume { margin: 12px 0 0; color: var(--e-texte-2); font: 400 14px/1.4 var(--e-police); }
+
+/* Palette */
+.bs-nuancier { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.bs-nuance { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px; border: 1px solid var(--e-bordure); border-radius: 14px; background: var(--e-surface); }
+.bs-nuance i { flex: none; width: 36px; height: 36px; border-radius: 10px; box-shadow: inset 0 0 0 1px rgb(127 127 127 / 0.3); }
+.bs-nuance span { display: grid; min-width: 0; }
+.bs-nuance code { font: 600 12px/1.3 var(--e-police-code); overflow-wrap: anywhere; }
+.bs-nuance small { color: var(--e-texte-2); font: 400 12px/1.3 var(--e-police-code); }
+
+/* Contrastes */
+.bs-contrastes { width: 100%; border-collapse: collapse; font: 400 13px/1.35 var(--e-police); }
+.bs-contrastes th,
+.bs-contrastes td { padding: 8px 4px; border-top: 1px solid var(--e-bordure); text-align: left; vertical-align: middle; }
+.bs-contrastes thead th { border-top: 0; color: var(--e-texte-2); font-weight: 600; }
+.bs-contrastes tbody th { font-weight: 500; }
+.bs-echantillon {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 26px;
+  margin-right: 8px;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px rgb(127 127 127 / 0.25);
+  font: 700 13px/1 var(--e-police);
+  vertical-align: middle;
+}
+.bs-mesure { display: inline-block; margin-right: 6px; font-variant-numeric: tabular-nums; }
+.bs-ok,
+.bs-moyen,
+.bs-ko,
+.bs-decor { display: inline-block; padding: 2px 7px; border-radius: 8px; font: 650 12px/1.3 var(--e-police); white-space: nowrap; }
+.bs-ok { background: var(--e-sauge-doux); color: var(--e-sauge-texte); }
+.bs-decor { background: var(--e-surface-2); color: var(--e-texte-2); }
+.bs-moyen { background: var(--e-alerte-fond); color: var(--e-alerte-texte); }
+.bs-ko { background: var(--e-erreur-fond); color: var(--e-erreur); }
+
+/* Typographie */
+.bs-typo { padding: 12px 0; border-top: 1px solid var(--e-bordure); }
+.bs-typo > :first-child { margin: 0; }
+.bs-legende { margin: 4px 0 0; color: var(--e-texte-2); font: 400 12px/1.3 var(--e-police); }
+.bs-gauche { justify-items: start; text-align: left; }
+
+/* Boutons : états figés pour la démonstration */
+.e-btn--principal.bs-appuye { background: var(--e-cuivre-presse); transform: scale(0.98); }
+.e-btn--secondaire.bs-appuye { background: var(--e-cuivre-doux); transform: scale(0.98); }
+
+/* Choix d'une sauvegarde : le vrai champ fichier, invisible, couvre le bouton */
+.bs-fichier { position: relative; width: 100%; margin-bottom: 4px; }
+.bs-fichier input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+.bs-fichier:focus-within { outline: 2px solid var(--e-cuivre); outline-offset: 2px; }

@@ -1,0 +1,316 @@
+/* Brasserie Ensen — système de design v1 (candidat, étape 1 de la refonte).
+   Jetons sémantiques et composants, préfixés « e- » : ils cohabitent avec les styles
+   actuels de l'appli sans les toucher, et seront adoptés écran par écran.
+   Tailles en rem : elles suivent la taille du texte choisie sur l'iPhone (Dynamic Type)
+   grâce à la police système -apple-system-body. */
+
+/* ---------- Taille de base : celle de l'iPhone (Dynamic Type) ---------- */
+
+html { font-size: 17px; }
+@supports (font: -apple-system-body) {
+  html { font: -apple-system-body; }
+}
+
+/* ---------- Jetons : clair ---------- */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --e-fond: #f4ede1;
+  --e-surface: #fffcf7;
+  --e-surface-2: #efe4d3;
+  --e-bordure: #e2d3be; /* décor : séparation douce, jamais seule porteuse d'information */
+
+  /* Textes (contrastes sur le fond, la carte et la surface 2) */
+  --e-texte: #30251e; /* 11,9 à 14,6:1 */
+  --e-texte-2: #6f6254; /* 4,7 à 5,8:1 (au lieu de #796b5c, à 4,1:1 sur la surface 2) */
+  --e-texte-3: #9b8d7b; /* décor seulement (2,8:1) : points, éléments inactifs */
+
+  /* Cuivre : action principale, liens, sélection */
+  --e-cuivre: #a15814; /* blanc dessus 5,4:1, sur le fond 4,6:1 (au lieu de #b76519, à 4,3:1) */
+  --e-cuivre-presse: #8a4a12;
+  --e-sur-cuivre: #ffffff;
+  --e-cuivre-doux: #f7e5d0;
+  --e-cuivre-texte: #8a4a12; /* sur cuivre doux : 5,6:1 */
+
+  /* Sauge : prête, succès */
+  --e-sauge: #87916c; /* décor seulement (3,3:1) */
+  --e-sauge-doux: #e5e9d9;
+  --e-sauge-texte: #4e5a36; /* sur sauge douce : 6,0:1 */
+
+  /* Alerte (stock bas) et erreur */
+  --e-alerte-fond: #fbe5bd;
+  --e-alerte-texte: #9a5006; /* 4,8:1 */
+  --e-erreur: #a74632; /* 5,1 à 5,8:1 */
+  --e-erreur-fond: #f8e1da;
+
+  /* Une seule famille d'ombres, légère */
+  --e-ombre: 0 1px 2px rgb(48 37 30 / 0.05), 0 6px 18px rgb(48 37 30 / 0.06);
+
+  /* Espacements (4, 8, 12, 16, 24, 32) et rayons */
+  --e-1: 4px;
+  --e-2: 8px;
+  --e-3: 12px;
+  --e-4: 16px;
+  --e-5: 24px;
+  --e-6: 32px;
+  --e-r-badge: 11px;
+  --e-r-champ: 16px;
+  --e-r-carte: 22px;
+
+  /* Polices système Apple */
+  --e-police: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --e-police-arrondie: ui-rounded, -apple-system, "SF Pro Rounded", "Segoe UI", sans-serif;
+  --e-police-code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* ---------- Jetons : sombre (choix manuel, puis réglage de l'iPhone) ---------- */
+
+:root[data-theme="sombre"] {
+  color-scheme: dark;
+  --e-fond: #17120e;
+  --e-surface: #211a15;
+  --e-surface-2: #2d241d;
+  --e-bordure: #3a3027;
+  --e-texte: #f4ebdf;
+  --e-texte-2: #b8aa97;
+  --e-texte-3: #8a7d6c;
+  --e-cuivre: #e9954d;
+  --e-cuivre-presse: #f2aa6a;
+  --e-sur-cuivre: #1e1007;
+  --e-cuivre-doux: #3a2717;
+  --e-cuivre-texte: #f1a766;
+  --e-sauge: #a3ae86;
+  --e-sauge-doux: #2a3020;
+  --e-sauge-texte: #c2cda0;
+  --e-alerte-fond: #3e2b0f;
+  --e-alerte-texte: #f3ba5e;
+  --e-erreur: #f0907c;
+  --e-erreur-fond: #3e1e17;
+  --e-ombre: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="clair"]) {
+    color-scheme: dark;
+    --e-fond: #17120e;
+    --e-surface: #211a15;
+    --e-surface-2: #2d241d;
+    --e-bordure: #3a3027;
+    --e-texte: #f4ebdf;
+    --e-texte-2: #b8aa97;
+    --e-texte-3: #8a7d6c;
+    --e-cuivre: #e9954d;
+    --e-cuivre-presse: #f2aa6a;
+    --e-sur-cuivre: #1e1007;
+    --e-cuivre-doux: #3a2717;
+    --e-cuivre-texte: #f1a766;
+    --e-sauge: #a3ae86;
+    --e-sauge-doux: #2a3020;
+    --e-sauge-texte: #c2cda0;
+    --e-alerte-fond: #3e2b0f;
+    --e-alerte-texte: #f3ba5e;
+    --e-erreur: #f0907c;
+    --e-erreur-fond: #3e1e17;
+    --e-ombre: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.3);
+  }
+}
+
+/* ---------- Typographie (rem : suit la taille du texte de l'iPhone) ---------- */
+
+.e-titre-ecran { margin: 0; font: 800 2rem/1.1 var(--e-police); letter-spacing: -0.02em; color: var(--e-texte); }
+.e-titre-section {
+  margin: 0;
+  color: var(--e-texte-2);
+  font: 650 0.8125rem/1.3 var(--e-police);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.e-texte { font: 400 1rem/1.45 var(--e-police); color: var(--e-texte); }
+.e-secondaire { font: 400 0.875rem/1.4 var(--e-police); color: var(--e-texte-2); }
+.e-code {
+  font: 600 0.8125rem/1.3 var(--e-police-code);
+  letter-spacing: 0.02em;
+  color: var(--e-texte-2);
+}
+.e-chiffre { font-family: var(--e-police-arrondie); font-variant-numeric: tabular-nums; }
+.e-insecable { white-space: nowrap; } /* « 33 cl » ne se coupe pas */
+
+/* Icônes au trait fin (SVG maison) */
+.e-icone { width: 1.25rem; height: 1.25rem; flex: none; }
+
+/* ---------- Badges : statut du brassin ≠ état du stock ---------- */
+
+.e-badges { display: flex; flex-wrap: wrap; gap: var(--e-1) 6px; }
+.e-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 1.5rem;
+  padding: 2px 9px 2px 7px;
+  border-radius: var(--e-r-badge);
+  font: 650 0.75rem/1.2 var(--e-police);
+}
+.e-badge .e-icone { width: 0.875rem; height: 0.875rem; }
+/* Statut de production : fonds doux, icône d'état (bulles, horloge, coche, boîte) */
+.e-badge--fermentation,
+.e-badge--termine { background: var(--e-surface-2); color: var(--e-texte-2); }
+.e-badge--garde { background: var(--e-cuivre-doux); color: var(--e-cuivre-texte); }
+.e-badge--prete { background: var(--e-sauge-doux); color: var(--e-sauge-texte); }
+/* État du stock : couleur d'alerte et triangle, pour ne jamais dépendre de la seule couleur */
+.e-badge--stock-bas { background: var(--e-alerte-fond); color: var(--e-alerte-texte); }
+
+/* ---------- Note compacte ---------- */
+
+.e-note { display: flex; align-items: baseline; gap: 4px; width: fit-content; margin: 0; font: 650 0.875rem/1.3 var(--e-police); color: var(--e-texte); }
+.e-note .e-etoile { color: var(--e-cuivre); }
+
+/* ---------- Carte de brassin (Cave) ---------- */
+
+.e-cartes { display: grid; gap: var(--e-3); margin: 0; padding: 0; list-style: none; }
+.e-carte {
+  container-type: inline-size; /* la carte se réorganise quand le texte grandit */
+  display: block;
+  padding: var(--e-3) var(--e-4) 14px;
+  border: 1px solid var(--e-bordure);
+  border-radius: var(--e-r-carte);
+  background: var(--e-surface);
+  box-shadow: var(--e-ombre);
+  color: var(--e-texte);
+  text-decoration: none;
+  transition: transform 0.12s;
+}
+.e-carte:active { transform: scale(0.985); }
+.e-carte:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: 3px; }
+/* Stock en haut à droite, à côté du code et du nom ; les autres lignes prennent toute la largeur */
+.e-carte-grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "haut  stock"
+    "nom   stock"
+    "meta  meta"
+    "bilan bilan"
+    "note  note";
+  column-gap: var(--e-4);
+  align-items: start;
+}
+.e-carte-haut { grid-area: haut; display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--e-2); margin-bottom: 6px; }
+.e-carte-nom { grid-area: nom; margin: 0; font: 700 1.1875rem/1.25 var(--e-police); overflow-wrap: anywhere; }
+.e-carte-meta { grid-area: meta; margin: 3px 0 0; overflow: hidden; color: var(--e-texte-2); font: 400 0.875rem/1.4 var(--e-police); }
+.e-carte-bilan { grid-area: bilan; }
+.e-carte-grille > .e-note { grid-area: note; margin-top: 6px; }
+/* Stock total : le chiffre le plus visible de la carte */
+.e-carte-stock { grid-area: stock; display: grid; justify-items: end; text-align: right; }
+.e-carte-stock b { font: 700 2.125rem/1 var(--e-police-arrondie); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.e-carte-stock span { margin-top: 2px; color: var(--e-texte-2); font: 400 0.8125rem/1.2 var(--e-police); }
+.e-carte-stock--bas b { color: var(--e-alerte-texte); }
+.e-carte-stock--vide b { color: var(--e-texte-2); }
+.e-carte-stock--attente .e-icone { width: 1.75rem; height: 1.75rem; color: var(--e-texte-2); }
+.e-carte--terminee { background: transparent; box-shadow: none; }
+
+/* Très grand texte : une seule colonne, le stock sous le nom (« 34 bouteilles ») */
+@container (max-width: 14rem) {
+  .e-carte-grille { grid-template-columns: minmax(0, 1fr); grid-template-areas: "haut" "nom" "stock" "meta" "bilan" "note"; }
+  .e-carte-stock { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; margin-top: 4px; text-align: left; }
+}
+
+/* Liste « Ambrée · 6,2 % · … » : chaque élément porte son point, et le point qui
+   ouvrirait une nouvelle ligne est masqué (décalé à gauche, coupé par le parent). */
+.e-points { display: flex; flex-wrap: wrap; margin-left: -1em; }
+/* Retrait suspendu : si un élément trop long se coupe lui-même, sa 2e ligne reste visible */
+.e-points > span { min-width: 0; padding-left: 1em; text-indent: -1em; }
+.e-points > span::before { content: "·"; display: inline-block; width: 1em; text-align: center; text-indent: 0; color: var(--e-texte-3); }
+
+/* ---------- Boutons ---------- */
+
+.e-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  min-height: 3.25rem;
+  padding: 0 1.25rem;
+  border: 0;
+  border-radius: var(--e-r-champ);
+  background: transparent;
+  color: inherit;
+  font: 650 1.0625rem/1.2 var(--e-police);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.12s, background-color 0.12s;
+}
+.e-btn:active { transform: scale(0.98); }
+.e-btn:disabled { opacity: 0.45; }
+.e-btn:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: 2px; }
+.e-btn--principal { background: var(--e-cuivre); color: var(--e-sur-cuivre); }
+.e-btn--principal:active { background: var(--e-cuivre-presse); }
+.e-btn--secondaire { color: var(--e-cuivre); box-shadow: inset 0 0 0 1.5px var(--e-cuivre); }
+.e-btn--secondaire:active { background: var(--e-cuivre-doux); }
+.e-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Pleine largeur l'un sous l'autre sur iPhone (texte jamais coupé), côte à côte si la place le permet */
+.e-actions .e-btn { flex: 1 1 12rem; }
+
+/* ---------- Blocs : stock, caractéristiques ---------- */
+
+.e-bloc {
+  container-type: inline-size; /* les caractéristiques passent sur une colonne quand le texte grandit */
+  padding: var(--e-4) 18px;
+  border: 1px solid var(--e-bordure);
+  border-radius: var(--e-r-carte);
+  background: var(--e-surface);
+  box-shadow: var(--e-ombre);
+  color: var(--e-texte);
+}
+.e-bloc > .e-titre-section { margin-bottom: 10px; }
+
+/* Jauge : reprend le chiffre écrit à côté, simple appui visuel */
+.e-jauge { height: 6px; margin-top: var(--e-3); border-radius: 3px; background: var(--e-surface-2); overflow: hidden; }
+.e-jauge > span { display: block; height: 100%; border-radius: inherit; background: var(--e-sauge); }
+.e-jauge--alerte > span { background: var(--e-alerte-texte); }
+
+/* Message dans un bloc (alerte, erreur) : icône + texte, jamais la couleur seule */
+.e-message {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e-2);
+  margin: var(--e-3) 0 0;
+  padding: 10px var(--e-3);
+  border-radius: var(--e-r-champ);
+  font: 600 0.9375rem/1.35 var(--e-police);
+}
+.e-message .e-icone { margin-top: 0.05em; }
+.e-message--alerte { background: var(--e-alerte-fond); color: var(--e-alerte-texte); }
+.e-message--erreur { background: var(--e-erreur-fond); color: var(--e-erreur); }
+
+.e-stock-total { margin: 0; font: 400 1rem/1.2 var(--e-police); color: var(--e-texte-2); }
+.e-stock-total b { margin-right: 6px; color: var(--e-texte); font: 700 2.75rem/1 var(--e-police-arrondie); font-variant-numeric: tabular-nums; }
+.e-stock-depart { margin: 6px 0 0; color: var(--e-texte-2); font: 400 0.875rem/1.4 var(--e-police); }
+.e-formats { display: grid; gap: 0; margin: var(--e-3) 0 0; }
+.e-formats > div { display: flex; justify-content: space-between; align-items: baseline; padding: var(--e-2) 0; border-top: 1px solid var(--e-bordure); }
+.e-formats dt { color: var(--e-texte-2); font: 400 1rem/1.3 var(--e-police); }
+.e-formats dd { margin: 0; font: 700 1.125rem/1.3 var(--e-police-arrondie); font-variant-numeric: tabular-nums; }
+.e-formats dd small { color: var(--e-texte-2); font: 400 0.8125rem var(--e-police); }
+
+/* Caractéristiques : 2 × 2, une seule colonne aux très grandes tailles de texte (jamais tronquées) */
+.e-metriques { display: grid; grid-template-columns: 1fr 1fr; gap: var(--e-2); margin: 0; }
+@container (max-width: 13.5rem) {
+  .e-metriques { grid-template-columns: 1fr; }
+}
+.e-metrique { display: grid; align-content: start; gap: 2px; padding: 10px var(--e-3); border-radius: var(--e-r-champ); background: var(--e-surface-2); }
+.e-metrique dt { color: var(--e-texte-2); font: 600 0.75rem/1.3 var(--e-police); }
+.e-metrique dd { margin: 0; color: var(--e-texte-2); font: 400 0.8125rem/1.2 var(--e-police); }
+.e-metrique dd b { color: var(--e-texte); font: 700 1.25rem/1.15 var(--e-police-arrondie); font-variant-numeric: tabular-nums; }
+
+/* ---------- Moins d'animations si l'iPhone le demande ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .e-carte,
+  .e-btn { transition: none; }
+  .e-carte:active,
+  .e-btn:active { transform: none; }
+}

@@ -38,6 +38,14 @@ export const SYMBOLES = {
   loupe: icone('<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>'),
   tri: icone('<path d="M8 4v15M4.5 7.5 8 4l3.5 3.5M16 20V5M12.5 16.5 16 20l3.5-3.5"/>'),
   bouteille: icone('<path d="M10 2h4M10.5 2v4.5L8 10v10.5A1.5 1.5 0 0 0 9.5 22h5a1.5 1.5 0 0 0 1.5-1.5V10l-2.5-3.5V2"/><path d="M8 13h8"/>'),
+  plus: icone('<path d="M12 5v14M5 12h14"/>'),
+  panier: icone('<path d="M3 4h2.2l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L21 8H6.2"/><circle cx="9.5" cy="20" r="1.25"/><circle cx="17" cy="20" r="1.25"/>'),
+  suivant: icone('<path d="m9 6 6 6-6 6"/>'),
+  fichier: icone('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5"/>'),
+  tableau: icone('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15"/>'),
+  calendrier: icone('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
+  cloche: icone('<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 21h4"/>'),
+  clocheCoupee: icone('<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 21h4M3.5 3.5l17 17"/>'),
 };
 
 /* ---------- Badges ---------- */
@@ -48,6 +56,9 @@ const BADGES = {
   prete: ['e-badge--prete', SYMBOLES.prete],
   termine: ['e-badge--termine', SYMBOLES.termine],
   stockBas: ['e-badge--stock-bas', SYMBOLES.alerte],
+  // Stock : péremption d'un ingrédient (dépassée en rouge d'erreur, proche en couleur d'alerte)
+  perime: ['e-badge--perime', SYMBOLES.calendrier],
+  bientot: ['e-badge--bientot', SYMBOLES.calendrier],
 };
 
 export function badge(type, texte) {

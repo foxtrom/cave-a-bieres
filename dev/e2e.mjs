@@ -622,14 +622,14 @@ try {
     await page.click('#feuille button[type="submit"]');
     await page.waitForFunction(() => !document.getElementById('feuille').open);
   }
-  const ligneArticle = (nom) => page.locator('.ligne-bouton', { has: page.locator('.article-nom', { hasText: new RegExp(`^${nom}$`) }) });
-  const quantiteArticle = async (nom) => (await ligneArticle(nom).locator('.article-quantite').textContent()).replace(/\s+/g, ' ').trim();
+  const ligneArticle = (nom) => page.locator('.e-article', { has: page.locator('.e-article-nom', { hasText: new RegExp(`^${nom}$`) }) });
+  const quantiteArticle = async (nom) => (await ligneArticle(nom).locator('.e-article-quantite').textContent()).replace(/\s+/g, ' ').trim();
   async function attendreQuantite(nom, attendu) {
     await page.goto(`${BASE}#/stock`);
     await page.waitForFunction(
       ([n, a]) => {
-        const ligne = [...document.querySelectorAll('.ligne-bouton')].find((b) => b.querySelector('.article-nom')?.textContent.trim() === n);
-        return ligne?.querySelector('.article-quantite').textContent.replace(/\s+/g, ' ').trim() === a;
+        const ligne = [...document.querySelectorAll('.e-article')].find((b) => b.querySelector('.e-article-nom')?.textContent.trim() === n);
+        return ligne?.querySelector('.e-article-quantite').textContent.replace(/\s+/g, ' ').trim() === a;
       },
       [nom, attendu],
       { timeout: 5000 },
@@ -653,7 +653,7 @@ try {
     for (const nom of ['Bouteilles vides 33 cl', 'Bouteilles vides 66 cl à clapet', 'Capsules', 'Joints de clapets']) {
       assert.equal(await quantiteArticle(nom), '0', nom);
     }
-    await attendreTexte('.lien-courses', 'Rien à acheter');
+    await attendreTexte('.e-lien-courses', 'Rien à acheter');
   });
 
   await etape('Ajout d’ingrédients : stock bas et levure périmée signalés', async () => {
@@ -665,8 +665,8 @@ try {
     assert.equal(await quantiteArticle('Pilsner'), '5 kg');
     assert.equal(await quantiteArticle('Sabro'), '60 g');
     assert.equal(await quantiteArticle('Voss Kveik'), '2 sachets');
-    await attendreTexte('.ligne-bouton', 'Stock bas');
-    await attendreTexte('.ligne-bouton', 'Périmé le');
+    await attendreTexte('.e-article', 'Stock bas');
+    await attendreTexte('.e-article', 'Périmé le');
     await attendreTexte('#pastille-stock', '2');
     await modifierQuantite('Bouteilles vides 33 cl', '30');
     await modifierQuantite('Capsules', '100');
@@ -705,23 +705,23 @@ try {
 
   await etape('Courses : achat coché → stock mis à jour ; liste partagée', async () => {
     await page.goto(`${BASE}#/stock/courses`);
-    await attendreNombre(page, '#vue .liste > li', 5);
+    await attendreNombre(page, '#vue .e-liste > li', 5);
     await capture('29-courses');
-    await page.click('.ligne-course:has-text("Sabro") [data-action="acheter"]');
+    await page.click('.e-course:has-text("Sabro") [data-action="acheter"]');
     await attendreToast(/Sabro\s:\s100\sg en stock/);
-    await attendreNombre(page, '#vue .liste > li', 4);
+    await attendreNombre(page, '#vue .e-liste > li', 4);
     // Cloche coupée : Voss Kveik reste dans la liste (en dernier) mais sort de la pastille de l'onglet Stock
     await attendreTexte('#pastille-stock', '4');
     await page.click('li:has-text("Voss Kveik") [data-action="basculer-pastille"]');
     await attendreToast(/Voss Kveik ne compte plus dans la pastille du Stock/);
     await attendreTexte('#pastille-stock', '3');
-    await attendreNombre(page, '#vue .liste > li', 4);
-    assert.equal(await page.getAttribute('li:has-text("Voss Kveik") .btn-cloche', 'aria-pressed'), 'false');
-    assert.match(await page.locator('#vue .liste > li').last().textContent(), /Voss Kveik/);
+    await attendreNombre(page, '#vue .e-liste > li', 4);
+    assert.equal(await page.getAttribute('li:has-text("Voss Kveik") .e-cloche', 'aria-pressed'), 'false');
+    assert.match(await page.locator('#vue .e-liste > li').last().textContent(), /Voss Kveik/);
     await capture('29b-courses-cloche');
     await page.goto(`${BASE}#/stock`);
-    await attendreTexte('.lien-courses', '4 achats à prévoir, dont 1 sans pastille');
-    await attendreTexte('.lien-courses .pastille', '3');
+    await attendreTexte('.e-lien-courses', '4 achats à prévoir, dont 1 sans pastille');
+    await attendreTexte('.e-lien-courses .e-compte', '3');
     await page.goto(`${BASE}#/stock/courses`);
     await page.click('li:has-text("Voss Kveik") [data-action="basculer-pastille"]');
     await attendreToast(/Voss Kveik compte de nouveau/);
@@ -830,10 +830,10 @@ try {
     await attendreToast(/Stock importé\s:\s10 ajoutés, 3 mis à jour/);
     await attendreQuantite('Pilsner', '6 kg');
     assert.equal(await quantiteArticle('Flocons de maïs'), '4 kg');
-    assert.match(await page.locator('.ligne-bouton:has-text("SafAle US-05")').textContent(), /Sachets de 11,5 g/);
+    assert.match(await page.locator('.e-article:has-text("SafAle US-05")').textContent(), /Sachets de 11,5 g/);
     await page.click('#toast button'); // Annuler
     await attendreQuantite('Pilsner', '1,4 kg');
-    assert.equal(await page.locator('.ligne-bouton:has-text("Flocons de maïs")').count(), 0);
+    assert.equal(await page.locator('.e-article:has-text("Flocons de maïs")').count(), 0);
     await ouvrirImportStock();
     await page.fill('#feuille textarea[name="tableau"]', TABLEAU_STOCK);
     await page.click('#feuille button[type="submit"]');
@@ -888,7 +888,7 @@ try {
     await page.click('#feuille [data-action="fermer-feuille"]');
   });
 
-  const section = (nom) => page.locator('#vue section.bloc', { has: page.locator('h3', { hasText: nom }) });
+  const section = (nom) => page.locator('#vue section.e-categorie', { has: page.locator('h2', { hasText: nom }) });
 
   await etape('Catégorie ajoutée depuis un article, renommée, remplie par un import, supprimée puis rétablie', async () => {
     await page.goto(`${BASE}#/stock`);
@@ -939,7 +939,7 @@ try {
     await attendreToast(/supprimée/);
     assert.match(await section('Autres ingrédients').textContent(), /Anis étoilé/);
     await page.click('#toast button'); // Annuler
-    await page.waitForFunction(() => [...document.querySelectorAll('#vue h3')].some((h) => h.textContent.includes('Épices et aromates')));
+    await page.waitForFunction(() => [...document.querySelectorAll('#vue .e-categorie h2')].some((h) => h.textContent.includes('Épices et aromates')));
     assert.match(await section('Épices et aromates').textContent(), /Anis étoilé/);
   });
 

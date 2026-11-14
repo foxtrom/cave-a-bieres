@@ -14,7 +14,7 @@ import { POLICES } from './polices.js';
 import { copieRelaisDue, creerSauvegarde, donneesVides, empreinteDonnees, lireSauvegarde, nomFichierSauvegarde, normaliserDonnees, rappelSauvegarde } from './donnees.js';
 import * as stockage from './db.js';
 import { COLLINE, ICONES, confirmer, fermerFeuille, ouvrirFeuille, pluriel, toast } from './ui.js';
-import { SYMBOLES, blocEtat, blocStock, carteBrassin, frise, metaBrassin, metriques, noteEditable } from './composants.js';
+import { SYMBOLES, badge, blocEtat, blocStock, carteBrassin, frise, metaBrassin, metriques, noteEditable } from './composants.js';
 
 const etat = {
   donnees: donneesVides(),
@@ -1474,54 +1474,59 @@ function vueStock() {
     onglet: 'stock',
     titre: 'Stock',
     entete: enteteBarre({ titre: 'Stock' }),
-    contenu: html`
-      <a class="bloc lien-etiquettes lien-courses" href="#/stock/courses">
-        <span class="lien-etiquettes-texte"><strong>Liste de courses</strong>
-          <small>${achats ? `${pluriel(achats, 'achat')} à prévoir${achats > signales ? `, dont ${achats - signales} sans pastille` : ''}` : 'Rien à acheter pour l’instant'}</small></span>
-        ${signales ? html`<span class="pastille pastille-grande">${signales}</span>` : ''}
-        ${ICONES.suivant}
+    contenu: html`<div class="e-page">
+      <a class="e-lien-courses" href="#/stock/courses">
+        ${SYMBOLES.panier}
+        <span class="e-lien-courses-texte"><b>Liste de courses</b>
+          <span>${achats ? `${pluriel(achats, 'achat')} à prévoir${achats > signales ? `, dont ${achats - signales} sans pastille` : ''}` : 'Rien à acheter pour l’instant'}</span></span>
+        ${signales ? html`<span class="e-compte" aria-hidden="true">${signales}</span>` : ''}
+        ${SYMBOLES.suivant}
       </a>
-      <div class="deux-boutons">
-        <button type="button" class="btn" data-action="ajouter-article">+ Ajouter un article</button>
-        <button type="button" class="btn" data-action="verifier-recette">${ICONES.fichier}Vérifier une recette</button>
-      </div>
-      <p class="aide aide-stock">Vérifier une recette : avant de brasser, compare une recette Grainfather (fichier BeerXML) au stock, et ajoute ce qui manque à la liste de courses.</p>
-      <button type="button" class="btn btn-large btn-import btn-import-stock" data-action="importer-stock">Importer un tableau (Excel, Numbers, CSV)</button>
+      <section class="e-bloc e-menu" aria-label="Actions du stock">
+        <button type="button" class="e-menu-action" data-action="ajouter-article">${SYMBOLES.plus}<span><b>Ajouter un article</b></span></button>
+        <button type="button" class="e-menu-action" data-action="verifier-recette">${SYMBOLES.fichier}<span><b>Vérifier une recette</b>
+          <small>Avant de brasser, compare une recette Grainfather (fichier BeerXML) au stock et ajoute ce qui manque à la liste de courses.</small></span></button>
+        <button type="button" class="e-menu-action" data-action="importer-stock">${SYMBOLES.tableau}<span><b>Importer un tableau</b><small>Excel, Numbers ou CSV</small></span></button>
+      </section>
       ${I.articlesParCategorie(inventaire.articles, I.categoriesDe(inventaire)).map(
-        (groupe) => html`<section class="bloc">
-          <h3>${groupe.nom} <span class="compteur">${groupe.articles.length}</span>
+        (groupe) => html`<section class="e-bloc e-categorie">
+          <div class="e-categorie-titre">
+            <h2 class="e-titre-section">${groupe.nom} <span class="e-compteur">${groupe.articles.length}</span></h2>
             ${
               I.estCategorieAjoutee(groupe.code)
-                ? html`<button type="button" class="btn-petit btn-discret btn-modifier" data-action="modifier-categorie" data-code="${groupe.code}">Modifier</button>`
+                ? html`<button type="button" class="btn-petit btn-discret" data-action="modifier-categorie" data-code="${groupe.code}">Modifier</button>`
                 : ''
-            }</h3>
+            }
+          </div>
           ${
             groupe.articles.length
-              ? html`<ul class="liste">${groupe.articles.map((a) => ligneArticle(a, auj))}</ul>`
-              : html`<p class="aide">Aucun article pour l’instant.</p>`
+              ? html`<ul class="e-articles">${groupe.articles.map((a) => ligneArticle(a, auj))}</ul>`
+              : html`<p class="e-aide">Aucun article pour l’instant.</p>`
           }
         </section>`,
       )}
-      <button type="button" class="btn btn-large btn-discret" data-action="ajouter-categorie">+ Ajouter une catégorie</button>
-      <p class="aide">Les bouteilles vides remontent quand une bière est bue et baissent à l’embouteillage, avec les capsules.
-        Un seuil d’alerte fait passer l’article dans la liste de courses quand il est atteint.</p>`,
+      <button type="button" class="e-btn e-btn--discret" data-action="ajouter-categorie">+ Ajouter une catégorie</button>
+      <p class="e-aide">Les bouteilles vides remontent quand une bière est bue et baissent à l’embouteillage, avec les capsules.
+        Un seuil d’alerte fait passer l’article dans la liste de courses quand il est atteint.</p>
+    </div>`,
   };
 }
 
+/** Ligne d'un article : nom, quantité, états en badges (icône + texte), date et remarque en clair. */
 function ligneArticle(a, auj) {
   const e = I.etatArticle(a, auj);
   const peremption = a.peremption ? formaterDateCourte(a.peremption, auj) : '';
-  const etiquettes = [
-    e.perime ? html`<span class="puce puce-danger">Périmé le ${peremption}</span>` : '',
-    e.bientot ? html`<span class="puce puce-alerte">Périme le ${peremption}</span>` : '',
-    e.bas || (e.epuise && a.categorie !== 'materiel') ? html`<span class="puce puce-alerte">${e.epuise ? 'Épuisé' : 'Stock bas'}</span>` : '',
-    !e.perime && !e.bientot && peremption ? html`<span class="aide">À utiliser avant le ${peremption}</span>` : '',
-    a.note ? html`<span class="aide">${a.note}</span>` : '',
+  const badges = [
+    e.perime ? badge('perime', `Périmé le ${peremption}`) : '',
+    e.bientot ? badge('bientot', `Périme le ${peremption}`) : '',
+    e.bas || (e.epuise && a.categorie !== 'materiel') ? badge('stockBas', e.epuise ? 'Épuisé' : 'Stock bas') : '',
   ].filter(Boolean);
-  return html`<li><button type="button" class="ligne-bouton" data-action="modifier-article" data-id="${a.id}">
-    <span class="ligne-haut"><span class="article-nom">${a.nom}</span>
-      <strong class="article-quantite${e.epuise ? ' epuise' : ''}">${I.formaterQuantite(a.quantite, a.unite)}</strong></span>
-    ${etiquettes.length ? html`<span class="carte-ligne">${etiquettes}</span>` : ''}
+  const notes = [!e.perime && !e.bientot && peremption ? `À utiliser avant le ${peremption}` : '', a.note].filter(Boolean);
+  return html`<li><button type="button" class="e-article" data-action="modifier-article" data-id="${a.id}">
+    <span class="e-article-haut"><span class="e-article-nom">${a.nom}</span>
+      <b class="e-article-quantite${e.epuise ? ' e-article-quantite--vide' : ''}">${I.formaterQuantite(a.quantite, a.unite)}</b></span>
+    ${badges.length ? html`<span class="e-badges">${badges}</span>` : ''}
+    ${notes.map((n) => html`<span class="e-article-note">${n}</span>`)}
   </button></li>`;
 }
 
@@ -1870,31 +1875,36 @@ function vueCourses() {
     titre: 'Liste de courses',
     entete: enteteBarre({ retour: { href: '#/stock', texte: 'Stock' }, titre: 'Courses' }),
     contenu: liste.length
-      ? html`<section class="bloc"><ul class="liste">${triee.map((x) => ligneCourse(x, auj))}</ul></section>
-          <p class="aide">Cocher un achat ajoute sa quantité au stock. Les articles en stock bas ou périmés quittent la liste
+      ? html`<div class="e-page">
+          <section class="e-bloc e-courses" aria-label="Liste de courses"><ul class="e-liste">${triee.map((x) => ligneCourse(x, auj))}</ul></section>
+          <p class="e-aide">Cocher un achat ajoute sa quantité au stock. Les articles en stock bas ou périmés quittent la liste
             dès que leur stock est corrigé : les toucher pour le modifier.</p>
-          <p class="aide">La cloche d’une ligne la retire de la pastille de l’onglet Stock, sans la retirer de la liste. La toucher à nouveau l’y remet.</p>`
-      : html`<div class="vide"><p><strong>Rien à acheter.</strong></p>
-          <p class="aide">La liste se remplit avec les articles sous leur seuil d’alerte, les ingrédients épuisés ou périmés,
-            et les manques d’une recette vérifiée.</p></div>`,
-    actions: liste.length ? html`<button type="button" class="btn btn-primaire btn-geant" data-action="partager-courses">Partager la liste</button>` : null,
+          <p class="e-aide">La cloche d’une ligne la retire de la pastille de l’onglet Stock, sans la retirer de la liste. La toucher à nouveau l’y remet.</p>
+        </div>`
+      : html`<div class="e-vide">
+          ${SYMBOLES.panier}
+          <p class="e-vide-titre">Rien à acheter.</p>
+          <p class="e-vide-texte">La liste se remplit avec les articles sous leur seuil d’alerte, les ingrédients épuisés ou périmés,
+            et les manques d’une recette vérifiée.</p>
+        </div>`,
+    actions: liste.length ? html`<button type="button" class="e-btn e-btn--principal" data-action="partager-courses">Partager la liste</button>` : null,
   };
 }
 
 /** Cloche d'une ligne de courses : compter ou non cette ligne dans la pastille de l'onglet Stock. */
 function boutonPastille(x) {
   const element = x.type === 'achat' ? x.achat : x.article;
-  return html`<button type="button" class="btn-cloche" data-action="basculer-pastille" data-type="${x.type}" data-id="${element.id}"
-    aria-pressed="${x.muet ? 'false' : 'true'}" aria-label="Pastille du Stock pour ${element.nom}">${x.muet ? ICONES.clocheCoupee : ICONES.cloche}</button>`;
+  return html`<button type="button" class="e-cloche" data-action="basculer-pastille" data-type="${x.type}" data-id="${element.id}"
+    aria-pressed="${x.muet ? 'false' : 'true'}" aria-label="Pastille du Stock pour ${element.nom}">${x.muet ? SYMBOLES.clocheCoupee : SYMBOLES.cloche}</button>`;
 }
 
 function ligneCourse(x, auj) {
   if (x.type === 'achat') {
     const { achat } = x;
     const q = I.formaterQuantite(achat.quantite, achat.unite);
-    return html`<li class="ligne ligne-course${x.muet ? ' course-muette' : ''}">
-      <button type="button" class="case" data-action="acheter" data-id="${achat.id}" aria-label="Acheté : ${achat.nom}"></button>
-      <span class="course-texte"><strong>${achat.nom}</strong>${q ? ` · ${q}` : ''}${achat.origine ? html`<small>pour ${achat.origine}</small>` : ''}</span>
+    return html`<li class="e-course${x.muet ? ' e-course--muette' : ''}">
+      <button type="button" class="e-case" data-action="acheter" data-id="${achat.id}" aria-label="Acheté : ${achat.nom}"></button>
+      <span class="e-course-texte"><b>${achat.nom}</b>${q ? ` · ${q}` : ''}${achat.origine ? html`<small>pour ${achat.origine}</small>` : ''}</span>
       ${boutonPastille(x)}
       <button type="button" class="btn-petit btn-discret" data-action="retirer-achat" data-id="${achat.id}">Retirer</button>
     </li>`;
@@ -1906,9 +1916,11 @@ function ligneCourse(x, auj) {
       : raison === 'bas'
         ? `reste ${I.formaterQuantite(a.quantite, a.unite) || '0'}, alerte sous ${I.formaterQuantite(a.seuil, a.unite) || '0'}`
         : 'plus rien en stock';
-  return html`<li class="ligne-course-article${x.muet ? ' course-muette' : ''}"><button type="button" class="ligne-bouton" data-action="modifier-article" data-id="${a.id}">
-    <span class="ligne-haut"><strong>${a.nom}</strong><span class="puce ${raison === 'perime' ? 'puce-danger' : 'puce-alerte'}">${I.RAISONS[raison]}</span></span>
-    <span class="aide">${detail}</span>
+  const libelle = I.RAISONS[raison].charAt(0).toUpperCase() + I.RAISONS[raison].slice(1);
+  return html`<li class="e-course${x.muet ? ' e-course--muette' : ''}"><button type="button" class="e-article" data-action="modifier-article" data-id="${a.id}">
+    <span class="e-article-haut"><span class="e-article-nom">${a.nom}</span></span>
+    <span class="e-badges">${badge(raison === 'perime' ? 'perime' : 'stockBas', libelle)}</span>
+    <span class="e-article-note">${detail}</span>
   </button>${boutonPastille(x)}</li>`;
 }
 

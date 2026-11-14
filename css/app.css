@@ -8,33 +8,37 @@
 @font-face { font-family: "Ensen Josefin"; src: url("../fonts/JosefinSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
 @font-face { font-family: "Ensen Courgette"; src: url("../fonts/Courgette-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
 
+/* Couleurs, ombre, rayon et polices : une seule source, les jetons --e-… de css/systeme.css
+   (clair et sombre). Les anciens noms restent pour les écrans pas encore refaits et renvoient
+   aux nouveaux. Le vert « ok », le bleu « info », l'étoile vide et le rouge des boutons de
+   suppression gardent leurs valeurs jusqu'à la refonte des écrans qui les utilisent. */
 :root {
   color-scheme: light dark;
-  --fond: #f4eee3;
-  --surface: #fffdf9;
-  --surface-2: #ece3d3;
-  --texte: #2a211a;
-  --texte-doux: #6b5e50;
-  --bordure: #ddd0bc;
-  --accent: #a65a14;
-  --accent-texte: #ffffff;
-  --accent-doux: #f5e2c6;
-  --entete: #2b2420;
-  --entete-texte: #f7ecd9;
-  --entete-doux: #c7b49a;
+  --fond: var(--e-fond);
+  --surface: var(--e-surface);
+  --surface-2: var(--e-surface-2);
+  --texte: var(--e-texte);
+  --texte-doux: var(--e-texte-2);
+  --bordure: var(--e-bordure);
+  --accent: var(--e-cuivre);
+  --accent-texte: var(--e-sur-cuivre);
+  --accent-doux: var(--e-cuivre-doux);
+  --entete: var(--e-entete);
+  --entete-texte: var(--e-entete-texte);
+  --entete-doux: var(--e-entete-doux);
+  --danger: var(--e-erreur);
+  --alerte: var(--e-alerte-texte);
+  --alerte-doux: var(--e-alerte-fond);
+  --ombre: var(--e-ombre);
+  --rayon: var(--e-r-carte);
+  --police: var(--e-police);
+  --police-code: var(--e-police-code);
   --etoile-vide: #d8c9b2;
-  --danger: #b3261e;
   --danger-fond: #b3261e;
-  --alerte: #9a5300;
-  --alerte-doux: #fbe7c4;
   --ok: #2e6b35;
   --ok-doux: #dcecd8;
   --info: #255f7e;
   --info-doux: #dae9f1;
-  --ombre: 0 1px 2px rgb(60 40 20 / 0.07), 0 4px 14px rgb(60 40 20 / 0.06);
-  --rayon: 16px;
-  --police: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --police-code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --decalage-message: 16px;
 }
 
@@ -42,50 +46,22 @@
 
 :root[data-theme="sombre"] {
   color-scheme: dark;
-  --fond: #13100d;
-  --surface: #1e1915;
-  --surface-2: #2a231d;
-  --texte: #f1e8da;
-  --texte-doux: #a99b8a;
-  --bordure: #3a3029;
-  --accent: #eb9a45;
-  --accent-texte: #1e1308;
-  --accent-doux: #3a2915;
-  --entete: #221c17;
   --etoile-vide: #4a3e34;
-  --danger: #ff8e85;
   --danger-fond: #c4362c;
-  --alerte: #f3b25c;
-  --alerte-doux: #3b2a12;
   --ok: #8fd19a;
   --ok-doux: #1c2f1f;
   --info: #8cc4e3;
   --info-doux: #16293a;
-  --ombre: 0 1px 2px rgb(0 0 0 / 0.3);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="clair"]) {
-    --fond: #13100d;
-    --surface: #1e1915;
-    --surface-2: #2a231d;
-    --texte: #f1e8da;
-    --texte-doux: #a99b8a;
-    --bordure: #3a3029;
-    --accent: #eb9a45;
-    --accent-texte: #1e1308;
-    --accent-doux: #3a2915;
-    --entete: #221c17;
     --etoile-vide: #4a3e34;
-    --danger: #ff8e85;
     --danger-fond: #c4362c;
-    --alerte: #f3b25c;
-    --alerte-doux: #3b2a12;
     --ok: #8fd19a;
     --ok-doux: #1c2f1f;
     --info: #8cc4e3;
     --info-doux: #16293a;
-    --ombre: 0 1px 2px rgb(0 0 0 / 0.3);
   }
 }
 
@@ -199,7 +175,7 @@ small { font-size: 0.8em; }
   gap: 8px 12px;
   padding: 12px 14px;
   margin-bottom: 12px;
-  border-radius: 14px;
+  border-radius: var(--e-r-champ);
   font-size: 15px;
 }
 .banniere > a, .banniere > span { flex: 1 1 200px; color: inherit; text-decoration: none; }
@@ -220,7 +196,7 @@ small { font-size: 0.8em; }
   min-height: 52px;
   padding: 12px 18px;
   border: 1px solid var(--bordure);
-  border-radius: 14px;
+  border-radius: var(--e-r-champ);
   background: var(--surface);
   color: var(--texte);
   font-weight: 650;
@@ -241,7 +217,7 @@ small { font-size: 0.8em; }
 
 .btn-petit {
   appearance: none;
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 14px;
   border: 1px solid currentColor;
   border-radius: 999px;
@@ -345,7 +321,7 @@ small { font-size: 0.8em; }
 }
 .tri select {
   width: auto;
-  min-height: 40px;
+  min-height: 44px;
   padding: 6px 34px 6px 12px;
   border-radius: 999px;
   font-size: 16px;
@@ -446,8 +422,8 @@ small { font-size: 0.8em; }
 }
 .bloc h3 .btn-modifier {
   margin-left: auto;
-  min-height: 32px;
-  padding: 4px 12px;
+  min-height: 44px;
+  padding: 0 14px;
   font-size: 14px;
   letter-spacing: 0;
   text-transform: none;
@@ -510,7 +486,7 @@ textarea {
   min-height: 50px;
   padding: 12px 14px;
   border: 1px solid var(--bordure);
-  border-radius: 12px;
+  border-radius: var(--e-r-champ);
   background-color: var(--surface);
   color: var(--texte);
   font-size: 17px; /* 16 px minimum : sinon l'iPhone zoome à la saisie */
@@ -735,7 +711,7 @@ textarea:focus-visible,
 .courbe .point-densite { stroke: var(--accent); }
 .courbe .point-temperature { stroke: var(--info); }
 
-.details-mesures summary { min-height: 40px; padding: 8px 0; font-size: 15px; }
+.details-mesures summary { min-height: 44px; padding: 8px 0; font-size: 15px; }
 .tableau-mesures { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
 .tableau-mesures th,
 .tableau-mesures td { padding: 6px 0; border-bottom: 1px solid var(--bordure); text-align: right; font-weight: 500; }
@@ -745,7 +721,7 @@ textarea:focus-visible,
 .actions-suivi:empty { display: none; }
 
 .choix-pills { display: grid; gap: 8px; margin: 0 0 14px; padding: 0; border: 0; }
-.choix-pill { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 12px; border: 1px solid var(--bordure); border-radius: 14px; }
+.choix-pill { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 12px; border: 1px solid var(--bordure); border-radius: var(--e-r-champ); }
 .choix-pill:has(input:checked) { border-color: var(--accent); }
 .choix-pill input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
 .choix-pill small { display: block; color: var(--texte-doux); font-size: 13px; }
@@ -760,7 +736,7 @@ textarea:focus-visible,
 .remarque-import { color: var(--alerte); }
 
 .liste-copies { display: grid; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
-.liste-copies li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 10px 12px; border: 1px solid var(--bordure); border-radius: 14px; }
+.liste-copies li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 10px 12px; border: 1px solid var(--bordure); border-radius: var(--e-r-champ); }
 .liste-copies small { display: block; color: var(--texte-doux); font-size: 13px; }
 .liste-copies .btn-petit { flex: none; margin: 0; }
 
@@ -811,7 +787,7 @@ body.avec-actions { --decalage-message: 92px; }
   margin: 0 auto;
   padding: 10px 10px 10px 16px;
   border: 1px solid rgb(255 255 255 / 0.08);
-  border-radius: 14px;
+  border-radius: var(--e-r-champ);
   background: #2b2420;
   color: #f7ecd9;
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);

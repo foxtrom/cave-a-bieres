@@ -340,7 +340,7 @@ try {
   await etape('Thème auto qui suit le réglage sombre du téléphone', async () => {
     await page.emulateMedia({ colorScheme: 'dark' });
     const fond = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    assert.equal(fond, 'rgb(19, 16, 13)');
+    assert.equal(fond, 'rgb(23, 18, 14)'); // --e-fond du thème sombre (#17120e)
     await page.emulateMedia({ colorScheme: 'light' });
   });
 

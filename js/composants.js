@@ -1,11 +1,12 @@
-// Composants candidats de la refonte (étape 1) : badges, note, carte de brassin,
-// bloc de stock, caractéristiques, boutons de sortie.
-// Ils affichent seulement ce que calculent les fonctions de l'appli (js/brassins.js,
-// js/dates.js) : aucune règle métier n'est réécrite ici.
+// Composants de la refonte visuelle (styles dans css/systeme.css) : symboles, badges,
+// note, carte de brassin, bloc de stock, caractéristiques, boutons de sortie.
+// Ils affichent seulement ce que calculent les fonctions de l'appli (brassins.js,
+// dates.js) : aucune règle métier n'est réécrite ici. Le bac à sable
+// (dev/bac-a-sable/) les montre dans tous leurs états.
 
-import * as B from '../../js/brassins.js';
-import { relatif } from '../../js/dates.js';
-import { brut, html } from '../../js/outils.js';
+import * as B from './brassins.js';
+import { relatif } from './dates.js';
+import { brut, html } from './outils.js';
 
 // Même règle que pluriel() de js/ui.js, qui n'est pas importé : il branche des écouteurs sur la page de l'appli.
 const pluriel = (n, singulier, formePlurielle = `${singulier}s`) => `${n} ${n >= 2 ? formePlurielle : singulier}`;
@@ -17,7 +18,7 @@ const icone = (traces) =>
     `<svg class="e-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${traces}</svg>`,
   );
 
-export const ICONES = {
+export const SYMBOLES = {
   fermentation: icone('<circle cx="9" cy="15" r="4.5"/><circle cx="16" cy="7.5" r="2.5"/><circle cx="17.5" cy="16.5" r="1.5"/>'),
   garde: icone('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
   prete: icone('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
@@ -32,16 +33,19 @@ export const ICONES = {
   cadeau: icone(
     '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8M12 8v13"/><path d="M12 8S10.5 3.5 8 4.2C6 4.8 6.8 8 12 8zm0 0s1.5-4.5 4-3.8C18 4.8 17.2 8 12 8z"/>',
   ),
+  loupe: icone('<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>'),
+  tri: icone('<path d="M8 4v15M4.5 7.5 8 4l3.5 3.5M16 20V5M12.5 16.5 16 20l3.5-3.5"/>'),
+  bouteille: icone('<path d="M10 2h4M10.5 2v4.5L8 10v10.5A1.5 1.5 0 0 0 9.5 22h5a1.5 1.5 0 0 0 1.5-1.5V10l-2.5-3.5V2"/><path d="M8 13h8"/>'),
 };
 
 /* ---------- Badges ---------- */
 
 const BADGES = {
-  fermentation: ['e-badge--fermentation', ICONES.fermentation],
-  garde: ['e-badge--garde', ICONES.garde],
-  prete: ['e-badge--prete', ICONES.prete],
-  termine: ['e-badge--termine', ICONES.termine],
-  stockBas: ['e-badge--stock-bas', ICONES.alerte],
+  fermentation: ['e-badge--fermentation', SYMBOLES.fermentation],
+  garde: ['e-badge--garde', SYMBOLES.garde],
+  prete: ['e-badge--prete', SYMBOLES.prete],
+  termine: ['e-badge--termine', SYMBOLES.termine],
+  stockBas: ['e-badge--stock-bas', SYMBOLES.alerte],
 };
 
 export function badge(type, texte) {
@@ -87,7 +91,7 @@ export function carteBrassin(b, { auj, seuil, href = '#' }) {
   const meta = [B.nomStyle(b.style), B.formaterDegre(b.abv), termine ? null : texteAge(b, auj)].filter(Boolean);
   const bilan = termine ? [pluriel(B.bues(b).length, 'bue'), pluriel(B.offertes(b).length, 'offerte')] : null;
   const etatStock = st === 'fermentation' ? 'attente' : s.total === 0 ? 'vide' : bas ? 'bas' : '';
-  return html`<a class="e-carte${termine ? ' e-carte--terminee' : ''}" href="${href}">
+  return html`<a class="e-carte${bas ? ' e-carte--alerte' : ''}${termine ? ' e-carte--terminee' : ''}" href="${href}">
     <div class="e-carte-grille">
       <div class="e-carte-haut">
         <span class="e-code">${b.code}</span>
@@ -96,7 +100,7 @@ export function carteBrassin(b, { auj, seuil, href = '#' }) {
       <p class="e-carte-nom">${b.nom}</p>
       <div class="e-carte-stock${etatStock ? ` e-carte-stock--${etatStock}` : ''}">${
         st === 'fermentation'
-          ? html`${ICONES.cuve}<span>en cuve</span>`
+          ? html`${SYMBOLES.cuve}<span>en cuve</span>`
           : html`<b>${s.total}</b><span>${s.total >= 2 ? 'bouteilles' : 'bouteille'}</span>`
       }</div>
       ${points('e-carte-meta', meta)}
@@ -129,7 +133,7 @@ export function blocStock(b, { seuil, auj }) {
           )}</dl>`
         : ''
     }
-    ${bas ? html`<p class="e-message e-message--alerte">${ICONES.alerte}<span>Stock bas : moins de ${pluriel(seuil, 'bouteille')}.</span></p>` : ''}
+    ${bas ? html`<p class="e-message e-message--alerte">${SYMBOLES.alerte}<span>Stock bas : moins de ${pluriel(seuil, 'bouteille')}.</span></p>` : ''}
   </section>`;
 }
 
@@ -155,6 +159,6 @@ export function metriques(b) {
 /* ---------- Fiche : boutons de sortie ---------- */
 
 export const boutonsSortie = ({ classeEnPlus = '' } = {}) => html`<div class="e-actions">
-  <button type="button" class="e-btn e-btn--principal ${classeEnPlus}">${ICONES.biere}J’en prends une</button>
-  <button type="button" class="e-btn e-btn--secondaire ${classeEnPlus}">${ICONES.cadeau}J’en offre une</button>
+  <button type="button" class="e-btn e-btn--principal ${classeEnPlus}">${SYMBOLES.biere}J’en prends une</button>
+  <button type="button" class="e-btn e-btn--secondaire ${classeEnPlus}">${SYMBOLES.cadeau}J’en offre une</button>
 </div>`;

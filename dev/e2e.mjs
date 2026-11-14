@@ -123,7 +123,7 @@ try {
   await etape('Accueil vide au premier lancement', async () => {
     await page.goto(BASE);
     await attendreTexte('#vue', 'La cave est vide');
-    assert.equal(await texte('.marque h1'), 'Brasserie Ensen');
+    assert.equal(await texte('.e-marque h1'), 'Brasserie Ensen');
     await capture('01-accueil-vide');
   });
 
@@ -162,16 +162,16 @@ try {
   await etape('Accueil : 3 brassins, total des bouteilles, statuts', async () => {
     await page.click('.lien-entete');
     await page.waitForURL(/#\/$/);
-    await attendreNombre(page, '.carte', 3);
-    await attendreTexte('.marque .resume', '3 brassins en cave · 122 bouteilles');
-    await attendreTexte('.carte', 'En fermentation');
-    await attendreTexte('.carte', 'Prête dans');
+    await attendreNombre(page, '.e-carte', 3);
+    await attendreTexte('.e-marque-resume', '3 brassins en cave · 122 bouteilles');
+    await attendreTexte('.e-carte', 'En fermentation');
+    await attendreTexte('.e-carte', 'Prête dans');
     await capture('03-accueil');
   });
 
   await etape('Recherche par code tapé en minuscules + Entrée → fiche', async () => {
     await page.fill('#recherche', Bb.code.toLowerCase());
-    await attendreNombre(page, '.carte', 1);
+    await attendreNombre(page, '.e-carte', 1);
     await page.press('#recherche', 'Enter');
     await page.waitForURL(new RegExp(`#/brassin/${Bb.code}$`));
   });
@@ -179,13 +179,24 @@ try {
   await etape('Recherche avec l’écriture étiquette (barre) et par nom', async () => {
     await page.goto(`${BASE}#/`);
     await page.fill('#recherche', Bb.code.replace(/-(\d\d)(\d\d)-/, '-$1/$2-'));
-    await attendreNombre(page, '.carte', 1);
+    await attendreNombre(page, '.e-carte', 1);
     await page.fill('#recherche', 'baou');
-    await attendreNombre(page, '.carte', 1);
+    await attendreNombre(page, '.e-carte', 1);
     await page.fill('#recherche', 'zzz');
     await attendreTexte('#liste', 'Aucun brassin ne correspond');
     await page.fill('#recherche', '');
-    await attendreNombre(page, '.carte', 3);
+    await attendreNombre(page, '.e-carte', 3);
+  });
+
+  await etape('Tri : le bouton à côté de la recherche change l’ordre', async () => {
+    const premiere = () => page.locator('.e-carte').first().textContent();
+    const nomTri = (nom) => page.waitForFunction((n) => document.querySelector('.e-tri span')?.textContent === n, nom);
+    await page.selectOption('.e-tri select', 'stock');
+    await nomTri('Stock');
+    assert.ok((await premiere()).includes(Bb.code), 'le plus gros stock en premier');
+    await page.selectOption('.e-tri select', 'recent');
+    await nomTri('Récents');
+    assert.ok((await premiere()).includes(C.code), 'le plus récent en premier');
   });
 
   await etape('« J’en prends une » : choix du format, puis Annuler', async () => {
@@ -270,7 +281,7 @@ try {
     await attendreTexte('.carte', '5 bues');
     await capture('08-historique');
     await page.goto(`${BASE}#/`);
-    await attendreNombre(page, '.carte', 2);
+    await attendreNombre(page, '.e-carte', 2);
   });
 
   await etape('Modification : stock restant corrigé → indicateur stock bas', async () => {
@@ -280,8 +291,8 @@ try {
     await page.click('button[form="form-brassin"]');
     await page.waitForURL(new RegExp(`#/brassin/${A.code}$`));
     await page.goto(`${BASE}#/`);
-    await attendreNombre(page, '.carte.carte-alerte', 1);
-    await attendreTexte('.carte-alerte', 'Stock bas');
+    await attendreNombre(page, '.e-carte--alerte', 1);
+    await attendreTexte('.e-carte--alerte', 'Stock bas');
   });
 
   await etape('Garde réduite → alerte « prête à boire » sur l’accueil, puis OK', async () => {
@@ -290,10 +301,10 @@ try {
     await page.click('button[form="form-brassin"]');
     await page.waitForURL(new RegExp(`#/brassin/${Bb.code}$`));
     await page.goto(`${BASE}#/`);
-    await attendreTexte('.banniere-ok', 'est prête à boire');
+    await attendreTexte('.e-banniere--ok', 'est prête à boire');
     await capture('09-alerte-prete');
-    await page.click('.banniere-ok [data-action="prete-vue"]');
-    await attendreNombre(page, '.banniere-ok', 0);
+    await page.click('.e-banniere--ok [data-action="prete-vue"]');
+    await attendreNombre(page, '.e-banniere--ok', 0);
   });
 
   await etape('Réglages : seuil de stock bas modifiable', async () => {
@@ -301,7 +312,7 @@ try {
     await page.fill('input[data-reglage="seuilStockBas"]', '3');
     await page.locator('input[data-reglage="seuilStockBas"]').blur();
     await page.goto(`${BASE}#/`);
-    await attendreNombre(page, '.carte.carte-alerte', 0);
+    await attendreNombre(page, '.e-carte--alerte', 0);
     await page.goto(`${BASE}#/reglages`);
     await page.fill('input[data-reglage="seuilStockBas"]', '6');
     await page.locator('input[data-reglage="seuilStockBas"]').blur();
@@ -350,7 +361,7 @@ try {
     await page.click('#feuille [data-reponse="oui"]');
     await page.waitForURL(/#\/$/);
     await attendreToast(/supprimé/);
-    await attendreNombre(page, '.carte', 1);
+    await attendreNombre(page, '.e-carte', 1);
   });
 
   await etape('Importer : restauration de la sauvegarde', async () => {
@@ -363,7 +374,7 @@ try {
     await page.click('#feuille [data-reponse="oui"]');
     await attendreToast(/Sauvegarde restaurée\s:\s3 brassins/);
     await page.goto(`${BASE}#/`);
-    await attendreNombre(page, '.carte', 2);
+    await attendreNombre(page, '.e-carte', 2);
   });
 
   await etape('Import d’un fichier étranger refusé', async () => {
@@ -386,17 +397,17 @@ try {
     });
     await page.goto(`${BASE}#/`);
     await page.reload();
-    await attendreTexte('.banniere-discrete', 'Dernière sauvegarde il y a 40 jours');
+    await attendreTexte('.e-banniere--discrete', 'Dernière sauvegarde il y a 40 jours');
     await capture('14-rappel-sauvegarde');
     await page.click('[data-action="reporter-rappel"]');
-    await attendreNombre(page, '.banniere-discrete', 0);
+    await attendreNombre(page, '.e-banniere--discrete', 0);
   });
 
   await etape('Données conservées dans un nouvel onglet', async () => {
     const autre = await nouvellePage();
     await autre.goto(`${BASE}#/`);
-    await autre.locator('.carte').first().waitFor();
-    await attendreNombre(autre, '.carte', 2);
+    await autre.locator('.e-carte').first().waitFor();
+    await attendreNombre(autre, '.e-carte', 2);
     await autre.close();
   });
 
@@ -406,8 +417,8 @@ try {
     assert.ok(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)), 'page contrôlée par le service worker');
     await contexte.setOffline(true);
     await page.reload();
-    await page.locator('.carte').first().waitFor();
-    await attendreNombre(page, '.carte', 2);
+    await page.locator('.e-carte').first().waitFor();
+    await attendreNombre(page, '.e-carte', 2);
     await page.goto(`${BASE}#/brassin/${Bb.code}`);
     await attendreTexte('.fiche-nom', Bb.nom);
     await capture('15-hors-ligne');

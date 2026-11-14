@@ -1,13 +1,15 @@
-/* Brasserie Ensen — système de design v1 (candidat, étape 1 de la refonte).
+/* Brasserie Ensen — système de design v1 (refonte visuelle, composants dans js/composants.js).
    Jetons sémantiques et composants, préfixés « e- » : ils cohabitent avec les styles
-   actuels de l'appli sans les toucher, et seront adoptés écran par écran.
+   de css/app.css sans les toucher, et sont adoptés écran par écran (Cave : étape 2).
    Tailles en rem : elles suivent la taille du texte choisie sur l'iPhone (Dynamic Type)
-   grâce à la police système -apple-system-body. */
+   grâce à la police système -apple-system-body. css/app.css est en px : les écrans
+   pas encore refaits ne bougent pas. */
 
 /* ---------- Taille de base : celle de l'iPhone (Dynamic Type) ---------- */
 
 html { font-size: 17px; }
-@supports (font: -apple-system-body) {
+/* iPhone seulement (-webkit-touch-callout) : sur Mac, la taille « body » du système vaut 13 px. */
+@supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
   html { font: -apple-system-body; }
 }
 
@@ -44,6 +46,14 @@ html { font-size: 17px; }
   --e-alerte-texte: #9a5006; /* 4,8:1 */
   --e-erreur: #a74632; /* 5,1 à 5,8:1 */
   --e-erreur-fond: #f8e1da;
+
+  /* En-tête sombre : prolonge la barre d'état noire de l'appli installée (theme-color #2b2420) */
+  --e-entete: #2b2420;
+  --e-entete-texte: #f7ecd9;
+  --e-entete-doux: #c7b49a;
+  --e-colline: #3d322b; /* silhouette du Puy de Naouri : texture discrète */
+  --e-crete: #352b25;
+  --e-soleil: #5e4225;
 
   /* Une seule famille d'ombres, légère */
   --e-ombre: 0 1px 2px rgb(48 37 30 / 0.05), 0 6px 18px rgb(48 37 30 / 0.06);
@@ -88,6 +98,10 @@ html { font-size: 17px; }
   --e-alerte-texte: #f3ba5e;
   --e-erreur: #f0907c;
   --e-erreur-fond: #3e1e17;
+  --e-entete: #221c17;
+  --e-colline: #332a23;
+  --e-crete: #2b231e;
+  --e-soleil: #4f361b;
   --e-ombre: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.3);
 }
 
@@ -113,6 +127,10 @@ html { font-size: 17px; }
     --e-alerte-texte: #f3ba5e;
     --e-erreur: #f0907c;
     --e-erreur-fond: #3e1e17;
+    --e-entete: #221c17;
+    --e-colline: #332a23;
+    --e-crete: #2b231e;
+    --e-soleil: #4f361b;
     --e-ombre: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.3);
   }
 }
@@ -305,6 +323,117 @@ html { font-size: 17px; }
 .e-metrique dt { color: var(--e-texte-2); font: 600 0.75rem/1.3 var(--e-police); }
 .e-metrique dd { margin: 0; color: var(--e-texte-2); font: 400 0.8125rem/1.2 var(--e-police); }
 .e-metrique dd b { color: var(--e-texte); font: 700 1.25rem/1.15 var(--e-police-arrondie); font-variant-numeric: tabular-nums; }
+
+/* ---------- Écran Cave : en-tête de marque ---------- */
+
+/* Compact (environ 105 px au lieu de 140) ; la silhouette du Naouri reste une texture discrète. */
+.e-marque {
+  position: relative;
+  overflow: hidden;
+  padding: var(--e-3) var(--e-4) 14px;
+  background: var(--e-entete);
+  color: var(--e-entete-texte);
+}
+.e-marque > :not(svg) { position: relative; }
+.e-marque h1 { margin: 0; font: 800 min(1.625rem, 40px)/1.1 var(--e-police); letter-spacing: 0.005em; }
+.e-marque-devise { margin: 3px 0 0; color: var(--e-entete-doux); font: 400 min(0.875rem, 22px)/1.3 var(--e-police); }
+.e-marque-resume { margin: 10px 0 0; font: 650 min(0.9375rem, 24px)/1.3 var(--e-police); font-variant-numeric: tabular-nums; }
+.e-marque .marque-colline { position: absolute; right: 0; bottom: 0; width: min(100%, 420px); height: 100%; opacity: 0.75; }
+.e-marque .soleil { fill: var(--e-soleil); }
+.e-marque .crete { fill: var(--e-crete); }
+.e-marque .colline { fill: var(--e-colline); }
+
+/* ---------- Écran Cave : recherche et tri sur une ligne ---------- */
+
+.e-outils { display: flex; flex-wrap: wrap; gap: var(--e-2); margin: 0 0 var(--e-4); }
+.e-recherche { position: relative; flex: 1 1 11rem; margin: 0; }
+.e-recherche > .e-icone { position: absolute; left: 12px; top: 50%; translate: 0 -50%; color: var(--e-texte-2); pointer-events: none; }
+/* Sélecteur assez précis pour passer devant le style général des champs de css/app.css */
+.e-recherche input[type="search"] {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  margin: 0;
+  padding: 0 12px 0 calc(1.25rem + 20px); /* place de la loupe, qui grandit avec le texte */
+  border: 1px solid transparent;
+  border-radius: var(--e-r-champ);
+  background: var(--e-surface-2);
+  color: var(--e-texte);
+  font: 400 max(16px, 1rem)/1.25 var(--e-police); /* 16 px au moins : l'iPhone ne zoome pas */
+  box-shadow: none;
+}
+.e-recherche input[type="search"]::placeholder { color: var(--e-texte-2); opacity: 1; }
+.e-recherche input[type="search"]:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: 1px; background: var(--e-surface); }
+
+/* Bouton de tri : le vrai menu déroulant (invisible) le recouvre, l'iPhone ouvre son sélecteur */
+.e-tri {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 2.75rem;
+  padding: 0 14px 0 12px;
+  border-radius: var(--e-r-champ);
+  background: var(--e-surface-2);
+  color: var(--e-cuivre-texte);
+  font: 650 0.9375rem/1.2 var(--e-police);
+}
+.e-tri .e-icone { width: 1.125rem; height: 1.125rem; }
+.e-tri select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  opacity: 0;
+  font-size: 16px;
+  cursor: pointer;
+}
+.e-tri:focus-within { outline: 2px solid var(--e-cuivre); outline-offset: 2px; }
+
+.e-liste-titre { margin: 0 0 var(--e-2); color: var(--e-texte-2); font: 400 0.875rem/1.3 var(--e-police); }
+
+/* ---------- Écran Cave : bannières (bière prête, rappel de sauvegarde) ---------- */
+
+.e-banniere {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-2) var(--e-3);
+  margin: 0 0 var(--e-3);
+  padding: var(--e-3) 14px;
+  border-radius: var(--e-r-champ);
+  font: 400 0.9375rem/1.35 var(--e-police);
+}
+.e-banniere > a,
+.e-banniere > span { flex: 1 1 11rem; min-width: 0; color: inherit; text-decoration: none; }
+.e-banniere--ok { background: var(--e-sauge-doux); color: var(--e-sauge-texte); }
+/* Symbole dans la phrase : il la suit quand elle passe à la ligne */
+.e-banniere > a > .e-icone { display: inline-block; width: 1.15em; height: 1.15em; margin-right: 6px; vertical-align: -0.2em; }
+.e-banniere--discrete { background: var(--e-surface-2); color: var(--e-texte-2); }
+.e-banniere-bouton {
+  appearance: none;
+  min-height: 2.75rem;
+  padding: 0 16px;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: 650 0.9375rem/1 var(--e-police);
+  cursor: pointer;
+}
+.e-banniere-bouton--discret { border-color: var(--e-bordure); }
+.e-banniere-bouton:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: 2px; }
+
+/* ---------- États vides (cave vide, recherche sans résultat) ---------- */
+
+.e-vide { display: grid; justify-items: center; gap: var(--e-2); padding: var(--e-6) var(--e-4); text-align: center; }
+.e-vide > .e-icone { width: 2.5rem; height: 2.5rem; margin-bottom: var(--e-1); color: var(--e-texte-2); }
+.e-vide-titre { margin: 0; color: var(--e-texte); font: 700 1.1875rem/1.3 var(--e-police); overflow-wrap: anywhere; }
+.e-vide-texte { max-width: 22rem; margin: 0; color: var(--e-texte-2); font: 400 0.9375rem/1.4 var(--e-police); }
+.e-vide .e-btn { margin-top: var(--e-2); }
 
 /* ---------- Moins d'animations si l'iPhone le demande ---------- */
 

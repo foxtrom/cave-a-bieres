@@ -7,7 +7,7 @@ import * as B from '../../js/brassins.js';
 import { aujourdhui } from '../../js/dates.js';
 import { REGLAGES_DEFAUT, lireSauvegarde } from '../../js/donnees.js';
 import { html } from '../../js/outils.js';
-import { ICONES, badge, blocStock, boutonsSortie, carteBrassin, metriques } from './composants.js';
+import { SYMBOLES, badge, blocStock, boutonsSortie, carteBrassin, metriques } from '../../js/composants.js';
 import { exemples } from './exemples.js';
 
 const auj = aujourdhui();
@@ -51,6 +51,7 @@ const NUANCES = [
   ['Cuivre', ['--e-cuivre', '--e-cuivre-presse', '--e-cuivre-doux', '--e-cuivre-texte']],
   ['Sauge', ['--e-sauge', '--e-sauge-doux', '--e-sauge-texte']],
   ['Alerte et erreur', ['--e-alerte-fond', '--e-alerte-texte', '--e-erreur-fond', '--e-erreur']],
+  ['En-tête de la Cave', ['--e-entete', '--e-entete-texte', '--e-entete-doux', '--e-soleil']],
 ];
 
 // [usage, couleur du texte, fonds sur lesquels il est posé, décor seulement ?]
@@ -64,7 +65,11 @@ const PAIRES = [
   ['Badge « en fermentation », « terminé »', '--e-texte-2', ['--e-surface-2']],
   ['Stock bas : badge, chiffre', '--e-alerte-texte', ['--e-alerte-fond', '--e-surface']],
   ['Erreur', '--e-erreur', ['--e-erreur-fond', '--e-surface', '--e-fond']],
+  ['En-tête : titre et résumé', '--e-entete-texte', ['--e-entete']],
+  ['En-tête : signature', '--e-entete-doux', ['--e-entete']],
+  ['Bouton de tri', '--e-cuivre-texte', ['--e-surface-2']],
   ['Texte 3 (points, inactif)', '--e-texte-3', ['--e-surface'], true],
+  ['Soleil de l’en-tête (texture)', '--e-soleil', ['--e-entete'], true],
   ['Sauge (jauge)', '--e-sauge', ['--e-surface-2'], true],
 ];
 
@@ -198,7 +203,7 @@ function afficherComposants() {
       <p class="bs-cas">Caractéristiques <small>· 2 × 2, une colonne quand le texte est très grand</small></p>
       ${metriques(exemple('Normale'))}
       <p class="bs-cas">Message d’erreur <small>· exemple</small></p>
-      <p class="e-message e-message--erreur">${ICONES.alerte}<span>Densité impossible : vérifiez la mesure (1,000 à 1,150).</span></p>`,
+      <p class="e-message e-message--erreur">${SYMBOLES.alerte}<span>Densité impossible : vérifiez la mesure (1,000 à 1,150).</span></p>`,
   );
 }
 
@@ -227,7 +232,7 @@ async function chargerSauvegarde(fichier) {
         }`,
     );
   } catch (erreur) {
-    remplir('#reels', html`<p class="e-message e-message--erreur">${ICONES.alerte}<span>${erreur.message}</span></p>`);
+    remplir('#reels', html`<p class="e-message e-message--erreur">${SYMBOLES.alerte}<span>${erreur.message}</span></p>`);
   }
 }
 

@@ -14,6 +14,7 @@ import { POLICES } from './polices.js';
 import { copieRelaisDue, creerSauvegarde, donneesVides, empreinteDonnees, lireSauvegarde, nomFichierSauvegarde, normaliserDonnees, rappelSauvegarde } from './donnees.js';
 import * as stockage from './db.js';
 import { COLLINE, ICONES, confirmer, etoiles, fermerFeuille, jauge, ouvrirFeuille, pluriel, toast } from './ui.js';
+import { SYMBOLES, carteBrassin } from './composants.js';
 
 const etat = {
   donnees: donneesVides(),
@@ -163,11 +164,11 @@ function afficher() {
 /* ================================================================== */
 
 function enteteMarque(resume) {
-  return html`<div class="marque">
+  return html`<div class="e-marque">
     ${COLLINE}
     <h1>Brasserie Ensen</h1>
-    <p class="devise">Vence · brassée avec l’eau de la Foux</p>
-    ${resume ? html`<p class="resume">${resume}</p>` : ''}
+    <p class="e-marque-devise">Vence · brassée avec l’eau de la Foux</p>
+    ${resume ? html`<p class="e-marque-resume">${resume}</p>` : ''}
   </div>`;
 }
 
@@ -224,17 +225,17 @@ function bannieres(auj) {
   for (const b of etat.donnees.brassins) {
     if (B.statut(b, auj) !== 'prete' || b.preteVue) continue;
     const quand = B.datePrete(b) === auj ? 'depuis aujourd’hui' : `depuis le ${formaterDateCourte(B.datePrete(b), auj)}`;
-    liste.push(html`<div class="banniere banniere-ok" role="status">
-      <a href="${lienBrassin(b)}"><strong>${b.code} · ${b.nom}</strong> est prête à boire ${quand} !</a>
-      <button type="button" class="btn-petit" data-action="prete-vue" data-id="${b.id}">OK</button>
+    liste.push(html`<div class="e-banniere e-banniere--ok" role="status">
+      <a href="${lienBrassin(b)}">${SYMBOLES.prete}<strong>${b.code} · ${b.nom}</strong> est prête à boire ${quand} !</a>
+      <button type="button" class="e-banniere-bouton" data-action="prete-vue" data-id="${b.id}">OK</button>
     </div>`);
   }
   const rappel = rappelSauvegarde(etat.donnees, auj);
   if (rappel) {
-    liste.push(html`<div class="banniere banniere-discrete">
+    liste.push(html`<div class="e-banniere e-banniere--discrete">
       <span>${rappel.jamais ? 'Aucune sauvegarde exportée pour l’instant.' : `Dernière sauvegarde il y a ${rappel.jours} jours.`}</span>
-      <button type="button" class="btn-petit" data-action="exporter">Exporter</button>
-      <button type="button" class="btn-petit btn-discret" data-action="reporter-rappel">Plus tard</button>
+      <button type="button" class="e-banniere-bouton" data-action="exporter">Exporter</button>
+      <button type="button" class="e-banniere-bouton e-banniere-bouton--discret" data-action="reporter-rappel">Plus tard</button>
     </div>`);
   }
   return liste;
@@ -256,16 +257,12 @@ function vueAccueil() {
     entete: enteteMarque(`${pluriel(actifs.length, 'brassin')} en cave · ${pluriel(bouteilles, 'bouteille')}`),
     contenu: html`
       ${bannieres(auj)}
-      <form class="recherche" role="search" data-form="recherche">
-        ${ICONES.loupe}
-        <input id="recherche" type="search" name="q" value="${etat.recherche}" placeholder="Code ou nom (IPA-2611-2…)"
-          aria-label="Rechercher un brassin par code ou par nom" autocomplete="off" autocorrect="off"
-          autocapitalize="characters" spellcheck="false" enterkeyhint="search">
-      </form>
+      ${etat.donnees.brassins.length ? outilsCave(etat.donnees.reglages.tri) : ''}
       <div id="liste">${listeAccueil(auj)}</div>`,
     apres() {
+      // Pas de champ de recherche tant qu'aucun brassin n'est saisi.
       const champ = $('#recherche');
-      champ.addEventListener('input', () => {
+      champ?.addEventListener('input', () => {
         etat.recherche = champ.value;
         $('#liste').innerHTML = String(listeAccueil(aujourdhui()));
       });
@@ -273,27 +270,57 @@ function vueAccueil() {
   };
 }
 
+// Libellés courts sur le bouton de tri, pour que « Rechercher un brassin » tienne en entier ;
+// le menu garde les noms complets (B.TRIS).
+const TRI_COURT = { recent: 'Récents', note: 'Note', stock: 'Stock', code: 'Code' };
+
+/** Recherche et tri sur une seule ligne. Le tri est le menu déroulant habituel, rendu invisible sur un bouton. */
+function outilsCave(tri) {
+  const nomTri = TRI_COURT[tri] ?? B.TRIS.find((t) => t.code === tri)?.nom ?? 'Trier';
+  return html`<div class="e-outils">
+    <form class="e-recherche" role="search" data-form="recherche">
+      ${SYMBOLES.loupe}
+      <input id="recherche" type="search" name="q" value="${etat.recherche}" placeholder="Rechercher un brassin"
+        aria-label="Rechercher un brassin par code ou par nom" autocomplete="off" autocorrect="off"
+        autocapitalize="characters" spellcheck="false" enterkeyhint="search">
+    </form>
+    <label class="e-tri">
+      ${SYMBOLES.tri}<span aria-hidden="true">${nomTri}</span>
+      <select data-reglage="tri" aria-label="Trier les brassins">${B.TRIS.map(
+        (t) => html`<option value="${t.code}" ${t.code === tri ? 'selected' : ''}>${t.nom}</option>`,
+      )}</select>
+    </label>
+  </div>`;
+}
+
 function listeAccueil(auj) {
   const tous = etat.donnees.brassins;
-  const { tri } = etat.donnees.reglages;
+  const { tri, seuilStockBas: seuil } = etat.donnees.reglages;
+  const cartes = (liste) => html`<div class="e-cartes">${liste.map((b) => carteBrassin(b, { auj, seuil, href: lienBrassin(b) }))}</div>`;
   if (etat.recherche.trim()) {
     const trouves = B.trier(B.rechercher(tous, etat.recherche), tri);
-    if (!trouves.length) return html`<p class="vide">Aucun brassin ne correspond à « ${etat.recherche.trim()} ».</p>`;
-    return html`<p class="sous-titre">${pluriel(trouves.length, 'résultat')}</p>
-      <div class="liste-cartes">${trouves.map((b) => carte(b, auj))}</div>`;
+    if (!trouves.length) {
+      return html`<div class="e-vide">
+        ${SYMBOLES.loupe}
+        <p class="e-vide-titre">Aucun brassin ne correspond à « ${etat.recherche.trim()} ».</p>
+        <p class="e-vide-texte">Essayez un code, par exemple IPA-2611-2, ou une partie du nom.</p>
+      </div>`;
+    }
+    return html`<p class="e-liste-titre">${pluriel(trouves.length, 'résultat')}</p>${cartes(trouves)}`;
   }
   const actifs = B.trier(
     tous.filter((b) => !B.estArchive(b, auj)),
     tri,
   );
   if (!actifs.length) {
-    return html`<div class="vide">
-      <p><strong>La cave est vide.</strong></p>
-      <p class="aide">${tous.length ? 'Les brassins terminés sont dans l’historique.' : 'Ajouter un premier brassin pour commencer le suivi.'}</p>
-      <a class="btn btn-primaire" href="#/nouveau">Ajouter un brassin</a>
+    return html`<div class="e-vide">
+      ${SYMBOLES.bouteille}
+      <p class="e-vide-titre">La cave est vide.</p>
+      <p class="e-vide-texte">${tous.length ? 'Les brassins terminés sont dans l’historique.' : 'Ajouter un premier brassin pour commencer le suivi.'}</p>
+      <a class="e-btn e-btn--principal" href="#/nouveau">Ajouter un brassin</a>
     </div>`;
   }
-  return html`${ligneTri('tri', tri, 'Trier les brassins')}<div class="liste-cartes">${actifs.map((b) => carte(b, auj))}</div>`;
+  return cartes(actifs);
 }
 
 /* ================================================================== */

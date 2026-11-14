@@ -13,7 +13,7 @@ import * as F from './fermentation.js';
 import { POLICES } from './polices.js';
 import { copieRelaisDue, creerSauvegarde, donneesVides, empreinteDonnees, lireSauvegarde, nomFichierSauvegarde, normaliserDonnees, rappelSauvegarde } from './donnees.js';
 import * as stockage from './db.js';
-import { COLLINE, ICONES, confirmer, etoiles, fermerFeuille, jauge, ouvrirFeuille, pluriel, toast } from './ui.js';
+import { COLLINE, ICONES, confirmer, fermerFeuille, ouvrirFeuille, pluriel, toast } from './ui.js';
 import { SYMBOLES, blocEtat, blocStock, carteBrassin, frise, metaBrassin, metriques, noteEditable } from './composants.js';
 
 const etat = {
@@ -180,46 +180,6 @@ function enteteBarre({ retour = null, titre, droite = null }) {
   </div>`;
 }
 
-function puceStatut(b, st, auj) {
-  if (st === 'fermentation') return html`<span class="puce puce-info">En fermentation</span>`;
-  if (st === 'garde') return html`<span class="puce">Prête ${relatif(B.datePrete(b), auj)}</span>`;
-  if (st === 'historique') return html`<span class="puce">${B.stock(b).total ? 'Archivé' : 'Terminé'}</span>`;
-  return '';
-}
-
-function carte(b, auj) {
-  const s = B.stock(b);
-  const st = B.statut(b, auj);
-  const bas = B.estStockBas(b, etat.donnees.reglages.seuilStockBas, auj);
-  const termine = st === 'historique';
-  const details = [B.nomStyle(b.style), B.formaterDegre(b.abv), termine ? null : B.age(b, auj)].filter(Boolean).join(' · ');
-  const bilan = termine ? `${pluriel(B.bues(b).length, 'bue')} · ${pluriel(B.offertes(b).length, 'offerte')}` : null;
-  return html`<a class="carte${bas ? ' carte-alerte' : ''}${termine ? ' carte-terminee' : ''}" href="${lienBrassin(b)}">
-    <div class="carte-infos">
-      <div class="carte-ligne"><span class="code">${b.code}</span>${puceStatut(b, st, auj)}${bas ? html`<span class="puce puce-alerte">Stock bas</span>` : ''}</div>
-      <div class="carte-nom">${b.nom}</div>
-      <div class="carte-details">${details}</div>
-      ${bilan ? html`<div class="carte-details">${bilan}</div>` : ''}
-      ${b.note ? etoiles(b.note) : ''}
-    </div>
-    <div class="carte-stock">${
-      st === 'fermentation'
-        ? html`<span class="stock-attente" title="En fermentation">${ICONES.sablier}</span>`
-        : html`<span class="stock-nombre">${s.total}</span><span class="stock-unite">${s.total >= 2 ? 'bouteilles' : 'bouteille'}</span>`
-    }</div>
-    ${st === 'fermentation' || termine ? '' : jauge(s.total, s.depart, bas)}
-  </a>`;
-}
-
-function ligneTri(cle, valeur, texte) {
-  return html`<div class="ligne-tri">
-    <span>${texte}</span>
-    <label class="tri"><span class="cache">Trier par</span>
-      <select data-reglage="${cle}">${B.TRIS.map((t) => html`<option value="${t.code}" ${t.code === valeur ? 'selected' : ''}>${t.nom}</option>`)}</select>
-    </label>
-  </div>`;
-}
-
 function bannieres(auj) {
   const liste = [];
   for (const b of etat.donnees.brassins) {
@@ -272,9 +232,19 @@ function vueAccueil() {
 // le menu garde les noms complets (B.TRIS).
 const TRI_COURT = { recent: 'Récents', note: 'Note', stock: 'Stock', code: 'Code' };
 
-/** Recherche et tri sur une seule ligne. Le tri est le menu déroulant habituel, rendu invisible sur un bouton. */
-function outilsCave(tri) {
+/** Bouton de tri (Cave, Historique) : le menu déroulant habituel, invisible sur le bouton. */
+function boutonTri(cle, tri) {
   const nomTri = TRI_COURT[tri] ?? B.TRIS.find((t) => t.code === tri)?.nom ?? 'Trier';
+  return html`<label class="e-tri">
+    ${SYMBOLES.tri}<span aria-hidden="true">${nomTri}</span>
+    <select data-reglage="${cle}" aria-label="Trier les brassins">${B.TRIS.map(
+      (t) => html`<option value="${t.code}" ${t.code === tri ? 'selected' : ''}>${t.nom}</option>`,
+    )}</select>
+  </label>`;
+}
+
+/** Recherche et tri sur une seule ligne. */
+function outilsCave(tri) {
   return html`<div class="e-outils">
     <form class="e-recherche" role="search" data-form="recherche">
       ${SYMBOLES.loupe}
@@ -282,12 +252,7 @@ function outilsCave(tri) {
         aria-label="Rechercher un brassin par code ou par nom" autocomplete="off" autocorrect="off"
         autocapitalize="characters" spellcheck="false" enterkeyhint="search">
     </form>
-    <label class="e-tri">
-      ${SYMBOLES.tri}<span aria-hidden="true">${nomTri}</span>
-      <select data-reglage="tri" aria-label="Trier les brassins">${B.TRIS.map(
-        (t) => html`<option value="${t.code}" ${t.code === tri ? 'selected' : ''}>${t.nom}</option>`,
-      )}</select>
-    </label>
+    ${boutonTri('tri', tri)}
   </div>`;
 }
 
@@ -327,7 +292,7 @@ function listeAccueil(auj) {
 
 function vueHistorique() {
   const auj = aujourdhui();
-  const tri = etat.donnees.reglages.triHistorique;
+  const { triHistorique: tri, seuilStockBas: seuil } = etat.donnees.reglages;
   const termines = B.trier(
     etat.donnees.brassins.filter((b) => B.estArchive(b, auj)),
     tri,
@@ -337,11 +302,15 @@ function vueHistorique() {
     titre: 'Historique',
     entete: enteteBarre({ titre: 'Historique' }),
     contenu: termines.length
-      ? html`${ligneTri('triHistorique', tri, pluriel(termines.length, 'brassin terminé', 'brassins terminés'))}
-          <div class="liste-cartes">${termines.map((b) => carte(b, auj))}</div>`
-      : html`<div class="vide">
-          <p><strong>Aucun brassin terminé.</strong></p>
-          <p class="aide">Un brassin arrive ici quand sa dernière bouteille est bue, ou quand il est archivé.</p>
+      ? html`<div class="e-liste-entete">
+          <p class="e-liste-titre">${pluriel(termines.length, 'brassin terminé', 'brassins terminés')}</p>
+          ${boutonTri('triHistorique', tri)}
+        </div>
+        <div class="e-cartes">${termines.map((b) => carteBrassin(b, { auj, seuil, href: lienBrassin(b) }))}</div>`
+      : html`<div class="e-vide">
+          ${SYMBOLES.termine}
+          <p class="e-vide-titre">Aucun brassin terminé.</p>
+          <p class="e-vide-texte">Un brassin arrive ici quand sa dernière bouteille est bue, ou quand il est archivé.</p>
         </div>`,
   };
 }

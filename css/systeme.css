@@ -395,6 +395,9 @@ html { font-size: 17px; }
 .e-tri:focus-within { outline: 2px solid var(--e-cuivre); outline-offset: 2px; }
 
 .e-liste-titre { margin: 0 0 var(--e-2); color: var(--e-texte-2); font: 400 0.875rem/1.3 var(--e-police); }
+/* Historique : nombre de brassins et bouton de tri sur une ligne */
+.e-liste-entete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--e-2) var(--e-3); margin: 0 0 var(--e-3); }
+.e-liste-entete .e-liste-titre { margin: 0; }
 
 /* ---------- Écran Cave : bannières (bière prête, rappel de sauvegarde) ---------- */
 
@@ -563,6 +566,5 @@ html { font-size: 17px; }
   .e-carte:active,
   .e-btn:active,
   .btn:active,
-  .carte:active,
   .lien-etiquettes:active { transform: none; }
 }

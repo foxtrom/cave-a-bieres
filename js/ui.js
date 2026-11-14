@@ -1,4 +1,4 @@
-// Composants d'interface : icônes, silhouette, messages, feuilles, étoiles, jauges.
+// Composants d'interface : icônes, silhouette, messages, feuilles, confirmation.
 
 import { brut, html } from './outils.js';
 import { COLLINE as LIGNE_COLLINE, LOINTAIN, cheminSvg, crete } from './naouri.js';
@@ -160,18 +160,4 @@ export function confirmer({ titre, message, ok = 'Confirmer', danger = false }) 
       }),
     );
   });
-}
-
-/* ---------- Petits éléments visuels ---------- */
-
-/** Note en étoiles, en lecture seule (cartes de l'Historique) ; la note modifiable de la fiche est dans composants.js. */
-export function etoiles(note) {
-  return html`<span class="etoiles" role="img" aria-label="Note : ${note} sur 5">${[1, 2, 3, 4, 5].map(
-    (i) => html`<span class="${i <= note ? 'pleine' : ''}">★</span>`,
-  )}</span>`;
-}
-
-export function jauge(valeur, maximum, alerte = false) {
-  const pourcent = maximum > 0 ? Math.round((100 * Math.min(Math.max(valeur, 0), maximum)) / maximum) : 0;
-  return html`<div class="jauge${alerte ? ' jauge-alerte' : ''}" aria-hidden="true"><span style="width:${pourcent}%"></span></div>`;
 }

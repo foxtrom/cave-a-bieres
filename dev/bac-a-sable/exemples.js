@@ -27,6 +27,7 @@ function brassin(auj, d) {
     ebc: d.ebc,
     note: d.note ?? 0,
     mouvements,
+    archive: d.archive ?? false,
     bouteilles: {
       33: { depart: d.b33?.[0] ?? 0, restant: d.b33?.[1] ?? 0 },
       66: { depart: d.b66?.[0] ?? 0, restant: d.b66?.[1] ?? 0 },
@@ -67,6 +68,9 @@ export function exemples(auj) {
     }),
     cas('Épuisée', 'dans l’Historique : un brassin vide quitte la Cave', {
       style: 'IPA', nom: 'IPA des Templiers', brasse: -200, embouteille: -180, b33: [36, 0], note: 4, abv: 6.4, ibu: 55, ebc: 15, bues: 30, offertes: 6,
+    }),
+    cas('Archivée', 'rangée à la main dans l’Historique, avec des bouteilles restantes', {
+      style: 'WHT', n: 2, nom: 'Blanche de printemps', brasse: -240, embouteille: -220, b33: [24, 6], note: 2, abv: 4.8, ibu: 12, ebc: 6, bues: 12, offertes: 6, archive: true,
     }),
   ];
 }

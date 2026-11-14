@@ -282,8 +282,9 @@ try {
     await attendreTexte('.e-bloc-stock', 'Stock bas');
     await page.click('#barre-actions [data-action="prendre"]');
     await page.goto(`${BASE}#/historique`);
-    await attendreTexte('.carte', C.code);
-    await attendreTexte('.carte', '5 bues');
+    await attendreTexte('.e-carte', C.code);
+    await attendreTexte('.e-carte--terminee', '5 bues');
+    await attendreTexte('.e-carte--terminee', 'Terminé');
     await capture('08-historique');
     await page.goto(`${BASE}#/`);
     await attendreNombre(page, '.e-carte', 2);

@@ -10,8 +10,8 @@
 
 /* Couleurs, ombre, rayon et polices : une seule source, les jetons --e-… de css/systeme.css
    (clair et sombre). Les anciens noms restent pour les écrans pas encore refaits et renvoient
-   aux nouveaux. Le vert « ok », le bleu « info », l'étoile vide et le rouge des boutons de
-   suppression gardent leurs valeurs jusqu'à la refonte des écrans qui les utilisent. */
+   aux nouveaux. Le vert « ok », le bleu « info » et le rouge des boutons de suppression gardent
+   leurs valeurs jusqu'à la refonte des écrans qui les utilisent. */
 :root {
   color-scheme: light dark;
   --fond: var(--e-fond);
@@ -33,7 +33,6 @@
   --rayon: var(--e-r-carte);
   --police: var(--e-police);
   --police-code: var(--e-police-code);
-  --etoile-vide: #d8c9b2;
   --danger-fond: #b3261e;
   --ok: #2e6b35;
   --ok-doux: #dcecd8;
@@ -46,7 +45,6 @@
 
 :root[data-theme="sombre"] {
   color-scheme: dark;
-  --etoile-vide: #4a3e34;
   --danger-fond: #c4362c;
   --ok: #8fd19a;
   --ok-doux: #1c2f1f;
@@ -56,7 +54,6 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="clair"]) {
-    --etoile-vide: #4a3e34;
     --danger-fond: #c4362c;
     --ok: #8fd19a;
     --ok-doux: #1c2f1f;
@@ -310,73 +307,7 @@ small { font-size: 0.8em; }
 
 /* ---------- Listes (Historique ; la Cave est dans css/systeme.css) ---------- */
 
-.ligne-tri {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-  color: var(--texte-doux);
-  font-size: 15px;
-}
-.tri select {
-  width: auto;
-  min-height: 44px;
-  padding: 6px 34px 6px 12px;
-  border-radius: 999px;
-  font-size: 16px;
-  font-weight: 600;
-  background-position: right 10px center;
-}
-
-.liste-cartes { display: grid; gap: 10px; }
-
-.carte {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 12px;
-  padding: 14px 16px;
-  background: var(--surface);
-  border: 1px solid var(--bordure);
-  border-radius: var(--rayon);
-  box-shadow: var(--ombre);
-  color: inherit;
-  text-decoration: none;
-  overflow: hidden;
-}
-.carte:active { transform: scale(0.99); }
-.carte-alerte { border-color: var(--alerte); }
-.carte-alerte::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 5px;
-  background: var(--alerte);
-}
-.carte-terminee { background: transparent; box-shadow: none; }
-.carte-infos { min-width: 0; display: grid; gap: 3px; }
 .carte-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.carte .code { font-size: 15px; }
-.carte-nom { font-size: 19px; font-weight: 700; line-height: 1.25; }
-.carte-details { font-size: 14px; color: var(--texte-doux); }
-.carte-stock {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: center;
-  text-align: right;
-}
-.stock-nombre { font-size: 32px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
-.stock-unite { font-size: 12px; color: var(--texte-doux); margin-top: 2px; }
-.stock-attente { color: var(--info); }
-.stock-attente .icone { width: 28px; height: 28px; }
-.carte .jauge { grid-column: 1 / -1; margin-top: 10px; }
-
-.jauge { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
-.jauge span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
-.jauge-alerte span { background: var(--alerte); }
-
 .puce {
   display: inline-flex;
   align-items: center;
@@ -392,8 +323,6 @@ small { font-size: 0.8em; }
 .puce-ok { background: var(--ok-doux); color: var(--ok); }
 .puce-info { background: var(--info-doux); color: var(--info); }
 
-.etoiles { color: var(--etoile-vide); font-size: 15px; letter-spacing: 1px; }
-.etoiles .pleine { color: var(--accent); }
 
 .vide { text-align: center; padding: 40px 16px; color: var(--texte-doux); }
 .vide strong { color: var(--texte); font-size: 19px; }

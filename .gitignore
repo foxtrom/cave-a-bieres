@@ -1,0 +1,37 @@
+node_modules/
+.DS_Store
+Thumbs.db
+desktop.ini
+# Recettes Grainfather, photos et inventaires personnels (inutiles en ligne)
+GRAINFATHER/
+PHOTOS/
+INVENTAIRES BRASSAGE/
+BUG/
+# Captures et exports personnels posés à la racine (ex. pages Cloudflare en PDF)
+/*.pdf
+# Cache de Miniflare / Wrangler (essais du relais)
+.wrangler/
+# Données privées : clé du relais, adresses (jamais envoyées sur GitHub)
+prive/
+# Secrets et configuration locale du relais
+.env
+.env.*
+.dev.vars
+wrangler.toml
+wrangler.json
+wrangler.jsonc
+# Sauvegardes, modèles et exports de l'appli
+brasserie-ensen-*.json
+modele-stock-ensen*.csv
+# Fichiers personnels posés à la racine (captures, vidéos, exports)
+/*.png
+/*.jpg
+/*.jpeg
+/*.heic
+/*.mov
+/*.mp4
+/*.xml
+/*.csv
+# Outils
+.claude/
+.vscode/

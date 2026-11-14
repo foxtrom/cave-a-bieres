@@ -164,17 +164,11 @@ export function confirmer({ titre, message, ok = 'Confirmer', danger = false }) 
 
 /* ---------- Petits éléments visuels ---------- */
 
-export function etoiles(note, { editable = false } = {}) {
-  const rangs = [1, 2, 3, 4, 5];
-  if (!editable) {
-    return html`<span class="etoiles" role="img" aria-label="Note : ${note} sur 5">${rangs.map(
-      (i) => html`<span class="${i <= note ? 'pleine' : ''}">★</span>`,
-    )}</span>`;
-  }
-  return html`<div class="etoiles etoiles-edition" role="group" aria-label="Ma note sur 5">${rangs.map(
-    (i) =>
-      html`<button type="button" class="${i <= note ? 'pleine' : ''}" data-action="noter" data-note="${i}" aria-label="${i} sur 5" aria-pressed="${String(i === note)}">★</button>`,
-  )}</div>`;
+/** Note en étoiles, en lecture seule (cartes de l'Historique) ; la note modifiable de la fiche est dans composants.js. */
+export function etoiles(note) {
+  return html`<span class="etoiles" role="img" aria-label="Note : ${note} sur 5">${[1, 2, 3, 4, 5].map(
+    (i) => html`<span class="${i <= note ? 'pleine' : ''}">★</span>`,
+  )}</span>`;
 }
 
 export function jauge(valeur, maximum, alerte = false) {

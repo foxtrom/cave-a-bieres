@@ -14,7 +14,7 @@ import { POLICES } from './polices.js';
 import { copieRelaisDue, creerSauvegarde, donneesVides, empreinteDonnees, lireSauvegarde, nomFichierSauvegarde, normaliserDonnees, rappelSauvegarde } from './donnees.js';
 import * as stockage from './db.js';
 import { COLLINE, ICONES, confirmer, etoiles, fermerFeuille, jauge, ouvrirFeuille, pluriel, toast } from './ui.js';
-import { SYMBOLES, carteBrassin } from './composants.js';
+import { SYMBOLES, blocEtat, blocStock, carteBrassin, frise, metaBrassin, metriques, noteEditable } from './composants.js';
 
 const etat = {
   donnees: donneesVides(),
@@ -241,8 +241,6 @@ function bannieres(auj) {
   return liste;
 }
 
-const info = (titre, valeur) => html`<dt>${titre}</dt><dd>${valeur}</dd>`;
-
 /* ================================================================== */
 /* Vue : accueil (la cave)                                             */
 /* ================================================================== */
@@ -356,9 +354,6 @@ function vueFiche(b) {
   const auj = aujourdhui();
   const s = B.stock(b);
   const st = B.statut(b, auj);
-  const bas = B.estStockBas(b, etat.donnees.reglages.seuilStockBas, auj);
-  const prete = B.datePrete(b);
-  const age = B.age(b, auj);
   const offertes = B.offertes(b);
   const bues = B.bues(b);
   const retour = st === 'historique' ? { href: '#/historique', texte: 'Historique' } : { href: '#/', texte: 'Cave' };
@@ -366,34 +361,22 @@ function vueFiche(b) {
   return {
     titre: b.code,
     entete: enteteBarre({ retour, titre: b.code, droite: html`<a href="${lienBrassin(b, '/modifier')}" class="lien-entete">Modifier</a>` }),
-    contenu: html`
-      <section class="fiche-tete">
-        <div class="carte-ligne">
-          <span class="puce">${B.nomStyle(b.style)}</span>
-          ${st === 'prete' ? html`<span class="puce puce-ok">Prête à boire</span>` : puceStatut(b, st, auj)}
-          ${bas ? html`<span class="puce puce-alerte">Stock bas</span>` : ''}
-        </div>
-        <h2 class="fiche-nom">${b.nom}</h2>
-        ${etoiles(b.note, { editable: true })}
+    contenu: html`<div class="e-fiche">
+      <section class="e-fiche-tete">
+        <h2 class="e-fiche-nom">${b.nom}</h2>
+        ${metaBrassin(b, auj)}
+        ${noteEditable(b.note)}
       </section>
 
-      ${st === 'fermentation' ? blocFermentation(b, auj) : blocStock(b, s, bas)}
+      ${blocEtat(b, auj)}
 
-      ${blocSuivi(b, auj)}
+      ${st === 'fermentation' ? blocSuivi(b, auj) : blocStock(b, { seuil: etat.donnees.reglages.seuilStockBas, auj })}
 
-      <section class="bloc">
-        <dl class="infos">
-          ${info('Brassée le', formaterDate(b.dateBrassage))}
-          ${info('Embouteillée le', b.dateEmbouteillage ? formaterDate(b.dateEmbouteillage) : 'pas encore')}
-          ${age ? info('Âge', age) : ''}
-          ${prete ? info('Prête à boire', html`${formaterDate(prete)}<small>${relatif(prete, auj)}</small>`) : ''}
-          ${info('Degré', B.formaterDegre(b.abv) || '—')}
-          ${b.ibu != null ? info('Amertume', `${b.ibu} IBU`) : ''}
-          ${b.ebc != null ? info('Couleur', `${b.ebc} EBC`) : ''}
-          ${info('Garde', pluriel(b.gardeSemaines, 'semaine'))}
-          ${info('Sur l’étiquette', html`<span class="code">${B.codeEtiquette(b.code)}</span>`)}
-        </dl>
-      </section>
+      ${frise(b, auj)}
+
+      ${metriques(b, { codeEtiquette: true })}
+
+      ${st === 'fermentation' ? '' : blocSuivi(b, auj)}
 
       <a class="bloc lien-etiquettes" href="${lienBrassin(b, '/etiquettes')}">
         ${brut(E.etiquetteSvg(E.donneesEtiquette(b), '33 cl', { classe: 'etiquette etiquette-vignette' }))}
@@ -424,7 +407,8 @@ function vueFiche(b) {
               ? html`<button type="button" class="btn btn-large btn-discret" data-action="archiver">Archiver ce brassin</button>`
               : ''
         }
-      </div>`,
+      </div>
+    </div>`,
     actions: barreFiche(b, st, s),
     apres: () => {
       brancherNotes(b);
@@ -438,40 +422,6 @@ function vueFiche(b) {
       }
     },
   };
-}
-
-function blocStock(b, s, bas) {
-  const formats = B.formatsUtilises(b);
-  return html`<section class="bloc bloc-stock${bas ? ' bloc-alerte' : ''}">
-    <div class="stock-principal">
-      <span class="stock-geant">${s.total}</span>
-      <span class="stock-sur">${s.total >= 2 ? 'bouteilles' : 'bouteille'} sur ${s.depart}</span>
-    </div>
-    ${jauge(s.total, s.depart, bas)}
-    ${
-      formats.length > 1
-        ? html`<ul class="stock-formats">${formats.map(
-            (f) => html`<li><span>${B.nomFormat(f)}</span><span><strong>${b.bouteilles[f].restant}</strong> / ${b.bouteilles[f].depart}</span></li>`,
-          )}</ul>`
-        : formats.length === 1
-          ? html`<p class="aide">Bouteilles de ${B.nomFormat(formats[0])}</p>`
-          : ''
-    }
-    ${bas ? html`<p class="alerte">Stock bas : moins de ${pluriel(etat.donnees.reglages.seuilStockBas, 'bouteille')}.</p>` : ''}
-  </section>`;
-}
-
-function blocFermentation(b, auj) {
-  const prevue = b.dateEmbouteillage && b.dateEmbouteillage > auj;
-  // Durée de fermentation de la recette Grainfather : date de fin estimée.
-  const jours = R.joursFermentation(b.recette);
-  const fin = jours > 0 && b.dateBrassage ? ajouterJours(b.dateBrassage, Math.round(jours)) : null;
-  return html`<section class="bloc bloc-fermentation">
-    <p><strong>En fermentation</strong>${b.dateBrassage ? `, brassée ${relatif(b.dateBrassage, auj)}` : ''}.</p>
-    ${fin ? html`<p>Fin de fermentation prévue ${relatif(fin, auj)}, le ${formaterDateCourte(fin, auj)} (${R.resumeFermentation(b.recette)}).</p>` : ''}
-    ${prevue ? html`<p>Embouteillage prévu le ${formaterDate(b.dateEmbouteillage)}.</p>` : ''}
-    <p class="aide">Le jour de la mise en bouteille, « Embouteiller » démarre le compteur de bouteilles et la garde.</p>
-  </section>`;
 }
 
 /* ---------- Suivi de fermentation (RAPT Pill) ---------- */
@@ -1014,13 +964,14 @@ function resumeManques(verification) {
   return `Stock : il manque ${manques.map((l) => R.nomIngredient(l.besoin.nom)).join(', ')}.`;
 }
 
+/** Actions du bas de la fiche : mêmes fonctions qu'avant, boutons du système (cuivre plein, contour). */
 function barreFiche(b, st, s) {
   if (st === 'fermentation') {
-    return html`<button type="button" class="btn btn-primaire btn-geant" data-action="embouteiller">${ICONES.bouteille}Embouteiller</button>`;
+    return html`<button type="button" class="e-btn e-btn--principal" data-action="embouteiller">${SYMBOLES.bouteille}Embouteiller</button>`;
   }
   if (!s.total) return null;
-  return html`<button type="button" class="btn btn-primaire btn-geant btn-principal" data-action="prendre">${ICONES.biere}J’en prends une</button>
-    <button type="button" class="btn btn-geant" data-action="offrir">J’en offre une</button>`;
+  return html`<button type="button" class="e-btn e-btn--principal" data-action="prendre">${SYMBOLES.biere}J’en prends une</button>
+    <button type="button" class="e-btn e-btn--secondaire" data-action="offrir">J’en offre une</button>`;
 }
 
 function ligneDon(m, auj) {
@@ -2845,6 +2796,10 @@ function installerEcouteurs() {
     const element = e.target.closest('[data-reglage]');
     if (element) changerReglage(element);
   });
+
+  // Hauteur réelle de la barre d'actions (elle grandit avec la taille du texte) : réservée sous la page.
+  const barre = $('#barre-actions');
+  new ResizeObserver(() => document.body.style.setProperty('--hauteur-barre', `${barre.offsetHeight}px`)).observe(barre);
 
   const feuille = $('#feuille');
   feuille.addEventListener('click', (e) => {

@@ -140,22 +140,27 @@ try {
 
   await etape(`Création ${A.code} (code auto, embouteillée, prête)`, async () => {
     await creerBrassin({ style: 'IPA', nom: A.nom, brassage: A.brassage, embouteillage: A.embouteillage, abv: '6,2', b33: '60', codeAttendu: A.code });
-    assert.equal(await texte('.stock-geant'), '60');
-    await attendreTexte('.fiche-tete', 'Prête à boire');
-    await attendreTexte('.infos', '6,2');
-    await attendreTexte('.infos', A.code.replace(/-(\d\d)(\d\d)-/, '-$1/$2-')); // code étiquette avec barre
+    assert.equal(await texte('.e-stock-total b'), '60');
+    await attendreTexte('.e-etat', 'Prête à boire');
+    await attendreTexte('.e-caracteristiques', '6,2');
+    await attendreTexte('.e-caracteristiques', A.code.replace(/-(\d\d)(\d\d)-/, '-$1/$2-')); // code étiquette avec barre
   });
 
   await etape(`Création ${Bb.code} (2e IPA de l’année, 33 + 66 cl, en garde)`, async () => {
     await creerBrassin({ style: 'IPA', nom: Bb.nom, brassage: Bb.brassage, embouteillage: Bb.embouteillage, abv: '4,5', b33: '58', b66: '4', codeAttendu: Bb.code });
-    assert.equal(await texte('.stock-geant'), '62');
-    await attendreTexte('.fiche-tete', 'Prête dans');
-    await attendreTexte('.stock-formats', '66 cl');
+    assert.equal(await texte('.e-stock-total b'), '62');
+    await attendreTexte('.e-etat', 'de garde');
+    // Frise : embouteillée il y a 2 jours, donc garde en cours et « prête à boire » encore à venir.
+    await attendreTexte('.e-frise-etape--faite', 'Embouteillage');
+    await attendreTexte('.e-frise-etape--en-cours', 'Garde');
+    await attendreTexte('.e-frise-etape--a-venir', 'Prête à boire');
+    assert.equal(await page.locator('.e-frise [aria-current="step"]').count(), 1, 'une seule étape en cours');
+    await attendreTexte('.e-formats', '66 cl');
   });
 
   await etape(`Création ${C.code} (en fermentation)`, async () => {
     await creerBrassin({ style: 'BLD', nom: C.nom, brassage: C.brassage, codeAttendu: C.code });
-    await attendreTexte('.bloc-fermentation', 'En fermentation');
+    await attendreTexte('.e-etat', 'En fermentation');
     await attendreTexte('#barre-actions', 'Embouteiller');
   });
 
@@ -207,23 +212,23 @@ try {
     await capture('05-choix-format');
     await page.click('#feuille [data-format="33"]');
     await attendreToast(/Il reste 61 bouteilles/);
-    assert.equal(await texte('.stock-geant'), '61');
+    assert.equal(await texte('.e-stock-total b'), '61');
     await capture('04-fiche-apres-prise');
     await page.click('#toast button'); // Annuler
-    await page.waitForFunction(() => document.querySelector('.stock-geant').textContent === '62');
+    await page.waitForFunction(() => document.querySelector('.e-stock-total b').textContent === '62');
     await attendreToast(/remise en stock/);
   });
 
   await etape('Prise d’une 66 cl, puis annulation depuis la liste', async () => {
     await page.click('#barre-actions [data-action="prendre"]');
     await page.click('#feuille [data-format="66"]');
-    await attendreTexte('.stock-formats', '3 / 4');
+    await attendreTexte('.e-formats', '3 / 4');
     await attendreTexte('.bloc', 'Bouteilles bues');
     await page.click('[data-action="annuler-mouvement"]');
-    await attendreTexte('.stock-formats', '4 / 4');
+    await attendreTexte('.e-formats', '4 / 4');
     await page.click('#barre-actions [data-action="prendre"]');
     await page.click('#feuille [data-format="66"]');
-    await attendreTexte('.stock-formats', '3 / 4');
+    await attendreTexte('.e-formats', '3 / 4');
   });
 
   await etape('« J’en offre une » à Pierre, puis ajout de son avis', async () => {
@@ -243,13 +248,13 @@ try {
 
   await etape('Note sur 5 et notes de dégustation enregistrées', async () => {
     await page.click('[data-action="noter"][data-note="4"]');
-    await page.waitForFunction(() => document.querySelectorAll('.etoiles-edition .pleine').length === 4);
+    await page.waitForFunction(() => document.querySelectorAll('.e-note-edition .pleine').length === 4);
     await page.fill('#notes', 'Agrumes, finale sèche.');
     await page.locator('#notes').blur();
     await attendreTexte('#notes-etat', 'Notes enregistrées');
     await page.reload();
     assert.equal(await page.inputValue('#notes'), 'Agrumes, finale sèche.');
-    await attendreNombre(page, '.etoiles-edition .pleine', 4);
+    await attendreNombre(page, '.e-note-edition .pleine', 4);
     await capture('06-fiche-complete');
     await page.evaluate(() => window.scrollTo(0, 99999));
     await capture('06b-fiche-bas');
@@ -263,18 +268,18 @@ try {
     await page.fill('#feuille input[name="b33"]', '5');
     await page.fill('#feuille input[name="garde"]', '0');
     await page.click('#feuille button[type="submit"]');
-    assert.equal(await texte('.stock-geant'), '5');
-    await attendreTexte('.fiche-tete', 'Stock bas');
-    await attendreTexte('.alerte', 'moins de 6 bouteilles');
+    assert.equal(await texte('.e-stock-total b'), '5');
+    await attendreTexte('.e-bloc-stock', 'Stock bas');
+    await attendreTexte('.e-bloc-stock', 'moins de 6 bouteilles');
   });
 
   await etape('Dernière bouteille → le brassin passe dans l’historique', async () => {
     for (let i = 0; i < 5; i++) await page.click('#barre-actions [data-action="prendre"]');
     await attendreToast(/Dernière bouteille/);
-    await attendreTexte('.fiche-tete', 'Terminé');
+    await attendreTexte('.e-etat', 'Terminé');
     await attendreNombre(page, '#barre-actions button', 0);
     await page.click('#toast button'); // Annuler la dernière
-    await attendreTexte('.fiche-tete', 'Stock bas');
+    await attendreTexte('.e-bloc-stock', 'Stock bas');
     await page.click('#barre-actions [data-action="prendre"]');
     await page.goto(`${BASE}#/historique`);
     await attendreTexte('.carte', C.code);
@@ -420,7 +425,7 @@ try {
     await page.locator('.e-carte').first().waitFor();
     await attendreNombre(page, '.e-carte', 2);
     await page.goto(`${BASE}#/brassin/${Bb.code}`);
-    await attendreTexte('.fiche-nom', Bb.nom);
+    await attendreTexte('.e-fiche-nom', Bb.nom);
     await capture('15-hors-ligne');
     await contexte.setOffline(false);
   });
@@ -466,9 +471,9 @@ try {
   });
 
   await etape('Fiche : IBU, EBC, fin de fermentation et composition de la recette', async () => {
-    await attendreTexte('.infos', '35 IBU');
-    await attendreTexte('.infos', '7 EBC');
-    await attendreTexte('.bloc-fermentation', 'Fin de fermentation prévue dans 5 jours');
+    await attendreTexte('.e-caracteristiques', '35 IBU');
+    await attendreTexte('.e-caracteristiques', '7 EBC');
+    await attendreTexte('.e-etat', 'Fin de fermentation prévue dans 5 jours');
     for (const t of [
       'Specialty IPA: Belgian IPA', '23 L · DI 1,051 · DF 1,010', 'Malts5,45 kg', 'Pilsner', '3,6 kg66 %', 'Corn, Flaked', 'Rice Hulls 250 g',
       'Houblons113 g', 'Magnum', '12 % alpha · Ébullition 60 min', 'Sabro', 'Whirlpool 20 min', '100 g', 'LALBREW® VOSS KVEIK ALE YEAST', 'atténuation 75 %',
@@ -513,9 +518,9 @@ try {
     assert.equal(await page.inputValue('select[name="style"]'), 'IPA');
     await page.click('button[form="form-brassin"]');
     await page.waitForURL(new RegExp(`#/brassin/${D.code}$`));
-    await attendreTexte('.fiche-nom', 'Naouri Cold');
+    await attendreTexte('.e-fiche-nom', 'Naouri Cold');
     await attendreTexte('.bloc-recette', 'Dry hop 3 jours');
-    await attendreTexte('.infos', '40 IBU');
+    await attendreTexte('.e-caracteristiques', '40 IBU');
   });
 
   await etape('Fichier qui n’est pas une recette refusé, puis recette retirée', async () => {
@@ -528,7 +533,7 @@ try {
     await page.click('button[form="form-brassin"]');
     await page.waitForURL(new RegExp(`#/brassin/${D.code}$`));
     await attendreNombre(page, '.bloc-recette', 0);
-    await attendreTexte('.infos', '40 IBU'); // les valeurs du brassin restent
+    await attendreTexte('.e-caracteristiques', '40 IBU'); // les valeurs du brassin restent
   });
 
   /* ---------- Étape 3 : étiquettes et planche PDF ---------- */
@@ -770,7 +775,7 @@ try {
     await page.click('#feuille button[type="submit"]');
     await attendreToast(/Bouteilles vides et capsules déduites du stock/);
     await page.click('#toast button'); // Annuler
-    await attendreTexte('.bloc-fermentation', 'En fermentation');
+    await attendreTexte('.e-etat', 'En fermentation');
     await attendreQuantite('Bouteilles vides 33 cl', '31');
     assert.equal(await quantiteArticle('Capsules'), '100');
     await page.goto(`${BASE}#/brassin/${F.code}`);
@@ -1092,7 +1097,7 @@ try {
     await attendreTexte('.bloc-suivi', '(corrigée)');
     await page.click('.bloc-suivi [data-action="utiliser-degre"]');
     await attendreToast(/Degré du brassin\s:\s5,5\s%/);
-    await attendreTexte('.infos', '5,5 %');
+    await attendreTexte('.e-caracteristiques', '5,5 %');
     await page.click('.bloc-suivi [data-action="arreter-suivi"]');
     await attendreToast(/Suivi arrêté/);
     assert.equal(await page.locator('.bloc-suivi [data-action="actualiser-pill"]').count(), 0);

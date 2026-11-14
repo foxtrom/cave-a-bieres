@@ -7,7 +7,18 @@ import * as B from '../../js/brassins.js';
 import { aujourdhui } from '../../js/dates.js';
 import { REGLAGES_DEFAUT, lireSauvegarde } from '../../js/donnees.js';
 import { html } from '../../js/outils.js';
-import { SYMBOLES, badge, blocStock, boutonsSortie, carteBrassin, metriques } from '../../js/composants.js';
+import {
+  SYMBOLES,
+  badge,
+  blocEtat,
+  blocStock,
+  boutonsSortie,
+  carteBrassin,
+  frise,
+  metaBrassin,
+  metriques,
+  noteEditable,
+} from '../../js/composants.js';
 import { exemples } from './exemples.js';
 
 const auj = aujourdhui();
@@ -201,9 +212,23 @@ function afficherComposants() {
       <p class="bs-cas">Stock corrigé à la main <small>· plus de bouteilles qu’au départ : pas de jauge, elle serait fausse</small></p>
       ${blocStock(corrige, { seuil: SEUIL, auj })}
       <p class="bs-cas">Caractéristiques <small>· 2 × 2, une colonne quand le texte est très grand</small></p>
-      ${metriques(exemple('Normale'))}
+      ${metriques(exemple('Normale'), { codeEtiquette: true })}
       <p class="bs-cas">Message d’erreur <small>· exemple</small></p>
       <p class="e-message e-message--erreur">${SYMBOLES.alerte}<span>Densité impossible : vérifiez la mesure (1,000 à 1,150).</span></p>`,
+  );
+
+  // Haut de la fiche (étape 4) : identité, note modifiable, état, cycle, pour chaque grand cas.
+  remplir(
+    '#fiches',
+    ['En garde', 'Prête', 'En fermentation', 'Épuisée'].map((titre) => {
+      const b = exemple(titre);
+      return html`<p class="bs-cas">${titre}</p>
+        <div class="e-fiche">
+          <section class="e-fiche-tete"><h2 class="e-fiche-nom">${b.nom}</h2>${metaBrassin(b, auj)}${noteEditable(b.note)}</section>
+          ${blocEtat(b, auj)}
+          ${frise(b, auj)}
+        </div>`;
+    }),
   );
 }
 

@@ -1,15 +1,17 @@
-// Composants de la refonte visuelle (styles dans css/systeme.css) : symboles, badges,
-// note, carte de brassin, bloc de stock, caractéristiques, boutons de sortie.
-// Ils affichent seulement ce que calculent les fonctions de l'appli (brassins.js,
-// dates.js) : aucune règle métier n'est réécrite ici. Le bac à sable
-// (dev/bac-a-sable/) les montre dans tous leurs états.
+// Composants de la refonte visuelle (styles dans css/systeme.css) : symboles, badges, note,
+// carte de brassin, et pour la fiche : en-tête, état, stock, cycle, caractéristiques,
+// boutons de sortie. Ils affichent seulement ce que calculent les fonctions de l'appli
+// (brassins.js, dates.js, recettes.js) : aucune règle métier n'est réécrite ici.
+// Le bac à sable (dev/bac-a-sable/) les montre dans tous leurs états.
 
 import * as B from './brassins.js';
-import { relatif } from './dates.js';
+import { ajouterJours, duree, formaterDate, formaterDateCourte, joursEntre, relatif } from './dates.js';
 import { brut, html } from './outils.js';
+import * as R from './recettes.js';
 
 // Même règle que pluriel() de js/ui.js, qui n'est pas importé : il branche des écouteurs sur la page de l'appli.
 const pluriel = (n, singulier, formePlurielle = `${singulier}s`) => `${n} ${n >= 2 ? formePlurielle : singulier}`;
+const majuscule = (texte) => texte.charAt(0).toUpperCase() + texte.slice(1);
 
 /* ---------- Icônes au trait fin (style des symboles iOS, dessinées pour l'appli) ---------- */
 
@@ -110,6 +112,69 @@ export function carteBrassin(b, { auj, seuil, href = '#' }) {
   </a>`;
 }
 
+/* ---------- Fiche : en-tête ---------- */
+
+/** « IPA · 5,4 % · 4 jours en bouteille » sous le nom (l'âge reste affiché, comme avant). */
+export const metaBrassin = (b, auj) =>
+  points('e-fiche-meta', [B.nomStyle(b.style), B.formaterDegre(b.abv), texteAge(b, auj)].filter(Boolean));
+
+/**
+ * Note modifiable, plus discrète qu'avant : étoile pleine ★ ou vide ☆, la forme suffit à lire
+ * la note sans dépendre de la couleur. Mêmes attributs qu'avant (data-action="noter") :
+ * toucher l'étoile déjà choisie retire la note.
+ */
+export function noteEditable(note) {
+  return html`<div class="e-note-edition" role="group" aria-label="Ma note sur 5">${[1, 2, 3, 4, 5].map(
+    (i) =>
+      html`<button type="button" class="${i <= note ? 'pleine' : ''}" data-action="noter" data-note="${i}" aria-label="${i} sur 5" aria-pressed="${String(i === note)}">${i <= note ? '★' : '☆'}</button>`,
+  )}</div>`;
+}
+
+/* ---------- Fiche : état du brassin (disponibilité) ---------- */
+
+function encadreEtat(classe, symbole, titre, lignes) {
+  return html`<section class="e-etat e-etat--${classe}" aria-label="État du brassin">
+    ${symbole}
+    <div class="e-etat-corps">
+      <p class="e-etat-titre">${titre}</p>
+      ${lignes.filter(Boolean).map((l) => html`<p class="e-etat-texte">${l}</p>`)}
+    </div>
+  </section>`;
+}
+
+/**
+ * Disponibilité en tête de fiche, avec les dates calculées par l'appli :
+ * « Prête à boire le 24 novembre 2026 » et « Encore 10 jours de garde », « Prête à boire depuis le… »,
+ * la fermentation (mêmes informations qu'avant), ou la fin du brassin.
+ */
+export function blocEtat(b, auj) {
+  const st = B.statut(b, auj);
+  const prete = B.datePrete(b);
+  if (st === 'garde') {
+    return encadreEtat('garde', SYMBOLES.garde, `Prête à boire le ${formaterDate(prete)}`, [`Encore ${duree(joursEntre(auj, prete))} de garde`]);
+  }
+  if (st === 'prete') {
+    return encadreEtat('prete', SYMBOLES.prete, 'Prête à boire', [prete === auj ? 'depuis aujourd’hui' : `depuis le ${formaterDate(prete)}`]);
+  }
+  if (st === 'fermentation') {
+    // Durée de fermentation de la recette Grainfather : date de fin estimée, comme avant.
+    const jours = R.joursFermentation(b.recette);
+    const fin = jours > 0 && b.dateBrassage ? ajouterJours(b.dateBrassage, Math.round(jours)) : null;
+    const prevue = b.dateEmbouteillage && b.dateEmbouteillage > auj;
+    return encadreEtat('fermentation', SYMBOLES.fermentation, 'En fermentation', [
+      b.dateBrassage ? `${majuscule(`brassée ${relatif(b.dateBrassage, auj)}`)}.` : null,
+      fin ? `Fin de fermentation prévue ${relatif(fin, auj)}, le ${formaterDateCourte(fin, auj)} (${R.resumeFermentation(b.recette)}).` : null,
+      prevue ? `Embouteillage prévu le ${formaterDate(b.dateEmbouteillage)}.` : null,
+      html`<span class="e-etat-aide">Le jour de la mise en bouteille, «&nbsp;Embouteiller&nbsp;» démarre le compteur de bouteilles et la garde.</span>`,
+    ]);
+  }
+  const reste = B.stock(b).total;
+  const bilan = `${pluriel(B.bues(b).length, 'bue')} · ${pluriel(B.offertes(b).length, 'offerte')}`;
+  return reste
+    ? encadreEtat('termine', SYMBOLES.termine, 'Archivé', [`${pluriel(reste, 'bouteille')} encore en stock`, bilan])
+    : encadreEtat('termine', SYMBOLES.termine, 'Terminé', [bilan]);
+}
+
 /* ---------- Fiche : bloc de stock ---------- */
 
 export function blocStock(b, { seuil, auj }) {
@@ -121,9 +186,9 @@ export function blocStock(b, { seuil, auj }) {
   const jaugeFiable = s.depart > 0 && s.total <= s.depart;
   const pourcent = jaugeFiable ? Math.round((100 * s.total) / s.depart) : 0;
   const unSeulFormat = formats.length === 1 ? html` · <span class="e-insecable">${B.nomFormat(formats[0])}</span>` : '';
-  return html`<section class="e-bloc" aria-label="Stock">
+  return html`<section class="e-bloc e-bloc-stock" aria-label="Stock">
     <h2 class="e-titre-section">Stock</h2>
-    <p class="e-stock-total"><b>${s.total}</b>${s.total >= 2 ? 'bouteilles' : 'bouteille'}</p>
+    <p class="e-stock-total${bas ? ' e-stock-total--bas' : ''}"><b>${s.total}</b>${s.total >= 2 ? 'bouteilles' : 'bouteille'}</p>
     <p class="e-stock-depart">sur ${s.depart} au départ${unSeulFormat}</p>
     ${jaugeFiable ? html`<div class="e-jauge${bas ? ' e-jauge--alerte' : ''}" aria-hidden="true"><span style="width:${pourcent}%"></span></div>` : ''}
     ${
@@ -137,15 +202,91 @@ export function blocStock(b, { seuil, auj }) {
   </section>`;
 }
 
+/* ---------- Fiche : cycle du brassin ---------- */
+
+const ETATS_ETAPE = { faite: 'terminée', 'en-cours': 'en cours', 'a-venir': 'à venir' };
+
+/**
+ * Frise du cycle, d'après les seules données du brassin : une étape n'est cochée que si elle
+ * a eu lieu, jamais à l'avance ; une seule étape en cours au plus (fermentation ou garde).
+ * Les phases montrent une durée et pas une date, pour ne pas répéter les mêmes dates.
+ * L'état de chaque étape est dit en toutes lettres à VoiceOver, et dessiné par la forme
+ * du repère (coché, anneau plein, cercle vide), pas seulement par la couleur.
+ */
+export function frise(b, auj) {
+  const st = B.statut(b, auj);
+  const embouteillee = B.estEmbouteille(b, auj);
+  const prete = B.datePrete(b);
+  const brassee = Boolean(b.dateBrassage) && b.dateBrassage <= auj;
+  const etapes = [];
+  const etape = (titre, detail, etat) => etapes.push({ titre, detail, etat });
+
+  etape('Brassage', b.dateBrassage ? formaterDate(b.dateBrassage) : '', brassee ? 'faite' : 'a-venir');
+
+  if (b.archive && !embouteillee) {
+    // Archivé avant l'embouteillage : rien n'est supposé après le brassage.
+    etape('Archivé', 'avant l’embouteillage', 'faite');
+  } else {
+    if (embouteillee) etape('Fermentation', duree(joursEntre(b.dateBrassage, b.dateEmbouteillage)), 'faite');
+    else if (brassee) {
+      const depuis = joursEntre(b.dateBrassage, auj);
+      etape('Fermentation', depuis ? `en cours depuis ${duree(depuis)}` : 'commencée aujourd’hui', 'en-cours');
+    } else etape('Fermentation', '', 'a-venir');
+
+    const dateEmbouteillage = b.dateEmbouteillage ? formaterDate(b.dateEmbouteillage) : '';
+    etape(
+      'Embouteillage',
+      embouteillee ? dateEmbouteillage : dateEmbouteillage ? `prévu le ${dateEmbouteillage}` : 'date à fixer',
+      embouteillee ? 'faite' : 'a-venir',
+    );
+
+    const garde = b.gardeSemaines ?? 0;
+    const preteAtteinte = embouteillee && Boolean(prete) && prete <= auj;
+    if (garde > 0) {
+      const semaines = `${garde.toLocaleString('fr-FR')} ${garde >= 2 ? 'semaines' : 'semaine'}`;
+      if (st === 'garde') etape('Garde', `${semaines} · encore ${duree(joursEntre(auj, prete))}`, 'en-cours');
+      else etape('Garde', semaines, preteAtteinte ? 'faite' : 'a-venir');
+      etape('Prête à boire', prete ? formaterDate(prete) : 'après la garde', preteAtteinte ? 'faite' : 'a-venir');
+    } else {
+      // Sans garde, la bière est prête dès l'embouteillage : sa date n'est pas répétée.
+      etape('Prête à boire', 'dès l’embouteillage', preteAtteinte ? 'faite' : 'a-venir');
+    }
+
+    if (st === 'historique') {
+      const reste = B.stock(b).total;
+      const derniere = b.mouvements
+        .map((m) => m.date)
+        .filter(Boolean)
+        .sort()
+        .at(-1);
+      if (reste) etape('Archivé', `${pluriel(reste, 'bouteille')} encore en stock`, 'faite');
+      else etape('Terminé', derniere ? `dernière bouteille le ${formaterDate(derniere)}` : '', 'faite');
+    }
+  }
+
+  return html`<section class="e-bloc e-cycle" aria-labelledby="titre-cycle">
+    <h2 class="e-titre-section" id="titre-cycle">Cycle du brassin</h2>
+    <ol class="e-frise">${etapes.map(
+      (e) => html`<li class="e-frise-etape e-frise-etape--${e.etat}"${e.etat === 'en-cours' ? brut(' aria-current="step"') : ''}>
+        <span class="e-frise-repere" aria-hidden="true">${e.etat === 'faite' ? SYMBOLES.prete : ''}</span>
+        <span class="e-frise-texte">
+          <span class="e-frise-titre">${e.titre}<span class="e-cache">, étape ${ETATS_ETAPE[e.etat]}</span></span>
+          ${e.detail ? html`<span class="e-frise-detail">${e.detail}</span>` : ''}
+        </span>
+      </li>`,
+    )}</ol>
+  </section>`;
+}
+
 /* ---------- Fiche : caractéristiques techniques ---------- */
 
 const metrique = (titre, nombre, unite) =>
   html`<div class="e-metrique"><dt>${titre}</dt><dd>${nombre == null ? html`<b>—</b>` : html`<b>${nombre}</b> ${unite}`}</dd></div>`;
 
-export function metriques(b) {
+export function metriques(b, { codeEtiquette = false } = {}) {
   const degre = b.abv == null ? null : B.formaterDegre(b.abv).replace(/\s*%$/, '');
   const garde = b.gardeSemaines ?? null;
-  return html`<section class="e-bloc" aria-label="Caractéristiques">
+  return html`<section class="e-bloc e-caracteristiques" aria-label="Caractéristiques">
     <h2 class="e-titre-section">Caractéristiques</h2>
     <dl class="e-metriques">
       ${metrique('Degré', degre, '%')}
@@ -153,6 +294,7 @@ export function metriques(b) {
       ${metrique('Couleur', b.ebc, 'EBC')}
       ${metrique('Garde', garde == null ? null : garde.toLocaleString('fr-FR'), garde >= 2 ? 'semaines' : 'semaine')}
     </dl>
+    ${codeEtiquette ? html`<p class="e-caracteristiques-pied">Sur l’étiquette&nbsp;: <span class="e-code">${B.codeEtiquette(b.code)}</span></p>` : ''}
   </section>`;
 }
 

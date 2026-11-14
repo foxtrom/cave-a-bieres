@@ -307,6 +307,7 @@ html { font-size: 17px; }
 
 .e-stock-total { margin: 0; font: 400 1rem/1.2 var(--e-police); color: var(--e-texte-2); }
 .e-stock-total b { margin-right: 6px; color: var(--e-texte); font: 700 2.75rem/1 var(--e-police-arrondie); font-variant-numeric: tabular-nums; }
+.e-stock-total--bas b { color: var(--e-alerte-texte); } /* comme sur la carte de la Cave */
 .e-stock-depart { margin: 6px 0 0; color: var(--e-texte-2); font: 400 0.875rem/1.4 var(--e-police); }
 .e-formats { display: grid; gap: 0; margin: var(--e-3) 0 0; }
 .e-formats > div { display: flex; justify-content: space-between; align-items: baseline; padding: var(--e-2) 0; border-top: 1px solid var(--e-bordure); }
@@ -434,6 +435,94 @@ html { font-size: 17px; }
 .e-vide-titre { margin: 0; color: var(--e-texte); font: 700 1.1875rem/1.3 var(--e-police); overflow-wrap: anywhere; }
 .e-vide-texte { max-width: 22rem; margin: 0; color: var(--e-texte-2); font: 400 0.9375rem/1.4 var(--e-police); }
 .e-vide .e-btn { margin-top: var(--e-2); }
+
+/* ---------- Fiche d'un brassin ---------- */
+
+/* Ordre de lecture : identité, état, stock, cycle, caractéristiques ; les actions restent en bas d'écran. */
+.e-fiche { display: grid; gap: var(--e-3); }
+.e-fiche-tete { padding-top: var(--e-1); }
+.e-fiche-nom { margin: 0; color: var(--e-texte); font: 800 min(1.75rem, 40px)/1.15 var(--e-police); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.e-fiche-meta { margin: 4px 0 0; overflow: hidden; color: var(--e-texte-2); font: 400 0.9375rem/1.4 var(--e-police); }
+
+/* Note modifiable : étoiles rapprochées (★ pleine, ☆ vide), cibles de 38 × 44 px côte à côte */
+.e-note-edition { display: flex; margin: 2px 0 0 -0.4375rem; }
+.e-note-edition button {
+  appearance: none;
+  width: min(2.25rem, 52px); /* plafonné : cinq étoiles tiennent toujours sur la largeur */
+  height: max(44px, min(2.75rem, 60px));
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--e-texte-2);
+  font: 400 min(1.5rem, 36px)/1 var(--e-police);
+  cursor: pointer;
+}
+.e-note-edition button.pleine { color: var(--e-cuivre); }
+.e-note-edition button:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: -4px; }
+
+/* État : disponibilité, garde restante, fermentation, fin du brassin */
+.e-etat { display: flex; align-items: flex-start; gap: var(--e-3); padding: 14px var(--e-4); border-radius: var(--e-r-carte); }
+.e-etat > .e-icone { width: 1.5rem; height: 1.5rem; margin-top: 0.05em; }
+.e-etat-corps { min-width: 0; }
+.e-etat-titre { margin: 0; font: 700 1.0625rem/1.3 var(--e-police); }
+.e-etat-texte { margin: 3px 0 0; font: 400 0.9375rem/1.4 var(--e-police); }
+.e-etat-aide { display: block; font-size: 0.875rem; }
+.e-etat--garde { background: var(--e-cuivre-doux); color: var(--e-cuivre-texte); }
+.e-etat--prete { background: var(--e-sauge-doux); color: var(--e-sauge-texte); }
+.e-etat--fermentation,
+.e-etat--termine { background: var(--e-surface-2); color: var(--e-texte); }
+.e-etat--fermentation .e-etat-texte,
+.e-etat--termine .e-etat-texte { color: var(--e-texte-2); }
+
+/* Cycle du brassin : repère coché (fait), anneau plein (en cours), cercle vide (à venir) */
+.e-frise { margin: 0; padding: 0; list-style: none; }
+/* Repère plafonné à 36 px : aux très grandes tailles de texte, la place va aux mots */
+.e-frise { --e-repere: min(1.5rem, 36px); }
+.e-frise-etape { position: relative; display: grid; grid-template-columns: var(--e-repere) minmax(0, 1fr); column-gap: var(--e-3); padding-bottom: 14px; }
+.e-frise-etape:last-child { padding-bottom: 0; }
+.e-frise-etape:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--e-repere) / 2 - 1px);
+  top: var(--e-repere);
+  bottom: 0;
+  width: 2px;
+  background: var(--e-bordure);
+}
+.e-frise-etape--faite:not(:last-child)::before { background: var(--e-sauge); }
+.e-frise-repere {
+  display: grid;
+  place-items: center;
+  width: var(--e-repere);
+  height: var(--e-repere);
+  border: 2px solid var(--e-texte-2);
+  border-radius: 50%;
+  background: var(--e-surface);
+  color: var(--e-surface);
+}
+.e-frise-repere .e-icone { width: 0.875rem; height: 0.875rem; stroke-width: 3; }
+.e-frise-etape--faite .e-frise-repere { border-color: var(--e-sauge-texte); background: var(--e-sauge-texte); }
+.e-frise-etape--en-cours .e-frise-repere { border-color: var(--e-cuivre); background: radial-gradient(circle, var(--e-cuivre) 0 34%, var(--e-surface) 36%); }
+.e-frise-texte { display: grid; gap: 1px; min-width: 0; }
+/* Titre plafonné à 32 px (« Embouteillage » tient alors sur la ligne) ; un mot trop long se coupe en dernier recours */
+.e-frise-titre { color: var(--e-texte); font: 650 min(1rem, 32px)/1.35 var(--e-police); overflow-wrap: anywhere; -webkit-hyphens: auto; hyphens: auto; }
+.e-frise-detail { color: var(--e-texte-2); font: 400 0.875rem/1.35 var(--e-police); overflow-wrap: anywhere; }
+.e-frise-etape--en-cours .e-frise-detail { color: var(--e-cuivre-texte); font-weight: 650; }
+.e-frise-etape--a-venir .e-frise-titre { color: var(--e-texte-2); font-weight: 500; }
+
+.e-caracteristiques-pied { margin: var(--e-3) 0 0; color: var(--e-texte-2); font: 400 0.875rem/1.4 var(--e-police); }
+.e-caracteristiques-pied .e-code { color: var(--e-texte); }
+
+/* Blocs de la fiche pas encore refaits (RAPT, étiquettes, recette, notes, sorties) : même cadre */
+.e-fiche > .bloc { margin: 0; border-color: var(--e-bordure); border-radius: var(--e-r-carte); background: var(--e-surface); box-shadow: var(--e-ombre); }
+.e-fiche > .actions-bas { margin: 0; }
+
+/* Barre du bas : côte à côte s'ils tiennent, l'un sous l'autre sinon (texte agrandi) */
+#barre-actions .e-btn { flex: 1 1 auto; min-height: 3.25rem; padding: 0 14px; font-size: 1rem; }
+
+/* Texte réservé à VoiceOver */
+.e-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ---------- Moins d'animations si l'iPhone le demande ---------- */
 

@@ -108,18 +108,26 @@ export function carteBrassin(b, { auj, seuil, href = '#' }) {
   const meta = [B.nomStyle(b.style), B.formaterDegre(b.abv), termine ? null : texteAge(b, auj)].filter(Boolean);
   const bilan = termine ? [pluriel(B.bues(b).length, 'bue'), pluriel(B.offertes(b).length, 'offerte')] : null;
   const etatStock = st === 'fermentation' ? 'attente' : s.total === 0 ? 'vide' : bas ? 'bas' : '';
+  // Badges toujours sur leur propre ligne, sous le code : le nom tombe à la même hauteur sur toutes les cartes à badge
+  const badges = [badgeStatut(b, st, auj), bas ? badge('stockBas', 'Stock bas') : ''].filter(Boolean);
+  // Brassin terminé sans bouteille : « Terminé » suffit, pas de grand « 0 » ; le nom prend toute la largeur
+  const sansStock = termine && s.total === 0;
   return html`<a class="e-carte${bas ? ' e-carte--alerte' : ''}${termine ? ' e-carte--terminee' : ''}" href="${href}">
-    <div class="e-carte-grille">
+    <div class="e-carte-grille${sansStock ? ' e-carte-grille--sans-stock' : ''}">
       <div class="e-carte-haut">
         <span class="e-code">${b.code}</span>
-        ${badgeStatut(b, st, auj)}${bas ? badge('stockBas', 'Stock bas') : ''}
+        ${badges.length ? html`<span class="e-badges">${badges}</span>` : ''}
       </div>
       <p class="e-carte-nom">${b.nom}</p>
-      <div class="e-carte-stock${etatStock ? ` e-carte-stock--${etatStock}` : ''}">${
-        st === 'fermentation'
-          ? html`${SYMBOLES.cuve}<span>en cuve</span>`
-          : html`<b>${s.total}</b><span>${s.total >= 2 ? 'bouteilles' : 'bouteille'}</span>`
-      }</div>
+      ${
+        sansStock
+          ? ''
+          : html`<div class="e-carte-stock${etatStock ? ` e-carte-stock--${etatStock}` : ''}">${
+              st === 'fermentation'
+                ? html`${SYMBOLES.cuve}<span>en cuve</span>`
+                : html`<b>${s.total}</b><span>${s.total >= 2 ? 'bouteilles' : 'bouteille'}</span>`
+            }</div>`
+      }
       ${points('e-carte-meta', meta)}
       ${bilan ? points('e-carte-meta e-carte-bilan', bilan) : ''}
       ${noteCompacte(b.note)}

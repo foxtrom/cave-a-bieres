@@ -226,7 +226,10 @@ html { font-size: 17px; }
   column-gap: var(--e-4);
   align-items: start;
 }
-.e-carte-haut { grid-area: haut; display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--e-2); margin-bottom: 6px; }
+/* Code, puis les badges sur leur propre ligne (quelle que soit leur longueur) */
+.e-carte-haut { grid-area: haut; display: grid; justify-items: start; gap: 6px; margin-bottom: 6px; }
+/* Brassin terminé sans bouteille : pas de colonne de stock, le nom prend toute la largeur */
+.e-carte-grille--sans-stock { grid-template-columns: minmax(0, 1fr); grid-template-areas: "haut" "nom" "meta" "bilan" "note"; }
 .e-carte-nom { grid-area: nom; margin: 0; font: 700 1.1875rem/1.25 var(--e-police); overflow-wrap: anywhere; }
 .e-carte-meta { grid-area: meta; margin: 3px 0 0; overflow: hidden; color: var(--e-texte-2); font: 400 0.875rem/1.4 var(--e-police); }
 .e-carte-bilan { grid-area: bilan; }

@@ -2064,7 +2064,7 @@ function vueReglages() {
     onglet: 'reglages',
     titre: 'Réglages',
     entete: enteteBarre({ titre: 'Réglages' }),
-    contenu: html`
+    contenu: html`<div class="e-page e-reglages">
       <section class="bloc">
         <h3>Apparence</h3>
         <div class="segments" role="radiogroup" aria-label="Thème">
@@ -2091,7 +2091,7 @@ function vueReglages() {
           <input type="url" data-reglage="raptRelais" value="${r.raptRelais}" placeholder="https://….workers.dev" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
         <label class="champ"><span class="libelle">Clé d’accès</span>
           <input type="password" data-reglage="raptCle" value="${r.raptCle}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
-        <button type="button" class="btn btn-large" data-action="tester-rapt">Tester la connexion</button>
+        <button type="button" class="e-btn e-btn--secondaire" data-action="tester-rapt">${SYMBOLES.connexion}Tester la connexion</button>
         <p class="aide" id="rapt-etat" aria-live="polite"></p>
       </section>
 
@@ -2100,10 +2100,10 @@ function vueReglages() {
         <p>${derniereSauvegarde ? `Dernier export : ${formaterDate(dateLocale(new Date(derniereSauvegarde)))}.` : 'Aucun export pour l’instant.'}</p>
         <p id="copie-etat">${texteEtatCopie()}</p>
         <p class="aide">Les données sont enregistrées sur ce téléphone. « Exporter » crée un fichier à enregistrer dans Fichiers ou iCloud Drive ; « Importer » restaure ce fichier. Quand le relais RAPT est réglé, l’appli y dépose aussi d’elle-même une copie (une par semaine, les 12 dernières gardées).</p>
-        <div class="pile-boutons">
-          <button type="button" class="btn btn-primaire" data-action="exporter">Exporter</button>
-          <button type="button" class="btn" data-action="importer">Importer</button>
-          <button type="button" class="btn" id="btn-copies-relais" data-action="copies-relais" ${relaisConfigure() ? '' : 'hidden'}>Copies du relais</button>
+        <div class="e-actions-liste">
+          <button type="button" class="e-menu-action" data-action="exporter">${SYMBOLES.exporter}<span><b>Exporter</b></span></button>
+          <button type="button" class="e-menu-action" data-action="importer">${SYMBOLES.importer}<span><b>Importer</b></span></button>
+          <button type="button" class="e-menu-action" id="btn-copies-relais" data-action="copies-relais" ${relaisConfigure() ? '' : 'hidden'}>${SYMBOLES.nuage}<span><b>Copies du relais</b></span></button>
         </div>
       </section>
 
@@ -2111,7 +2111,8 @@ function vueReglages() {
         <h3>À propos</h3>
         <p>Brasserie Ensen · Vence<br>Brassée avec l’eau de la Foux.</p>
         <p class="aide">Version <span id="version">…</span> · Stockage ${etat.persistant ? 'persistant' : 'standard'}</p>
-      </section>`,
+      </section>
+    </div>`,
     apres: afficherVersion,
   };
 }

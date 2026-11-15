@@ -1338,10 +1338,10 @@ function vueEtiquettes(b) {
   return {
     titre: `Étiquettes ${b.code}`,
     entete: enteteBarre({ retour: { href: lienBrassin(b), texte: b.code }, titre: 'Étiquettes' }),
-    contenu: html`
+    contenu: html`<div class="e-page e-etiquettes">
       <div class="apercu-etiquette" id="apercu-etiquette">${brut(E.etiquetteSvg(E.donneesEtiquette(b), '33 cl'))}</div>
       <p class="aide centre">Taille réelle : ${E.FORMATS_ETIQUETTE.map((f) => `${dimensionsEtiquette(f)} (${f.volume})`).join(' · ')}</p>
-      <form id="form-etiquettes" data-form="etiquettes" novalidate>
+      <form id="form-etiquettes" class="e-formulaire" data-form="etiquettes" novalidate>
         <fieldset>
           <legend>Textes de l’étiquette</legend>
           <label class="champ"><span class="libelle">Style <small>(écrit à la main)</small></span>
@@ -1372,8 +1372,9 @@ function vueEtiquettes(b) {
           <li>Sur papier ou feuilles d’étiquettes <strong>hydrosolubles</strong> A4 : elles partent à l’eau, sans laisser de colle sur la bouteille.</li>
           <li>Les étiquettes se touchent : une seule coupe entre deux, en suivant les repères des marges.</li>
         </ul>
-      </section>`,
-    actions: html`<button type="submit" form="form-etiquettes" class="btn btn-primaire btn-geant">${ICONES.fichier}Créer le PDF</button>`,
+      </section>
+    </div>`,
+    actions: html`<button type="submit" form="form-etiquettes" class="e-btn e-btn--principal">${SYMBOLES.fichier}Créer le PDF</button>`,
     apres: () => brancherEtiquettes(b),
   };
 }

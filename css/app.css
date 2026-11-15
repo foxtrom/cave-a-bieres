@@ -403,7 +403,7 @@ textarea:focus-visible {
   font-weight: 650;
   color: var(--texte-doux);
 }
-.segments input:checked + span { background: var(--surface); color: var(--accent); box-shadow: var(--ombre); }
+.segments input:checked + span { background: var(--e-segment-actif); color: var(--e-segment-texte); box-shadow: var(--ombre); }
 .segments input:focus-visible + span { outline: 2px solid var(--accent); }
 
 /* ---------- Recette importée (BeerXML) ---------- */
@@ -604,9 +604,9 @@ body.avec-actions { --decalage-message: 92px; }
   max-width: 616px;
   margin: 0 auto;
   padding: 10px 10px 10px 16px;
-  border: 1px solid rgb(255 255 255 / 0.08);
+  border: 1px solid var(--e-message-bord);
   border-radius: var(--e-r-champ);
-  background: #2b2420;
+  background: var(--e-message-fond);
   color: #f7ecd9;
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
   opacity: 0;
@@ -615,14 +615,14 @@ body.avec-actions { --decalage-message: 92px; }
   transition: opacity 0.2s, transform 0.2s, visibility 0s 0.2s;
 }
 #toast.visible { opacity: 1; transform: none; visibility: visible; transition: opacity 0.2s, transform 0.2s; }
-#toast p { flex: 1; margin: 0; font-size: 15px; }
+#toast p { flex: 1; margin: 0; font-size: 0.9375rem; } /* suit la taille du texte de l'iPhone */
 #toast button {
   min-height: 44px;
   padding: 8px 10px;
   border: 0;
   background: none;
   color: #f0a64e;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
 }
 

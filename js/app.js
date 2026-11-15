@@ -134,6 +134,7 @@ function afficher() {
   entete.classList.toggle('collant', !vue.marque);
   $('#vue').innerHTML = String(vue.contenu);
   $('#barre-actions').innerHTML = vue.actions ? String(vue.actions) : '';
+  ajusterBarre();
   document.body.classList.toggle('avec-actions', Boolean(vue.actions));
   document.body.classList.toggle('avec-onglets', Boolean(vue.onglet));
 
@@ -178,6 +179,14 @@ function enteteBarre({ retour = null, titre, droite = null }) {
     <h1>${titre}</h1>
     <div class="droite">${droite ?? ''}</div>
   </div>`;
+}
+
+/** Texte agrandi : quand les boutons de la barre du bas passent l'un sous l'autre, la barre se resserre (classe « empilee »). */
+function ajusterBarre() {
+  const barre = $('#barre-actions');
+  const boutons = [...barre.children];
+  barre.classList.remove('empilee');
+  barre.classList.toggle('empilee', boutons.length > 1 && boutons.at(-1).offsetTop > boutons[0].offsetTop);
 }
 
 function bannieres(auj) {
@@ -2788,7 +2797,10 @@ function installerEcouteurs() {
 
   // Hauteur réelle de la barre d'actions (elle grandit avec la taille du texte) : réservée sous la page.
   const barre = $('#barre-actions');
-  new ResizeObserver(() => document.body.style.setProperty('--hauteur-barre', `${barre.offsetHeight}px`)).observe(barre);
+  new ResizeObserver(() => {
+    document.body.style.setProperty('--hauteur-barre', `${barre.offsetHeight}px`);
+    requestAnimationFrame(ajusterBarre); // taille du texte ou largeur changée : les boutons s'empilent peut-être
+  }).observe(barre);
 
   const feuille = $('#feuille');
   feuille.addEventListener('click', (e) => {

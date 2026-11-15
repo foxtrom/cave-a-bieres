@@ -1880,9 +1880,9 @@ function vueCourses() {
     contenu: liste.length
       ? html`<div class="e-page">
           <section class="e-bloc e-courses" aria-label="Liste de courses"><ul class="e-liste">${triee.map((x) => ligneCourse(x, auj))}</ul></section>
-          <p class="e-aide">Cocher un achat ajoute sa quantité au stock. Les articles en stock bas ou périmés quittent la liste
+          <p class="e-aide e-aide--petit">Cocher un achat ajoute sa quantité au stock. Les articles en stock bas ou périmés quittent la liste
             dès que leur stock est corrigé : les toucher pour le modifier.</p>
-          <p class="e-aide">La cloche d’une ligne la retire de la pastille de l’onglet Stock, sans la retirer de la liste. La toucher à nouveau l’y remet.</p>
+          <p class="e-aide e-aide--petit">La cloche d’une ligne la retire de la pastille de l’onglet Stock, sans la retirer de la liste. La toucher à nouveau l’y remet.</p>
         </div>`
       : html`<div class="e-vide">
           ${SYMBOLES.panier}
@@ -1907,23 +1907,27 @@ function ligneCourse(x, auj) {
     const q = I.formaterQuantite(achat.quantite, achat.unite);
     return html`<li class="e-course${x.muet ? ' e-course--muette' : ''}">
       <button type="button" class="e-case" data-action="acheter" data-id="${achat.id}" aria-label="Acheté : ${achat.nom}"></button>
-      <span class="e-course-texte"><b>${achat.nom}</b>${q ? ` · ${q}` : ''}${achat.origine ? html`<small>pour ${achat.origine}</small>` : ''}</span>
+      <span class="e-course-texte"><span class="e-points"><span><b>${achat.nom}</b></span>${q ? html`<span class="e-insecable">${q}</span>` : ''}</span>${achat.origine ? html`<small>pour ${achat.origine}</small>` : ''}</span>
       ${boutonPastille(x)}
       <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="retirer-achat" data-id="${achat.id}">Retirer</button>
     </li>`;
   }
   const { article: a, raison } = x;
+  // Périmé : la date est dans le badge, comme dans l'écran Stock (pas de ligne en double)
   const detail =
     raison === 'perime'
-      ? `périmé le ${formaterDateCourte(a.peremption, auj)}`
+      ? ''
       : raison === 'bas'
         ? `reste ${I.formaterQuantite(a.quantite, a.unite) || '0'}, alerte sous ${I.formaterQuantite(a.seuil, a.unite) || '0'}`
         : 'plus rien en stock';
-  const libelle = I.RAISONS[raison].charAt(0).toUpperCase() + I.RAISONS[raison].slice(1);
+  const libelle =
+    raison === 'perime'
+      ? `Périmé le ${formaterDateCourte(a.peremption, auj)}`
+      : I.RAISONS[raison].charAt(0).toUpperCase() + I.RAISONS[raison].slice(1);
   return html`<li class="e-course${x.muet ? ' e-course--muette' : ''}"><button type="button" class="e-article" data-action="modifier-article" data-id="${a.id}">
     <span class="e-article-haut"><span class="e-article-nom">${a.nom}</span></span>
     <span class="e-badges">${badge(raison === 'perime' ? 'perime' : 'stockBas', libelle)}</span>
-    <span class="e-article-note">${detail}</span>
+    ${detail ? html`<span class="e-article-note">${detail}</span>` : ''}
   </button>${boutonPastille(x)}</li>`;
 }
 

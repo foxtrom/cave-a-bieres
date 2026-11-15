@@ -572,6 +572,7 @@ html { font-size: 17px; }
 .e-page { display: grid; gap: var(--e-3); }
 .e-page > * { min-width: 0; } /* un champ de saisie ne force pas la page à s'élargir quand le texte grandit */
 .e-aide { margin: 0; color: var(--e-texte-2); font: 400 0.875rem/1.45 var(--e-police); }
+.e-aide--petit { font-size: 0.8125rem; }
 
 /* Badges de péremption : dépassée (erreur) ou proche (alerte), avec l'icône du calendrier */
 .e-badge--perime { background: var(--e-erreur-fond); color: var(--e-erreur); }
@@ -678,14 +679,33 @@ html { font-size: 17px; }
 .e-article-quantite--vide { color: var(--e-texte-2); }
 .e-article-note { color: var(--e-texte-2); font: 400 0.8125rem/1.35 var(--e-police); overflow-wrap: anywhere; }
 
-/* Courses : case « acheté » de 44 px (cercle de 24 px dessiné dedans), cloche, « Retirer » */
-.e-course { display: flex; align-items: center; gap: var(--e-1); min-height: max(44px, 3.25rem); }
-.e-course > .e-article { flex: 1; min-width: 0; }
-.e-course-texte { flex: 1; min-width: 0; padding: var(--e-2) 0; font: 400 1rem/1.35 var(--e-police); overflow-wrap: anywhere; }
+/* Courses : une seule grille pour toutes les lignes (case · texte · cloche · « Retirer »),
+   partagée par la liste (subgrid) : les cloches et les « Retirer » sont alignés d'une ligne à l'autre.
+   Article ajouté d'office (stock bas, périmé) : pas de case ni de « Retirer », texte aligné sur les autres. */
+.e-courses > .e-liste { display: grid; grid-template-columns: 34px minmax(0, 1fr) 44px auto; column-gap: var(--e-1); }
+.e-course {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 34px minmax(0, 1fr) 44px auto; /* navigateurs sans subgrid */
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: max(44px, 3.25rem);
+}
+.e-course > .e-case { grid-column: 1; }
+.e-course > .e-course-texte { grid-column: 2; }
+.e-course > .e-cloche { grid-column: 3; }
+.e-course > .e-btn { grid-column: 4; }
+.e-course > .e-article { grid-column: 1 / 3; padding-left: calc(34px + var(--e-1)); }
+.e-course .e-article-nom { font-weight: 650; }
+.e-course-texte { min-width: 0; padding: var(--e-2) 0; overflow: hidden; font: 400 1rem/1.35 var(--e-police); overflow-wrap: anywhere; }
 .e-course-texte b { font-weight: 650; }
 .e-course-texte small { display: block; color: var(--e-texte-2); font-size: 0.8125rem; }
 .e-course--muette .e-course-texte b,
 .e-course--muette .e-article-nom { color: var(--e-texte-2); }
+/* Texte agrandi : « Retirer » passe sous le texte, qui garde toute la largeur */
+@container (max-width: 18rem) {
+  .e-course > .e-btn { grid-column: 2; grid-row: 2; justify-self: start; margin: -6px 0 var(--e-1) -10px; }
+}
 .e-case {
   appearance: none;
   flex: none;
@@ -721,7 +741,6 @@ html { font-size: 17px; }
 .e-cloche[aria-pressed="false"] { color: var(--e-texte-2); }
 .e-cloche:active { background: var(--e-cuivre-doux); }
 .e-cloche:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: -2px; }
-.e-course .e-btn { flex: none; }
 
 /* ---------- Formulaire d'un brassin (Ajouter, Modifier) ----------
    Les classes génériques (.champ, .libelle, .aide, .erreur…) servent aussi aux feuilles et aux

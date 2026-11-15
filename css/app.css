@@ -255,7 +255,6 @@ small { font-size: 0.8em; }
   border-top: 1px solid var(--bordure);
 }
 #barre-actions:empty { display: none; }
-#barre-actions .btn-geant { font-size: 17px; padding: 12px 14px; white-space: nowrap; }
 
 #onglets {
   display: grid;
@@ -456,7 +455,6 @@ textarea:focus-visible,
 /* ---------- Recette importée (BeerXML) ---------- */
 
 .recette-formulaire { margin-bottom: 20px; }
-.btn-import { border: 1.5px dashed var(--accent); background: transparent; color: var(--accent); }
 .recette-jointe {
   display: flex;
   flex-wrap: wrap;

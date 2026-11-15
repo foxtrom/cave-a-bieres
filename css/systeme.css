@@ -250,7 +250,7 @@ html { font-size: 17px; }
   justify-content: center;
   gap: var(--e-2);
   min-height: 3.25rem;
-  padding: 0 1.25rem;
+  padding: 8px 1.25rem; /* marge verticale : un libellé sur deux lignes ne touche pas les bords */
   border: 0;
   border-radius: var(--e-r-champ);
   background: transparent;
@@ -267,8 +267,32 @@ html { font-size: 17px; }
 .e-btn:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: 2px; }
 .e-btn--principal { background: var(--e-cuivre); color: var(--e-sur-cuivre); }
 .e-btn--principal:active { background: var(--e-cuivre-presse); }
-.e-btn--secondaire { color: var(--e-cuivre); box-shadow: inset 0 0 0 1.5px var(--e-cuivre); }
+.e-btn--secondaire { color: var(--e-cuivre); box-shadow: inset 0 0 0 1.5px currentColor; }
 .e-btn--secondaire:active { background: var(--e-cuivre-doux); }
+/* Discret : texte cuivre sans cadre (actions rares ou d'annulation), cible de 44 px au moins */
+.e-btn--discret { min-height: max(44px, 2.75rem); color: var(--e-cuivre); }
+.e-btn--discret:active { background: var(--e-cuivre-doux); }
+/* Suppression : contour rouge ; plein dans la fenêtre de confirmation */
+.e-btn--danger { color: var(--e-erreur); box-shadow: inset 0 0 0 1.5px currentColor; }
+.e-btn--danger:active { background: var(--e-erreur-fond); }
+#feuille .e-btn--danger[data-reponse] { background: var(--danger-fond); color: #fff; box-shadow: none; }
+/* Tailles et formes */
+.e-btn--large { width: 100%; }
+.e-btn--petit { min-height: max(44px, 2.75rem); padding: 6px 14px; border-radius: 999px; font-size: 0.9375rem; }
+.e-btn--discret.e-btn--petit { padding: 6px 10px; }
+.e-btn > .icone { width: 1.125em; height: 1.125em; }
+/* Sur un fond coloré (bannières) : cuivre foncé, lisible sur le vert et le bleu doux */
+.e-banniere .e-btn--secondaire,
+.banniere .e-btn--secondaire { color: var(--e-cuivre-texte); }
+/* « J'en prends une » : un grand bouton par format, le nombre restant en dessous */
+.e-btn--geant { display: grid; align-content: center; justify-items: center; gap: 2px; min-height: max(64px, 4rem); padding: 10px 1.25rem; font-size: 1.25rem; }
+/* Choix dans une liste (recette à importer) : nom, puis détail sur une 2e ligne */
+.e-btn--choix { flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 1.25rem; text-align: left; }
+/* « #feuille » : passe devant la taille des <small> des fenêtres */
+#feuille .e-btn--geant small { font: 500 0.8125rem/1.2 var(--e-police); opacity: 0.9; }
+#feuille .e-btn--choix small { color: var(--e-texte-2); font: 500 0.8125rem/1.3 var(--e-police); }
+/* Bouton carré collé à un champ (recalculer le code) : même fond que les champs */
+.e-btn--carre { flex: none; width: max(48px, 2.875rem); min-height: max(48px, 2.875rem); padding: 0; background: var(--e-surface-2); color: var(--e-cuivre); font-size: 1.25rem; }
 .e-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 /* Pleine largeur l'un sous l'autre sur iPhone (texte jamais coupé), côte à côte si la place le permet */
 .e-actions .e-btn { flex: 1 1 12rem; }
@@ -418,19 +442,6 @@ html { font-size: 17px; }
 /* Symbole dans la phrase : il la suit quand elle passe à la ligne */
 .e-banniere > a > .e-icone { display: inline-block; width: 1.15em; height: 1.15em; margin-right: 6px; vertical-align: -0.2em; }
 .e-banniere--discrete { background: var(--e-surface-2); color: var(--e-texte-2); }
-.e-banniere-bouton {
-  appearance: none;
-  min-height: 2.75rem;
-  padding: 0 16px;
-  border: 1.5px solid currentColor;
-  border-radius: 999px;
-  background: transparent;
-  color: inherit;
-  font: 650 0.9375rem/1 var(--e-police);
-  cursor: pointer;
-}
-.e-banniere-bouton--discret { border-color: var(--e-bordure); }
-.e-banniere-bouton:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: 2px; }
 
 /* ---------- États vides (cave vide, recherche sans résultat) ---------- */
 
@@ -528,8 +539,6 @@ html { font-size: 17px; }
 .e-fiche .compteur { font-size: 0.75rem; }
 .e-fiche .aide { font-size: 0.875rem; }
 .e-fiche .ligne-ajout { font-size: 0.875rem; }
-.e-fiche .btn-petit { min-height: max(44px, 2.5rem); font-size: 0.875rem; }
-.e-fiche .bloc h3 .btn-modifier { font-size: 0.8125rem; }
 .e-fiche textarea { font-size: max(16px, 1rem); }
 .e-fiche .lien-etiquettes-texte small { font-size: 0.8125rem; }
 .e-fiche .recette-titre strong { font-size: 1.0625rem; }
@@ -563,10 +572,6 @@ html { font-size: 17px; }
 .e-page { display: grid; gap: var(--e-3); }
 .e-page > * { min-width: 0; } /* un champ de saisie ne force pas la page à s'élargir quand le texte grandit */
 .e-aide { margin: 0; color: var(--e-texte-2); font: 400 0.875rem/1.45 var(--e-police); }
-
-/* Bouton discret : texte cuivre sans cadre (actions rares), cible de 44 px au moins */
-.e-btn--discret { min-height: max(44px, 2.75rem); color: var(--e-cuivre); }
-.e-btn--discret:active { background: var(--e-cuivre-doux); }
 
 /* Badges de péremption : dépassée (erreur) ou proche (alerte), avec l'icône du calendrier */
 .e-badge--perime { background: var(--e-erreur-fond); color: var(--e-erreur); }
@@ -716,7 +721,7 @@ html { font-size: 17px; }
 .e-cloche[aria-pressed="false"] { color: var(--e-texte-2); }
 .e-cloche:active { background: var(--e-cuivre-doux); }
 .e-cloche:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: -2px; }
-.e-course .btn-petit { flex: none; }
+.e-course .e-btn { flex: none; }
 
 /* ---------- Formulaire d'un brassin (Ajouter, Modifier) ----------
    Les classes génériques (.champ, .libelle, .aide, .erreur…) servent aussi aux feuilles et aux
@@ -767,15 +772,12 @@ html { font-size: 17px; }
   .e-formulaire .deux-colonnes { grid-template-columns: 1fr; }
 }
 .e-formulaire .champ-avec-bouton { gap: var(--e-2); }
-.e-formulaire .btn-carre { width: max(48px, 2.875rem); min-height: max(48px, 2.875rem); border: 0; background: var(--e-surface-2); color: var(--e-cuivre); font-size: 1.25rem; }
 .e-formulaire .champ-unite input { width: 5.5rem !important; }
 .e-formulaire .code { color: var(--e-texte); }
 /* Recette jointe : bloc cuivre doux */
 .e-formulaire .recette-jointe { gap: var(--e-3); padding: 14px var(--e-4); border-radius: var(--e-r-carte); background: var(--e-cuivre-doux); color: var(--e-texte); }
 .e-formulaire .recette-jointe .surtitre { color: var(--e-cuivre-texte); font-size: 0.75rem; }
 .e-formulaire .recette-jointe-texte strong { font-size: 1.0625rem; }
-.e-formulaire .btn-petit { font-size: 0.875rem; }
-.e-formulaire .btn-danger { min-height: max(48px, 3rem); border-radius: var(--e-r-champ); font-size: 1rem; }
 
 /* ---------- Réglages ----------
    Mêmes blocs, champs et lignes d'action que les autres écrans ; règles réservées à cet écran. */
@@ -815,7 +817,7 @@ html { font-size: 17px; }
 .e-etiquettes > .bloc { margin: 0; padding: var(--e-4) 18px; border-color: var(--e-bordure); border-radius: var(--e-r-carte); background: var(--e-surface); box-shadow: var(--e-ombre); }
 .e-etiquettes .bloc h3 { margin-bottom: var(--e-3); color: var(--e-texte-2); font: 650 0.8125rem/1.3 var(--e-police); letter-spacing: 0.05em; }
 .e-etiquettes .conseils ul { font: 400 0.9375rem/1.45 var(--e-police); }
-.e-etiquettes .e-formulaire .btn-petit { margin-bottom: var(--e-3); }
+.e-etiquettes .e-formulaire .e-btn--petit { margin-bottom: var(--e-3); }
 
 /* ---------- Fenêtres (feuilles qui montent du bas de l'écran) ----------
    Les 16 fenêtres de l'appli partagent ce cadre (#feuille) : titre, champs, boutons
@@ -846,16 +848,8 @@ html { font-size: 17px; }
 #feuille [aria-invalid="true"] { box-shadow: inset 0 0 0 1.5px var(--e-erreur); }
 #feuille .champ-unite input { width: 5.5rem !important; }
 #feuille .zone-tableau { font-size: max(16px, 0.9375rem); }
-/* Boutons : validation en cuivre plein, « Annuler » et les autres en contour cuivre, suppression en rouge */
-#feuille .btn { min-height: max(48px, 3.25rem); border-radius: var(--e-r-champ); font: 650 1.0625rem/1.2 var(--e-police); }
-#feuille .btn:not(.btn-primaire):not(.btn-danger):not(.btn-discret) { border-color: transparent; background: transparent; color: var(--e-cuivre); box-shadow: inset 0 0 0 1.5px var(--e-cuivre); }
-#feuille .btn-primaire:active { background: var(--e-cuivre-presse); border-color: var(--e-cuivre-presse); }
-#feuille .btn-petit { min-height: max(44px, 2.5rem); font-size: 0.875rem; }
-#feuille .btn-petit .icone { width: 1.125rem; height: 1.125rem; }
+/* Boutons (.e-btn) : validation en cuivre plein, « Annuler » et les autres en contour cuivre, suppression en rouge */
 #feuille .boutons-feuille { gap: var(--e-2); margin: var(--e-3) 0 var(--e-3); }
-/* « J'en prends une » : un grand bouton par format, le nombre restant en dessous */
-#feuille .btn-geant { display: grid; justify-items: center; gap: 2px; min-height: max(64px, 4rem); font-size: 1.25rem; }
-#feuille .btn-geant small { font: 500 0.8125rem/1.2 var(--e-police); opacity: 0.9; }
 #feuille .pile-boutons { gap: var(--e-2); }
 /* Choix (format, recette, Pill), listes et lignes */
 #feuille .segments { border-radius: var(--e-r-champ); }
@@ -880,7 +874,6 @@ html { font-size: 17px; }
   .e-lien-courses:active,
   .e-carte:active,
   .e-btn:active,
-  .btn:active,
   .lien-etiquettes:active { transform: none; }
   #feuille[open] { animation: none; } /* la fenêtre apparaît sans glisser */
 }

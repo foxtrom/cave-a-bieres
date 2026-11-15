@@ -182,48 +182,7 @@ small { font-size: 0.8em; }
   color: var(--info);
 }
 
-/* ---------- Boutons ---------- */
-
-.btn {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 52px;
-  padding: 12px 18px;
-  border: 1px solid var(--bordure);
-  border-radius: var(--e-r-champ);
-  background: var(--surface);
-  color: var(--texte);
-  font-weight: 650;
-  text-decoration: none;
-  text-align: center;
-  line-height: 1.2;
-}
-.btn:active { transform: scale(0.98); }
-.btn:disabled { opacity: 0.45; }
-.btn-primaire { background: var(--accent); border-color: var(--accent); color: var(--accent-texte); }
-.btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
-.feuille-contenu .btn-danger[data-reponse] { background: var(--danger-fond); border-color: var(--danger-fond); color: #fff; }
-.btn-discret { background: transparent; border-color: transparent; color: var(--texte-doux); }
-.btn-large { width: 100%; }
-.btn-geant { min-height: 60px; font-size: 18px; flex: 1 1 auto; }
-.btn-geant small { display: block; font-weight: 500; opacity: 0.85; }
-.btn-carre { width: 52px; padding: 0; font-size: 22px; flex: none; }
-
-.btn-petit {
-  appearance: none;
-  min-height: 44px;
-  padding: 8px 14px;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  background: transparent;
-  color: inherit;
-  font-size: 15px;
-  font-weight: 650;
-}
-.btn-petit.btn-discret { border-color: var(--bordure); color: var(--texte-doux); }
+/* ---------- Boutons : .e-btn (css/systeme.css) ; ici, leur placement ---------- */
 
 .pile-boutons { display: grid; gap: 10px; }
 .bloc .pile-boutons { margin-top: 14px; }
@@ -309,7 +268,7 @@ small { font-size: 0.8em; }
 
 .vide { text-align: center; padding: 40px 16px; color: var(--texte-doux); }
 .vide strong { color: var(--texte); font-size: 19px; }
-.vide .btn { margin-top: 16px; }
+.vide .e-btn { margin-top: 16px; }
 
 /* ---------- Fiche ---------- */
 
@@ -334,9 +293,6 @@ small { font-size: 0.8em; }
 }
 .bloc h3 .btn-modifier {
   margin-left: auto;
-  min-height: 44px;
-  padding: 0 14px;
-  font-size: 14px;
   letter-spacing: 0;
   text-transform: none;
 }
@@ -415,9 +371,7 @@ input[type="date"] { line-height: 1.4; }
 input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible,
-.btn:focus-visible,
-.btn-petit:focus-visible {
+textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -475,8 +429,6 @@ textarea:focus-visible,
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.btn-choix { flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
-.btn-choix small { font-weight: 500; color: var(--texte-doux); }
 
 .recette-titre { display: grid; gap: 2px; margin-bottom: 4px; }
 .recette-titre strong { font-size: 18px; line-height: 1.25; }
@@ -596,8 +548,7 @@ textarea:focus-visible,
 
 .champ-tableau { margin: 14px 0 8px; }
 .zone-tableau { min-height: 140px; font-size: 16px; line-height: 1.5; white-space: pre; overflow-x: auto; tab-size: 4; }
-.feuille-contenu .btn-petit { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 8px; }
-.feuille-contenu .btn-petit .icone { width: 18px; height: 18px; }
+.boutons-import .e-btn { margin: 4px 0 8px; }
 .apercu-import { margin-top: 8px; }
 .apercu-import .liste { margin-bottom: 10px; }
 .remarque-import { color: var(--alerte); }
@@ -605,7 +556,7 @@ textarea:focus-visible,
 .liste-copies { display: grid; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
 .liste-copies li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 10px 12px; border: 1px solid var(--bordure); border-radius: var(--e-r-champ); }
 .liste-copies small { display: block; color: var(--texte-doux); font-size: 13px; }
-.liste-copies .btn-petit { flex: none; margin: 0; }
+.liste-copies .e-btn { flex: none; margin: 0; }
 
 .ligne-deduction { margin-bottom: 14px; }
 .ligne-deduction .libelle small { font-weight: 500; color: var(--texte-doux); }

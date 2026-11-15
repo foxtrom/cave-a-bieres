@@ -187,15 +187,15 @@ function bannieres(auj) {
     const quand = B.datePrete(b) === auj ? 'depuis aujourd’hui' : `depuis le ${formaterDateCourte(B.datePrete(b), auj)}`;
     liste.push(html`<div class="e-banniere e-banniere--ok" role="status">
       <a href="${lienBrassin(b)}">${SYMBOLES.prete}<strong>${b.code} · ${b.nom}</strong> est prête à boire ${quand} !</a>
-      <button type="button" class="e-banniere-bouton" data-action="prete-vue" data-id="${b.id}">OK</button>
+      <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="prete-vue" data-id="${b.id}">OK</button>
     </div>`);
   }
   const rappel = rappelSauvegarde(etat.donnees, auj);
   if (rappel) {
     liste.push(html`<div class="e-banniere e-banniere--discrete">
       <span>${rappel.jamais ? 'Aucune sauvegarde exportée pour l’instant.' : `Dernière sauvegarde il y a ${rappel.jours} jours.`}</span>
-      <button type="button" class="e-banniere-bouton" data-action="exporter">Exporter</button>
-      <button type="button" class="e-banniere-bouton e-banniere-bouton--discret" data-action="reporter-rappel">Plus tard</button>
+      <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="exporter">Exporter</button>
+      <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="reporter-rappel">Plus tard</button>
     </div>`);
   }
   return liste;
@@ -371,9 +371,9 @@ function vueFiche(b) {
       <div class="actions-bas">
         ${
           b.archive
-            ? html`<button type="button" class="btn btn-large" data-action="desarchiver">Remettre en cave</button>`
+            ? html`<button type="button" class="e-btn e-btn--secondaire e-btn--large" data-action="desarchiver">Remettre en cave</button>`
             : st !== 'historique'
-              ? html`<button type="button" class="btn btn-large btn-discret" data-action="archiver">Archiver ce brassin</button>`
+              ? html`<button type="button" class="e-btn e-btn--discret e-btn--large" data-action="archiver">Archiver ce brassin</button>`
               : ''
         }
       </div>
@@ -495,7 +495,7 @@ function blocSuivi(b, auj) {
       ${
         relaisConfigure()
           ? html`<p class="aide">Densité, température et degré suivis pendant la fermentation, avec la courbe.</p>
-            <button type="button" class="btn btn-large" data-action="suivre-pill">Suivre avec une RAPT Pill</button>`
+            <button type="button" class="e-btn e-btn--secondaire e-btn--large" data-action="suivre-pill">Suivre avec une RAPT Pill</button>`
           : html`<p class="aide">Pour suivre la densité avec une RAPT Pill, configurer le relais dans <a href="#/reglages">Réglages</a>.</p>`
       }
     </section>`;
@@ -524,7 +524,7 @@ function blocSuivi(b, auj) {
     <h3>RAPT Pill · ${f.pillNom || 'Pill'}
       ${
         actif
-          ? html`<button type="button" class="btn-petit btn-discret btn-modifier" data-action="actualiser-pill" ${enCours ? 'disabled' : ''}>${enCours ? 'Lecture…' : 'Actualiser'}</button>`
+          ? html`<button type="button" class="e-btn e-btn--secondaire e-btn--petit btn-modifier" data-action="actualiser-pill" ${enCours ? 'disabled' : ''}>${enCours ? 'Lecture…' : 'Actualiser'}</button>`
           : ''
       }</h3>
     ${
@@ -554,10 +554,10 @@ function blocSuivi(b, auj) {
     ${courbeSuivi(f, a)}
     ${tableauSuivi(f)}
     <div class="actions-suivi">
-      ${degreDifferent && (a.stable || !enFermentation) ? html`<button type="button" class="btn-petit" data-action="utiliser-degre">Noter ${fr1(a.abv)} % comme degré du brassin</button>` : ''}
-      ${d ? html`<button type="button" class="btn-petit btn-discret" data-action="modifier-di">Densité initiale${a.di ? ` : ${R.formaterDensite(a.di.valeur)} (${SOURCES_DI[a.di.source]})` : ''}</button>` : ''}
-      ${actif ? html`<button type="button" class="btn-petit btn-discret" data-action="arreter-suivi">Arrêter le suivi</button>` : ''}
-      ${enFermentation && f.fin ? html`<button type="button" class="btn-petit" data-action="reprendre-suivi">Reprendre le suivi</button>` : ''}
+      ${degreDifferent && (a.stable || !enFermentation) ? html`<button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="utiliser-degre">Noter ${fr1(a.abv)} % comme degré du brassin</button>` : ''}
+      ${d ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="modifier-di">Densité initiale${a.di ? ` : ${R.formaterDensite(a.di.valeur)} (${SOURCES_DI[a.di.source]})` : ''}</button>` : ''}
+      ${actif ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="arreter-suivi">Arrêter le suivi</button>` : ''}
+      ${enFermentation && f.fin ? html`<button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="reprendre-suivi">Reprendre le suivi</button>` : ''}
     </div>
   </section>`;
 }
@@ -697,13 +697,13 @@ async function ouvrirSuiviPill() {
   } catch (erreur) {
     if (!$('#feuille').open) return;
     ouvrirFeuille(html`<div class="feuille-contenu">${titre}<p class="erreur">${erreur.message}</p>
-      <div class="boutons-feuille"><button type="button" class="btn" data-action="fermer-feuille">Fermer</button></div></div>`);
+      <div class="boutons-feuille"><button type="button" class="e-btn e-btn--secondaire" data-action="fermer-feuille">Fermer</button></div></div>`);
     return;
   }
   if (!$('#feuille').open) return; // feuille refermée pendant la recherche
   if (!pills.length) {
     ouvrirFeuille(html`<div class="feuille-contenu">${titre}<p>${AUCUNE_PILL}</p>
-      <div class="boutons-feuille"><button type="button" class="btn" data-action="fermer-feuille">Fermer</button></div></div>`);
+      <div class="boutons-feuille"><button type="button" class="e-btn e-btn--secondaire" data-action="fermer-feuille">Fermer</button></div></div>`);
     return;
   }
   const auj = aujourdhui();
@@ -917,13 +917,13 @@ function stockRecette(b) {
     const le = formaterDateCourte(dateLocale(new Date(b.deduction.le)), aujourdhui());
     return html`<div class="stock-recette">
       <p>Ingrédients déduits du stock le ${le}.</p>
-      <button type="button" class="btn-petit btn-discret" data-action="remettre-ingredients">Remettre en stock</button>
+      <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="remettre-ingredients">Remettre en stock</button>
     </div>`;
   }
   if (!inventaire.articles.some((a) => a.categorie !== 'materiel')) return '';
   return html`<div class="stock-recette">
     <p>${resumeManques(I.verifierRecette(inventaire.articles, b.recette))}</p>
-    <button type="button" class="btn-petit" data-action="deduire-ingredients">Déduire du stock…</button>
+    <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="deduire-ingredients">Déduire du stock…</button>
   </div>`;
 }
 
@@ -953,7 +953,7 @@ function ligneDon(m, auj) {
 function listeBues(bues, auj) {
   const ligne = (m) => html`<li class="ligne">
     <span>${formaterDateCourte(m.date, auj)} · ${B.nomFormat(m.format)}</span>
-    <button type="button" class="btn-petit btn-discret" data-action="annuler-mouvement" data-id="${m.id}"
+    <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="annuler-mouvement" data-id="${m.id}"
       aria-label="Annuler la sortie du ${formaterDateCourte(m.date, auj)}">Annuler</button>
   </li>`;
   const recentes = bues.slice(0, 5);
@@ -1034,7 +1034,7 @@ function vueFormulaire(b) {
           <div class="champ-avec-bouton">
             <input id="champ-code" name="code" value="${code}" data-auto="${creation ? '1' : '0'}"
               autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off">
-            <button type="button" class="btn btn-carre" data-action="regenerer-code" aria-label="Recalculer le code" title="Recalculer le code">↻</button>
+            <button type="button" class="e-btn e-btn--carre" data-action="regenerer-code" aria-label="Recalculer le code" title="Recalculer le code">↻</button>
           </div>
           <p class="aide">Calculé d’après le style et la date de brassage. Sur l’étiquette : <span class="code" id="code-etiquette">${B.codeEtiquette(code)}</span></p>
         </div>
@@ -1071,7 +1071,7 @@ function vueFormulaire(b) {
         </label>
       </fieldset>
 
-      ${creation ? '' : html`<button type="button" class="btn btn-large btn-danger" data-action="supprimer">Supprimer ce brassin</button>`}
+      ${creation ? '' : html`<button type="button" class="e-btn e-btn--danger e-btn--large" data-action="supprimer">Supprimer ce brassin</button>`}
     </form>`,
     actions: html`<button type="submit" form="form-brassin" class="e-btn e-btn--principal">Enregistrer</button>`,
     apres: () => brancherFormulaire(b),
@@ -1216,8 +1216,8 @@ function blocRecetteFormulaire(recette) {
       }
     </div>
     <div class="recette-jointe-boutons">
-      <button type="button" class="btn-petit" data-action="importer-recette">Remplacer</button>
-      <button type="button" class="btn-petit btn-discret" data-action="retirer-recette">Retirer</button>
+      <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="importer-recette">Remplacer</button>
+      <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="retirer-recette">Retirer</button>
     </div>
   </div>`;
 }
@@ -1249,11 +1249,11 @@ function choisirRecette(recettes) {
       <p>Ce fichier contient ${recettes.length} recettes.</p>
       <div class="pile-boutons">
         ${recettes.map(
-          (r, i) => html`<button type="button" class="btn btn-large btn-choix" data-choix="${i}">
+          (r, i) => html`<button type="button" class="e-btn e-btn--secondaire e-btn--large e-btn--choix" data-choix="${i}">
             <span>${r.nom || 'Sans nom'}</span><small>${[r.style, B.formaterDegre(r.abv)].filter(Boolean).join(' · ')}</small>
           </button>`,
         )}
-        <button type="button" class="btn btn-large btn-discret" data-choix="">Annuler</button>
+        <button type="button" class="e-btn e-btn--discret e-btn--large" data-choix="">Annuler</button>
       </div>
     </div>`);
     const surFermeture = () => resoudre(null);
@@ -1352,7 +1352,7 @@ function vueEtiquettes(b) {
             <input name="houblons" value="${textes.houblons}" placeholder="Magnum, Sabro…" autocomplete="off" autocapitalize="words"></label>
           <p class="aide">Le nom, le degré, l’IBU et l’EBC viennent de la fiche du brassin (« Modifier »).
             ${embouteille ? '' : 'La date d’embouteillage s’ajoutera après « Embouteiller ».'}</p>
-          ${b.etiquette ? html`<button type="button" class="btn-petit btn-discret" data-action="etiquette-textes-proposes">Revenir aux textes proposés</button>` : ''}
+          ${b.etiquette ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="etiquette-textes-proposes">Revenir aux textes proposés</button>` : ''}
         </fieldset>
         <fieldset>
           <legend>Nombre d’étiquettes</legend>
@@ -1497,7 +1497,7 @@ function vueStock() {
             <h2 class="e-titre-section">${groupe.nom} <span class="e-compteur">${groupe.articles.length}</span></h2>
             ${
               I.estCategorieAjoutee(groupe.code)
-                ? html`<button type="button" class="btn-petit btn-discret" data-action="modifier-categorie" data-code="${groupe.code}">Modifier</button>`
+                ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="modifier-categorie" data-code="${groupe.code}">Modifier</button>`
                 : ''
             }
           </div>
@@ -1565,7 +1565,7 @@ function ouvrirArticle(bouton) {
     <label class="champ"><span class="libelle">Remarque</span>
       <input name="note" value="${v.note ?? ''}" placeholder="Ex. sachets de 11,5 g, pesé…" autocomplete="off" autocapitalize="sentences"></label>
     ${boutonsFeuille(a ? 'Enregistrer' : 'Ajouter')}
-    ${a ? html`<button type="button" class="btn btn-large btn-danger" data-action="supprimer-article" data-id="${a.id}">Supprimer l’article</button>` : ''}
+    ${a ? html`<button type="button" class="e-btn e-btn--danger e-btn--large" data-action="supprimer-article" data-id="${a.id}">Supprimer l’article</button>` : ''}
   </form>`);
   const form = feuille.querySelector('form');
   form.elements.categorie.addEventListener('change', () => {
@@ -1642,7 +1642,7 @@ function ouvrirCategorie(bouton) {
     ${boutonsFeuille(c ? 'Enregistrer' : 'Ajouter')}
     ${
       c
-        ? html`<button type="button" class="btn btn-large btn-danger" data-action="supprimer-categorie" data-code="${c.code}">Supprimer la catégorie</button>
+        ? html`<button type="button" class="e-btn e-btn--danger e-btn--large" data-action="supprimer-categorie" data-code="${c.code}">Supprimer la catégorie</button>
           ${
             nombre
               ? html`<p class="aide">${nombre >= 2 ? `Ses ${nombre} articles passeront` : 'Son article passera'} dans « Autres ingrédients ».</p>`
@@ -1698,8 +1698,8 @@ function ouvrirImportStock() {
       Un article déjà en stock sous le même nom prend la quantité du tableau.</p>
     <p class="aide">Le modèle contient votre stock actuel dans ces colonnes : le modifier dans Excel ou Numbers, puis l’importer ici.</p>
     <div class="boutons-import">
-      <button type="button" class="btn-petit" data-action="modele-stock">${ICONES.fichier}Télécharger le modèle</button>
-      <button type="button" class="btn-petit" data-action="fichier-stock">${ICONES.fichier}Choisir un fichier…</button>
+      <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="modele-stock">${ICONES.fichier}Télécharger le modèle</button>
+      <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="fichier-stock">${ICONES.fichier}Choisir un fichier…</button>
     </div>
     <label class="champ champ-tableau"><span class="cache">Tableau à importer</span>
       <textarea name="tableau" class="zone-tableau" rows="6" wrap="off" spellcheck="false" autocapitalize="off" autocomplete="off"
@@ -1851,8 +1851,8 @@ function ouvrirVerification(recette) {
     <p>${manques ? `Il manque ${pluriel(manques, 'ingrédient')} pour ce brassin.` : 'Tout est en stock pour ce brassin.'}</p>
     <ul class="liste">${lignes.map(ligneVerification)}</ul>
     <div class="boutons-feuille">
-      <button type="button" class="btn" data-action="fermer-feuille">Fermer</button>
-      ${manques ? html`<button type="button" class="btn btn-primaire" data-action="ajouter-manques">Ajouter aux courses</button>` : ''}
+      <button type="button" class="e-btn e-btn--secondaire" data-action="fermer-feuille">Fermer</button>
+      ${manques ? html`<button type="button" class="e-btn e-btn--principal" data-action="ajouter-manques">Ajouter aux courses</button>` : ''}
     </div>
   </div>`);
 }
@@ -1909,7 +1909,7 @@ function ligneCourse(x, auj) {
       <button type="button" class="e-case" data-action="acheter" data-id="${achat.id}" aria-label="Acheté : ${achat.nom}"></button>
       <span class="e-course-texte"><b>${achat.nom}</b>${q ? ` · ${q}` : ''}${achat.origine ? html`<small>pour ${achat.origine}</small>` : ''}</span>
       ${boutonPastille(x)}
-      <button type="button" class="btn-petit btn-discret" data-action="retirer-achat" data-id="${achat.id}">Retirer</button>
+      <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="retirer-achat" data-id="${achat.id}">Retirer</button>
     </li>`;
   }
   const { article: a, raison } = x;
@@ -2136,7 +2136,7 @@ function vueIntrouvable(code) {
     entete: enteteBarre({ retour: { href: '#/', texte: 'Cave' }, titre: 'Introuvable' }),
     contenu: html`<div class="vide">
       <p>${code ? html`Aucun brassin avec le code <strong>${code}</strong>.` : 'Cette page n’existe pas.'}</p>
-      <a class="btn" href="#/">Retour à la cave</a>
+      <a class="e-btn e-btn--secondaire" href="#/">Retour à la cave</a>
     </div>`,
   };
 }
@@ -2187,10 +2187,10 @@ function ouvrirChoixFormat(b, disponibles) {
     <h2 tabindex="-1" autofocus>J’en prends une</h2>
     <div class="pile-boutons">
       ${disponibles.map(
-        (f) => html`<button type="button" class="btn btn-primaire btn-geant" data-action="prendre" data-format="${f}">
+        (f) => html`<button type="button" class="e-btn e-btn--principal e-btn--geant" data-action="prendre" data-format="${f}">
           ${B.nomFormat(f)}<small>${pluriel(b.bouteilles[f].restant, 'restante')}</small></button>`,
       )}
-      <button type="button" class="btn btn-large" data-action="fermer-feuille">Annuler</button>
+      <button type="button" class="e-btn e-btn--secondaire e-btn--large" data-action="fermer-feuille">Annuler</button>
     </div>
   </div>`);
 }
@@ -2203,8 +2203,8 @@ function erreurFeuille(form, message) {
 
 const boutonsFeuille = (valider) => html`<p class="erreur" data-erreur hidden></p>
   <div class="boutons-feuille">
-    <button type="button" class="btn" data-action="fermer-feuille">Annuler</button>
-    <button type="submit" class="btn btn-primaire">${valider}</button>
+    <button type="button" class="e-btn e-btn--secondaire" data-action="fermer-feuille">Annuler</button>
+    <button type="submit" class="e-btn e-btn--principal">${valider}</button>
   </div>`;
 
 function ouvrirOffrir() {
@@ -2257,7 +2257,7 @@ function ouvrirDon(bouton) {
     <label class="champ"><span class="libelle">Son avis</span><textarea name="avis" rows="3">${m.avis}</textarea></label>
     <label class="champ"><span class="libelle">Date</span><input type="date" name="date" value="${m.date}"></label>
     ${boutonsFeuille('Enregistrer')}
-    <button type="button" class="btn btn-large btn-danger" data-action="supprimer-don" data-id="${m.id}">Annuler ce don (remettre en stock)</button>
+    <button type="button" class="e-btn e-btn--danger e-btn--large" data-action="supprimer-don" data-id="${m.id}">Annuler ce don (remettre en stock)</button>
   </form>`);
 }
 
@@ -2587,7 +2587,7 @@ function afficherEtatCopie() {
 /** Feuille « Copies du relais » : copies gardées, chacune restaurable. */
 async function ouvrirCopiesRelais() {
   const titre = html`<h2 tabindex="-1" autofocus>Copies du relais</h2>`;
-  const fermer = html`<div class="boutons-feuille"><button type="button" class="btn" data-action="fermer-feuille">Fermer</button></div>`;
+  const fermer = html`<div class="boutons-feuille"><button type="button" class="e-btn e-btn--secondaire" data-action="fermer-feuille">Fermer</button></div>`;
   ouvrirFeuille(html`<div class="feuille-contenu">${titre}<p>Lecture des copies…</p></div>`);
   let copies;
   try {
@@ -2602,7 +2602,7 @@ async function ouvrirCopiesRelais() {
     const details = [c.le ? `copie ${momentLisible(c.le, auj)}` : '', pluriel(c.brassins ?? 0, 'brassin'), c.articles ? pluriel(c.articles, 'article') : ''];
     return html`<li>
       <span><strong>Semaine du ${formaterDateCourte(c.semaine, auj)}</strong><small>${details.filter(Boolean).join(' · ')}</small></span>
-      <button type="button" class="btn-petit" data-action="restaurer-copie" data-semaine="${c.semaine}">Restaurer</button>
+      <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="restaurer-copie" data-semaine="${c.semaine}">Restaurer</button>
     </li>`;
   };
   ouvrirFeuille(html`<div class="feuille-contenu">${titre}
@@ -2823,7 +2823,7 @@ function enregistrerServiceWorker() {
         if (!inscription.waiting || !navigator.serviceWorker.controller) return;
         const zone = $('#maj');
         zone.innerHTML = String(html`<span>Une nouvelle version est disponible.</span>
-          <button type="button" class="btn-petit">Mettre à jour</button>`);
+          <button type="button" class="e-btn e-btn--secondaire e-btn--petit">Mettre à jour</button>`);
         zone.hidden = false;
         zone.querySelector('button').addEventListener('click', () => {
           miseAJourDemandee = true;

@@ -146,8 +146,8 @@ export function confirmer({ titre, message, ok = 'Confirmer', danger = false }) 
       <h2 tabindex="-1" autofocus>${titre}</h2>
       <p>${message}</p>
       <div class="boutons-feuille">
-        <button type="button" class="btn" data-reponse="non">Annuler</button>
-        <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primaire'}" data-reponse="oui">${ok}</button>
+        <button type="button" class="e-btn e-btn--secondaire" data-reponse="non">Annuler</button>
+        <button type="button" class="e-btn ${danger ? 'e-btn--danger' : 'e-btn--principal'}" data-reponse="oui">${ok}</button>
       </div>
     </div>`);
     const surFermeture = () => resoudre(false);

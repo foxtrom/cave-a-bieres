@@ -1007,7 +1007,7 @@ function vueFormulaire(b) {
       retour: { href: creation ? '#/' : lienBrassin(b), texte: 'Annuler' },
       titre: creation ? 'Nouveau brassin' : 'Modifier',
     }),
-    contenu: html`<form id="form-brassin" data-form="brassin" novalidate>
+    contenu: html`<form id="form-brassin" class="e-formulaire" data-form="brassin" novalidate>
       <div id="recette-formulaire" class="recette-formulaire">${blocRecetteFormulaire(v.recette)}</div>
       <fieldset>
         <legend>Le brassin</legend>
@@ -1073,7 +1073,7 @@ function vueFormulaire(b) {
 
       ${creation ? '' : html`<button type="button" class="btn btn-large btn-danger" data-action="supprimer">Supprimer ce brassin</button>`}
     </form>`,
-    actions: html`<button type="submit" form="form-brassin" class="btn btn-primaire btn-geant">Enregistrer</button>`,
+    actions: html`<button type="submit" form="form-brassin" class="e-btn e-btn--principal">Enregistrer</button>`,
     apres: () => brancherFormulaire(b),
   };
 }
@@ -1199,8 +1199,10 @@ function enChamp(n) {
 
 function blocRecetteFormulaire(recette) {
   if (!recette) {
-    return html`<button type="button" class="btn btn-large btn-import" data-action="importer-recette">${ICONES.fichier}Importer une recette Grainfather</button>
-      <p class="aide">Fichier BeerXML (.xml) exporté depuis Grainfather. Le nom, le style, le degré, l’IBU, l’EBC, les malts, les houblons et la levure sont repris de la recette.</p>`;
+    return html`<section class="e-bloc e-menu" aria-label="Recette">
+      <button type="button" class="e-menu-action" data-action="importer-recette">${SYMBOLES.fichier}<span><b>Importer une recette Grainfather</b>
+        <small>Fichier BeerXML (.xml) exporté depuis Grainfather. Le nom, le style, le degré, l’IBU, l’EBC, les malts, les houblons et la levure sont repris de la recette.</small></span></button>
+    </section>`;
   }
   return html`<div class="recette-jointe">
     <div class="recette-jointe-texte">

@@ -717,6 +717,63 @@ html { font-size: 17px; }
 .e-cloche:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: -2px; }
 .e-course .btn-petit { flex: none; }
 
+/* ---------- Formulaire d'un brassin (Ajouter, Modifier) ----------
+   Les classes génériques (.champ, .libelle, .aide, .erreur…) servent aussi aux feuilles et aux
+   Réglages : ces règles ne valent que dans ce formulaire. */
+
+.e-formulaire { container-type: inline-size; display: grid; gap: var(--e-3); font-size: 1rem; }
+.e-formulaire .recette-formulaire { margin: 0; }
+.e-formulaire fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: var(--e-4) 18px 2px;
+  border: 1px solid var(--e-bordure);
+  border-radius: var(--e-r-carte);
+  background: var(--e-surface);
+  box-shadow: var(--e-ombre);
+}
+/* Titre de section à l'intérieur du bloc (et non sur sa bordure) */
+.e-formulaire legend { float: left; width: 100%; margin: 0 0 var(--e-3); padding: 0; color: var(--e-texte-2); font: 650 0.8125rem/1.3 var(--e-police); letter-spacing: 0.05em; text-transform: uppercase; }
+.e-formulaire legend + * { clear: both; }
+.e-formulaire .champ { margin-bottom: var(--e-4); }
+.e-formulaire .libelle { margin-bottom: 6px; color: var(--e-texte); font: 650 0.875rem/1.3 var(--e-police); }
+/* Champs remplis, sans bordure, comme la recherche de la Cave ; 16 px au moins : l'iPhone ne zoome pas */
+.e-formulaire input:not([type="radio"]):not([type="checkbox"]),
+.e-formulaire select,
+.e-formulaire textarea { min-height: max(48px, 2.875rem); border-color: transparent; background-color: var(--e-surface-2); font-size: max(16px, 1rem); }
+.e-formulaire input:focus-visible,
+.e-formulaire select:focus-visible,
+.e-formulaire textarea:focus-visible { background-color: var(--e-surface); outline: 2px solid var(--e-cuivre); outline-offset: 1px; }
+.e-formulaire ::placeholder { color: var(--e-texte-2); opacity: 1; } /* 4,7:1 sur le fond des champs */
+.e-formulaire [aria-invalid="true"] { box-shadow: inset 0 0 0 1.5px var(--e-erreur); }
+.e-formulaire .aide { display: block; margin: 6px 0 0; color: var(--e-texte-2); font: 400 0.8125rem/1.4 var(--e-police); }
+/* Erreur : icône d'alerte + texte, jamais la couleur seule */
+.e-formulaire .erreur { display: flex; align-items: flex-start; gap: 6px; margin: 6px 0 0; color: var(--e-erreur); font: 650 0.875rem/1.35 var(--e-police); }
+.e-formulaire .erreur::before {
+  content: "";
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  margin-top: 0.1em;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 4.6 2.9 17.4a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.6a2 2 0 0 0-3.4 0z'/%3E%3Cpath d='M12 9.5v4M12 17h.01'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 4.6 2.9 17.4a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.6a2 2 0 0 0-3.4 0z'/%3E%3Cpath d='M12 9.5v4M12 17h.01'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.e-formulaire .deux-colonnes { gap: 0 var(--e-3); }
+@container (max-width: 20rem) {
+  .e-formulaire .deux-colonnes { grid-template-columns: 1fr; }
+}
+.e-formulaire .champ-avec-bouton { gap: var(--e-2); }
+.e-formulaire .btn-carre { width: max(48px, 2.875rem); min-height: max(48px, 2.875rem); border: 0; background: var(--e-surface-2); color: var(--e-cuivre); font-size: 1.25rem; }
+.e-formulaire .champ-unite input { width: 5.5rem !important; }
+.e-formulaire .code { color: var(--e-texte); }
+/* Recette jointe : bloc cuivre doux */
+.e-formulaire .recette-jointe { gap: var(--e-3); padding: 14px var(--e-4); border-radius: var(--e-r-carte); background: var(--e-cuivre-doux); color: var(--e-texte); }
+.e-formulaire .recette-jointe .surtitre { color: var(--e-cuivre-texte); font-size: 0.75rem; }
+.e-formulaire .recette-jointe-texte strong { font-size: 1.0625rem; }
+.e-formulaire .btn-petit { font-size: 0.875rem; }
+.e-formulaire .btn-danger { min-height: max(48px, 3rem); border-radius: var(--e-r-champ); font-size: 1rem; }
+
 /* ---------- Moins d'animations si l'iPhone le demande ---------- */
 
 @media (prefers-reduced-motion: reduce) {

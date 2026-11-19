@@ -97,6 +97,7 @@ git push -u origin main
 - **Note sur 5** : toucher les étoiles sur la fiche ; toucher à nouveau la même étoile retire la note. L'historique est trié par note pour retrouver les recettes à refaire.
 - **Garde** : la date « prête à boire » est calculée à partir de l'embouteillage et de la durée de garde du brassin. Le jour venu, un bandeau vert l'annonce sur l'accueil.
 - **Brassin en fermentation** : on peut le créer dès le jour du brassage, sans date d'embouteillage. Le jour de la mise en bouteille, le bouton **Embouteiller** enregistre la date et le nombre de bouteilles.
+- **Sucre de refermentation** : dans la fenêtre **Embouteiller**, la dose de sucre blanc par bouteille (33 cl et 66 cl) et le total, recalculés à chaque saisie. Le **CO₂ visé** est proposé selon le style (IPA 2,4 ; blonde 2,5 ; blanche 3 ; ambrée 2,3 ; stout 2 ; saison 2,9 volumes). La **température max** est la plus haute depuis la fin de la fermentation : celle relevée par la RAPT Pill sur ses trois derniers jours, sinon celle de la recette, sinon 20 °C. Le dosage est noté sur le brassin (bloc Stock de la fiche).
 - **Historique** : un brassin y passe automatiquement quand sa dernière bouteille est bue, ou quand on l'archive.
 
 ### Codes des brassins
@@ -207,6 +208,7 @@ Node.js est nécessaire (déjà installé sur ce PC).
 | `css/app.css` | Apparence, thèmes clair et sombre |
 | `js/app.js` | Écrans, navigation et actions |
 | `js/brassins.js` | Règles métier : codes, stock, statut, garde, recherche, tri, contrôle des saisies |
+| `js/refermentation.js` | Sucre de refermentation : CO₂ résiduel selon la température, dose par bouteille |
 | `js/capsules.js` | Capsules de couleur : lots du stock, teinte d'après le nom, retrait à l'embouteillage |
 | `js/beerxml.js` | Lecture des fichiers BeerXML (Grainfather) : encodage, XML, unités |
 | `js/recettes.js` | Recette rattachée au brassin : style deviné, valeurs reprises dans la fiche, affichage |

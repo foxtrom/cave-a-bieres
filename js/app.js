@@ -10,6 +10,7 @@ import * as R from './recettes.js';
 import * as E from './etiquettes.js';
 import * as I from './inventaire.js';
 import * as C from './capsules.js';
+import * as S from './refermentation.js';
 import * as F from './fermentation.js';
 import { POLICES } from './polices.js';
 import { copieRelaisDue, creerSauvegarde, donneesVides, empreinteDonnees, lireSauvegarde, nomFichierSauvegarde, normaliserDonnees, rappelSauvegarde } from './donnees.js';
@@ -2489,6 +2490,64 @@ function ajouterLigneCapsule() {
   zone.lastElementChild.querySelector('select').focus();
 }
 
+/* ---------- Sucre de refermentation (fenêtre Embouteiller) ---------- */
+
+const enGrammes = (n) => `${n.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g`;
+
+/** Zone « Sucre de refermentation » : CO₂ visé (selon le style) et température la plus haute (Pill, recette ou 20 °C). */
+function zoneSucre(b) {
+  const pill = (b.fermentation?.releves ?? []).some((r) => Number.isFinite(r.c));
+  const recette = (b.recette?.fermentation ?? []).some((e) => Number.isFinite(e.temperature));
+  const origine = pill ? 'proposée d’après la RAPT Pill' : recette ? 'proposée d’après la recette' : 'à défaut, 20 °C';
+  const avant = b.refermentation;
+  return html`<div class="zone-sucre">
+    <h3>Sucre de refermentation</h3>
+    <p class="resultat-sucre" data-resultat-sucre aria-live="polite"></p>
+    <div class="deux-colonnes">
+      <label class="champ"><span class="libelle">CO₂ visé <small>volumes</small></span>
+        <input name="co2" inputmode="decimal" value="${enChamp(avant?.co2Vise ?? S.co2ParDefaut(b.style))}" autocomplete="off"></label>
+      <label class="champ"><span class="libelle">Température max <small>°C</small></span>
+        <input name="tempMax" inputmode="decimal" value="${enChamp(avant?.temperature ?? S.temperatureParDefaut(b))}" autocomplete="off"></label>
+    </div>
+    <p class="aide">Sucre blanc, dans chaque bouteille. Température : la plus haute depuis la fin de la fermentation (${origine}) ; le CO₂ encore dissous en dépend.</p>
+  </div>`;
+}
+
+/** CO₂ visé et température lus dans la fenêtre : { co2Vise, temperature }, null si vides, ou { erreur }. */
+function lireSucre(form) {
+  const co2 = B.lireNombre(form.elements.co2?.value ?? '');
+  const temperature = B.lireNombre(form.elements.tempMax?.value ?? '');
+  if (co2 === null && temperature === null) return null;
+  const [co2Min, co2Max] = S.BORNES.co2;
+  const [tMin, tMax] = S.BORNES.temperature;
+  if (!(co2 >= co2Min && co2 <= co2Max)) return { erreur: `CO₂ visé : entre ${enChamp(co2Min)} et ${enChamp(co2Max)} volumes.` };
+  if (!(temperature >= tMin && temperature <= tMax)) return { erreur: `Température : entre ${tMin} et ${tMax} °C.` };
+  return { co2Vise: co2, temperature };
+}
+
+/** Dose par bouteille, recalculée à chaque saisie (formats remplis seulement ; les deux tant qu'aucun ne l'est). */
+function majSucre(form) {
+  const zone = form.querySelector('[data-resultat-sucre]');
+  if (!zone) return;
+  const sucre = lireSucre(form);
+  if (!sucre || sucre.erreur) {
+    zone.textContent = sucre?.erreur ?? 'Indiquer le CO₂ visé et la température.';
+    return;
+  }
+  const doses = S.dosesSucre(sucre);
+  if (!doses.parLitre) {
+    zone.textContent = 'Pas de sucre : la bière contient déjà assez de CO₂.';
+    return;
+  }
+  const n33 = B.lireNombre(form.elements.b33.value) ?? 0;
+  const n66 = B.lireNombre(form.elements.b66.value) ?? 0;
+  const formats = [n33 || !n66 ? html`<b>${enGrammes(doses[33])}</b> par bouteille de 33 cl` : '', n66 ? html`<b>${enGrammes(doses[66])}</b> par 66 cl` : ''].filter(Boolean);
+  const total = n33 * doses[33] + n66 * doses[66];
+  zone.innerHTML = String(html`${formats.map((f, i) => html`${i ? ' · ' : ''}${f}`)}${
+    total ? html`<small>soit ${enGrammes(Math.round(total))} pour ${pluriel(n33 + n66, 'bouteille')}</small>` : ''
+  }`);
+}
+
 function ouvrirEmbouteillage() {
   const b = brassinCourant();
   if (!b) return;
@@ -2515,6 +2574,7 @@ function ouvrirEmbouteillage() {
           })
         : ''
     }
+    ${zoneSucre(b)}
     <label class="champ"><span class="libelle">Garde en bouteille</span>
       <span class="champ-unite"><input name="garde" inputmode="numeric" pattern="[0-9]*" value="${b.gardeSemaines}" autocomplete="off"><span>semaines</span></span></label>
     ${boutonsFeuille('Valider')}
@@ -2526,7 +2586,9 @@ function ouvrirEmbouteillage() {
       const auto = form.querySelector('.ligne-capsule input[data-auto]');
       if (auto && form.querySelectorAll('.ligne-capsule').length === 1) auto.value = e.target.value;
     } else if (e.target.closest('.ligne-capsule') && e.target.matches('input')) delete e.target.dataset.auto;
+    if (['b33', 'b66', 'co2', 'tempMax'].includes(e.target.name)) majSucre(form);
   });
+  majSucre(form);
 }
 
 function validerEmbouteillage(form) {
@@ -2552,6 +2614,9 @@ function validerEmbouteillage(form) {
     return erreurFeuille(form, `Capsules : ${posees} pour ${pluriel(n33, 'bouteille')} de 33 cl.`);
   }
 
+  const sucre = lireSucre(form);
+  if (sucre?.erreur) return erreurFeuille(form, sucre.erreur);
+
   // Pour « Annuler » : le brassin tel qu'il était, et les variations du stock de matériel.
   const avant = structuredClone({
     dateEmbouteillage: b.dateEmbouteillage,
@@ -2560,6 +2625,7 @@ function validerEmbouteillage(form) {
     gardeSemaines: b.gardeSemaines,
     preteVue: b.preteVue,
     capsules: b.capsules,
+    refermentation: b.refermentation,
   });
   b.dateEmbouteillage = date;
   b.bouteilles = { 33: { depart: n33, restant: n33 }, 66: { depart: n66, restant: n66 } };
@@ -2567,6 +2633,10 @@ function validerEmbouteillage(form) {
   if (garde !== null) b.gardeSemaines = garde;
   b.preteVue = B.datePrete(b) <= aujourdhui();
   if (lignes.length) b.capsules = capsules;
+  if (sucre) {
+    const doses = S.dosesSucre(sucre);
+    b.refermentation = { ...sucre, g33: doses[33], g66: doses[66] };
+  }
   const variations = [
     ['bouteilles33', I.ajusterMateriel(inventaire, 'bouteilles33', -n33)],
     ['bouteilles66', I.ajusterMateriel(inventaire, 'bouteilles66', -n66)],

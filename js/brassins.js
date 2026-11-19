@@ -6,6 +6,7 @@ import { nouvelId } from './outils.js';
 import { normaliserCapsules } from './capsules.js';
 import { normaliserFermentation } from './fermentation.js';
 import { normaliserRecette } from './recettes.js';
+import { normaliserRefermentation } from './refermentation.js';
 
 /** Styles reconnus (code sur 3 lettres utilisé dans le code du brassin). */
 export const STYLES = [
@@ -107,6 +108,7 @@ export function nouveauBrassin(id = nouvelId(), maintenant = new Date().toISOStr
     etiquette: null, // textes retouchés pour l'étiquette (voir etiquettes.js)
     deduction: null, // ingrédients retirés du stock pour ce brassin (voir inventaire.js)
     capsules: [], // couleurs des capsules posées à l'embouteillage (voir capsules.js)
+    refermentation: null, // sucre dosé par bouteille à l'embouteillage (voir refermentation.js)
     fermentation: null, // suivi par une RAPT Pill (voir fermentation.js)
     archive: false,
     preteVue: false,
@@ -191,6 +193,7 @@ export function normaliserBrassin(source) {
     etiquette: normaliserEtiquette(source.etiquette),
     deduction: normaliserDeduction(source.deduction),
     capsules: normaliserCapsules(source.capsules),
+    refermentation: normaliserRefermentation(source.refermentation),
     fermentation: normaliserFermentation(source.fermentation),
     archive: Boolean(source.archive),
     preteVue: Boolean(source.preteVue),

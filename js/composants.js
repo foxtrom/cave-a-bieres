@@ -235,6 +235,19 @@ function ligneCapsules(b) {
   </div>`;
 }
 
+/** Ligne « Sucre » du bloc de stock : dose par bouteille notée à l'embouteillage (formats embouteillés). */
+function ligneSucre(b) {
+  const r = b.refermentation;
+  if (!r) return '';
+  const fr = (n) => n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+  const avec33 = b.bouteilles['33'].depart > 0 || !b.bouteilles['66'].depart;
+  const doses = [avec33 ? `${fr(r.g33)} g par 33 cl` : '', b.bouteilles['66'].depart ? `${fr(r.g66)} g par 66 cl` : ''].filter(Boolean);
+  return html`<div class="e-sucre-fiche">
+    <span class="e-capsules-libelle">Sucre</span>
+    <span class="e-sucre-doses">${doses.join(' · ')}<small>sucre blanc · CO₂ ${fr(r.co2Vise)} · ${fr(r.temperature)} °C max</small></span>
+  </div>`;
+}
+
 export function blocStock(b, { seuil, auj, capsules = false }) {
   const s = B.stock(b);
   const bas = B.estStockBas(b, seuil, auj);
@@ -257,6 +270,7 @@ export function blocStock(b, { seuil, auj, capsules = false }) {
         : ''
     }
     ${capsules || b.capsules?.length ? ligneCapsules(b) : ''}
+    ${ligneSucre(b)}
     ${bas ? html`<p class="e-message e-message--alerte">${SYMBOLES.alerte}<span>Stock bas : moins de ${pluriel(seuil, 'bouteille')}.</span></p>` : ''}
   </section>`;
 }

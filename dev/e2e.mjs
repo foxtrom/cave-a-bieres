@@ -1196,12 +1196,20 @@ try {
     await attendreNombre(page, lignes, 2);
     assert.equal(await page.locator(lignes).last().locator('input').inputValue(), '12'); // le reste des 33 cl
     await choisir(page.locator(lignes).last(), 'Dorée');
+    // Sucre de refermentation : dose par bouteille, recalculée avec le nombre de bouteilles
+    await attendreTexte('#feuille .resultat-sucre', 'par bouteille de 33 cl');
+    await attendreTexte('#feuille .resultat-sucre', 'pour 20 bouteilles');
+    await page.fill('#feuille input[name="co2"]', '9');
+    await attendreTexte('#feuille .resultat-sucre', 'CO₂ visé : entre 1 et 4,5 volumes.');
+    await page.fill('#feuille input[name="co2"]', '2,8');
     await page.waitForTimeout(300);
     await capture('40-embouteillage-capsules');
     await page.click('#feuille button[type="submit"]');
     await attendreToast(/embouteillée/);
     await attendreTexte('.e-capsules-fiche', 'Argent');
     await attendreTexte('.e-capsules-fiche', 'Dorée');
+    await attendreTexte('.e-sucre-fiche', 'par 33 cl');
+    await attendreTexte('.e-sucre-fiche', 'CO₂ 2,8');
     await attendreQuantite('Capsules - Argent', '0');
     await attendreQuantite('Capsules - Dorée', '18');
     // Dans la Cave : pastilles à côté du code ; « dorée » retrouve le brassin

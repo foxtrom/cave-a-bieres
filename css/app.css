@@ -68,11 +68,10 @@
 *::before,
 *::after { box-sizing: border-box; }
 
+/* Pas de fond sur html : iOS 26 se règle sur celui de body (deux fonds différents laissent un filet). */
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  /* Couleur visible quand on tire la page au-delà du haut ou du bas */
-  background: linear-gradient(var(--entete) 50%, var(--fond) 50%);
 }
 
 body {
@@ -86,14 +85,17 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Fond sous la barre d'état de l'iPhone (heure, batterie) */
-body::before {
-  content: "";
+/* Bande sous la barre d'état de l'iPhone (heure, batterie), à la couleur de l'en-tête.
+   iOS 26 colore le haut de l'appli d'après un VRAI élément fixe, opaque, collé au bord
+   supérieur, de plus de 10 px de haut (un ::before n'est pas pris en compte) ; sans lui, il
+   floute un fondu tiré du fond crème de la page. Élément #barre-etat dans index.html. */
+#barre-etat {
   position: fixed;
   inset: 0 0 auto;
-  height: env(safe-area-inset-top);
-  background: var(--entete);
+  height: max(12px, env(safe-area-inset-top));
+  background-color: var(--entete);
   z-index: 30;
+  pointer-events: none;
 }
 
 #app { max-width: 640px; margin: 0 auto; }
@@ -128,11 +130,21 @@ small { font-size: 0.8em; }
 /* ---------- En-têtes ---------- */
 
 #entete {
+  position: relative;
   background: var(--entete);
   color: var(--entete-texte);
   padding-top: env(safe-area-inset-top);
 }
 #entete.collant { position: sticky; top: 0; z-index: 20; }
+/* Page tirée vers le bas : la couleur de l'en-tête se prolonge au-dessus (plus de bande crème) */
+#entete::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 100% 0;
+  height: 100vh;
+  background: var(--entete);
+  pointer-events: none;
+}
 
 .barre-titre {
   display: grid;

@@ -860,6 +860,41 @@ try {
     await page.locator('#feuille[open] form[data-form="import-stock"]').waitFor();
   };
 
+  await etape(`Modifier ${F.code} : ingrédients de la recette changés à la main (Sabro → Citra, Nectaron en dry hop)`, async () => {
+    await page.goto(`${BASE}#/brassin/${F.code}/modifier`);
+    await page.click('#recette-formulaire [data-action="modifier-ingredients"]');
+    await page.locator('#feuille form[data-form="ingredients"]').waitFor();
+    const houblons = '#feuille [data-ingredients="houblons"] .ligne-ingredient';
+    const sabro = page.locator(houblons).filter({ has: page.locator('input[name="nom"][value="Sabro"]') });
+    await sabro.locator('input[name="nom"]').fill('Citra');
+    await page.click('#feuille [data-action="ajouter-ingredient"][data-sorte="houblons"]');
+    const nectaron = page.locator(houblons).last();
+    await nectaron.locator('input[name="nom"]').fill('Nectaron');
+    await nectaron.locator('input[name="quantite"]').fill('30');
+    await nectaron.locator('select[name="usage"]').selectOption('Dry Hop');
+    assert.equal(await nectaron.locator('[data-unite-duree]').textContent(), 'jours');
+    await nectaron.locator('input[name="duree"]').fill('3');
+    // Ligne au nom vide : refusée, avec un message
+    await page.click('#feuille [data-action="ajouter-ingredient"][data-sorte="malts"]');
+    await page.locator('#feuille [data-ingredients="malts"] .ligne-ingredient').last().locator('input[name="quantite"]').fill('1');
+    await page.click('#feuille button[type="submit"]');
+    await attendreTexte('#feuille [data-erreur]', 'Malts : indiquer le nom de la ligne');
+    await page.locator('#feuille [data-ingredients="malts"] .ligne-ingredient').last().locator('[data-action="retirer-ingredient"]').click();
+    await page.waitForTimeout(300);
+    await capture('42-ingredients');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Ingrédients modifiés/);
+    await attendreTexte('.recette-jointe', 'Citra, Nectaron');
+    await page.click('button[form="form-brassin"]');
+    await page.waitForURL(new RegExp(`#/brassin/${F.code}$`));
+    await attendreTexte('.bloc-recette', 'Nectaron');
+    await attendreTexte('.bloc-recette', 'Ingrédients modifiés à la main le');
+    // Listes de la recette (pas celle des ingrédients déjà déduits du stock, où le Sabro reste)
+    const recette = (await page.locator('.bloc-recette .ingredients:not(.ingredients-deduits)').allInnerTexts()).join(' ');
+    assert.match(recette.replace(/\s+/g, ' '), /Dry hop 3 jours/);
+    assert.doesNotMatch(recette, /Sabro/);
+  });
+
   await etape('Import d’un tableau collé depuis Excel : aperçu, import, annulation', async () => {
     await ouvrirImportStock();
     assert.ok(await page.isDisabled('#feuille button[type="submit"]'));

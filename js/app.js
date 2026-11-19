@@ -917,6 +917,7 @@ function blocRecette(r, b) {
         : ''
     }
     ${importee ? html`<p class="aide">Importée le ${importee}${r.fichier ? ` depuis ${r.fichier}` : ''}.</p>` : ''}
+    ${r.modifieeLe ? html`<p class="aide">Ingrédients modifiés à la main le ${formaterDate(dateLocale(new Date(r.modifieeLe)))}.</p>` : ''}
     ${stockRecette(b)}
   </section>`;
 }
@@ -1219,6 +1220,8 @@ function blocRecetteFormulaire(recette) {
     return html`<section class="e-bloc e-menu" aria-label="Recette">
       <button type="button" class="e-menu-action" data-action="importer-recette">${SYMBOLES.fichier}<span><b>Importer une recette Grainfather</b>
         <small>Fichier BeerXML (.xml) exporté depuis Grainfather. Le nom, le style, le degré, l’IBU, l’EBC, les malts, les houblons et la levure sont repris de la recette.</small></span></button>
+      <button type="button" class="e-menu-action" data-action="modifier-ingredients">${SYMBOLES.tableau}<span><b>Saisir les ingrédients</b>
+        <small>Malts, houblons, levure… à la main, sans fichier.</small></span></button>
     </section>`;
   }
   return html`<div class="recette-jointe">
@@ -1226,6 +1229,7 @@ function blocRecetteFormulaire(recette) {
       <span class="surtitre">Recette</span>
       <strong>${recette.nom || 'Sans nom'}</strong>
       <span class="aide">${R.resumeComposition(recette)}</span>
+      ${recette.modifieeLe ? html`<span class="aide">Ingrédients modifiés à la main.</span>` : ''}
       ${
         etat.donnees.inventaire.articles.some((a) => a.categorie !== 'materiel')
           ? html`<span class="aide">${resumeManques(I.verifierRecette(etat.donnees.inventaire.articles, recette))}</span>`
@@ -1233,10 +1237,120 @@ function blocRecetteFormulaire(recette) {
       }
     </div>
     <div class="recette-jointe-boutons">
-      <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="importer-recette">Remplacer</button>
+      <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="modifier-ingredients">Modifier les ingrédients</button>
+      <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="importer-recette">Remplacer</button>
       <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="retirer-recette">Retirer</button>
     </div>
   </div>`;
+}
+
+/* ---------- Ingrédients de la recette, modifiables dans le formulaire ---------- */
+
+const SORTES_INGREDIENTS = [
+  { sorte: 'malts', titre: 'Malts', ajouter: 'Ajouter un malt', categorie: 'malt', unite: 'kg', exemple: 'Pilsner' },
+  { sorte: 'houblons', titre: 'Houblons', ajouter: 'Ajouter un houblon', categorie: 'houblon', unite: 'g', exemple: 'Citra' },
+  { sorte: 'levures', titre: 'Levures', ajouter: 'Ajouter une levure', categorie: 'levure', unite: null, exemple: 'Voss Kveik' },
+  { sorte: 'autres', titre: 'Autres ingrédients', ajouter: 'Ajouter un ingrédient', categorie: 'autre', unite: null, exemple: 'Irish Moss' },
+];
+
+/**
+ * Une ligne d'ingrédient : nom (les articles du stock sont proposés), quantité pour tout le brassin,
+ * et pour un houblon son utilisation et sa durée (jours pour un dry hop, minutes sinon).
+ * index : place de l'élément dans la recette d'origine (ses autres détails sont gardés).
+ */
+function ligneIngredient(sorte, element = {}, index = null) {
+  const def = SORTES_INGREDIENTS.find((s) => s.sorte === sorte);
+  const quantite = sorte === 'malts' ? element.kg : sorte === 'houblons' ? element.g : element.quantite;
+  const usage = sorte === 'houblons' ? R.codeUsageHoublon(element.usage) : null;
+  return html`<div class="ligne-ingredient" data-sorte="${sorte}"${index === null ? '' : brut(` data-index="${index}"`)}>
+    <div class="ligne-ingredient-tete">
+      <input name="nom" value="${element.nom ?? ''}" list="stock-${def.categorie}" placeholder="${def.exemple}" aria-label="${def.titre} : nom" autocomplete="off" autocapitalize="words">
+      <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="retirer-ingredient">Retirer</button>
+    </div>
+    <div class="ligne-ingredient-champs">
+      <span class="champ-unite"><input name="quantite" inputmode="decimal" value="${enChamp(quantite)}" aria-label="Quantité" autocomplete="off">${
+        def.unite ? html`<span>${def.unite}</span>` : ''
+      }</span>
+      ${
+        def.unite
+          ? ''
+          : html`<select name="unite" aria-label="Unité"><option value="g" ${element.unite !== 'ml' ? 'selected' : ''}>g</option><option value="ml" ${element.unite === 'ml' ? 'selected' : ''}>ml</option></select>`
+      }
+      ${
+        sorte === 'houblons'
+          ? html`<select name="usage" aria-label="Utilisation">${R.USAGES_SAISIE_HOUBLON.map(
+              ([code, libelle]) => html`<option value="${code}" ${code === usage ? 'selected' : ''}>${libelle}</option>`,
+            )}</select>
+            <span class="champ-unite"><input name="duree" inputmode="decimal" value="${enChamp(R.dureeSaisieHoublon(element))}" aria-label="Durée" autocomplete="off"><span data-unite-duree>${
+              usage === 'Dry Hop' ? 'jours' : 'min'
+            }</span></span>`
+          : ''
+      }
+    </div>
+  </div>`;
+}
+
+/** Fenêtre « Ingrédients de la recette » : malts, houblons, levures, autres ; validée, elle met à jour le formulaire. */
+function ouvrirIngredients() {
+  if (!recetteFormulaire) return;
+  const r = recetteFormulaire.recette;
+  const articles = etat.donnees.inventaire.articles;
+  const feuille = ouvrirFeuille(html`<form class="feuille-contenu feuille-ingredients" data-form="ingredients" novalidate>
+    <h2 tabindex="-1" autofocus>Ingrédients de la recette</h2>
+    <p>Quantités pour tout le brassin. Les noms des articles du stock sont proposés à la saisie.</p>
+    ${SORTES_INGREDIENTS.map(
+      ({ sorte, titre, ajouter }) => html`<section class="zone-ingredients">
+        <h3>${titre}</h3>
+        <div data-ingredients="${sorte}">${(r?.[sorte] ?? []).map((e, i) => ligneIngredient(sorte, e, i))}</div>
+        <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="ajouter-ingredient" data-sorte="${sorte}">${SYMBOLES.plus}${ajouter}</button>
+      </section>`,
+    )}
+    ${SORTES_INGREDIENTS.map(
+      ({ categorie }) => html`<datalist id="stock-${categorie}">${[...new Set(articles.filter((a) => a.categorie === categorie).map((a) => a.nom))].map(
+        (nom) => html`<option value="${nom}"></option>`,
+      )}</datalist>`,
+    )}
+    ${boutonsFeuille('Valider')}
+  </form>`);
+  // Dry hop : durée en jours ; autres utilisations : en minutes.
+  feuille.querySelector('form').addEventListener('change', (e) => {
+    if (e.target.name !== 'usage') return;
+    e.target.closest('.ligne-ingredient').querySelector('[data-unite-duree]').textContent = e.target.value === 'Dry Hop' ? 'jours' : 'min';
+  });
+}
+
+function ajouterIngredient(bouton) {
+  const zone = document.querySelector(`#feuille [data-ingredients="${bouton.dataset.sorte}"]`);
+  if (!zone) return;
+  zone.insertAdjacentHTML('beforeend', String(ligneIngredient(bouton.dataset.sorte)));
+  zone.lastElementChild.querySelector('[name="nom"]').focus();
+}
+
+function validerIngredients(form) {
+  if (!recetteFormulaire) return;
+  const lignes = {};
+  for (const { sorte } of SORTES_INGREDIENTS) {
+    lignes[sorte] = [...form.querySelectorAll(`[data-ingredients="${sorte}"] .ligne-ingredient`)].map((ligne) => {
+      const champ = (nom) => ligne.querySelector(`[name="${nom}"]`);
+      return {
+        index: ligne.dataset.index === undefined ? null : Number(ligne.dataset.index),
+        nom: champ('nom').value,
+        quantite: B.lireNombre(champ('quantite').value),
+        unite: champ('unite')?.value,
+        usage: champ('usage')?.value,
+        duree: champ('duree') ? B.lireNombre(champ('duree').value) : null,
+      };
+    });
+  }
+  const nom = $('#form-brassin')?.elements.nom.value.trim() ?? '';
+  const { recette, erreur } = R.recetteModifiee(recetteFormulaire.recette, lignes, { nom });
+  if (erreur) return erreurFeuille(form, erreur);
+  // Rien saisi pour un brassin sans recette : pas de recette vide.
+  if (!recetteFormulaire.recette && SORTES_INGREDIENTS.every(({ sorte }) => !recette[sorte].length)) return fermerFeuille();
+  recetteFormulaire.recette = recette;
+  fermerFeuille();
+  $('#recette-formulaire').innerHTML = String(blocRecetteFormulaire(recette));
+  toast('Ingrédients modifiés. Toucher « Enregistrer » pour les garder.');
 }
 
 async function importerRecette() {
@@ -3100,6 +3214,9 @@ const ACTIONS = {
   importer,
   'importer-recette': importerRecette,
   'retirer-recette': retirerRecette,
+  'modifier-ingredients': ouvrirIngredients,
+  'ajouter-ingredient': ajouterIngredient,
+  'retirer-ingredient': (bouton) => bouton.closest('.ligne-ingredient')?.remove(),
   'etiquette-textes-proposes': revenirTextesProposes,
   'ajouter-article': ouvrirArticle,
   'modifier-article': ouvrirArticle,
@@ -3152,6 +3269,7 @@ const FORMULAIRES = {
   pill: validerSuiviPill,
   di: validerDensiteInitiale,
   deduction: validerDeduction,
+  ingredients: validerIngredients,
 };
 
 function signalerErreur(erreur) {

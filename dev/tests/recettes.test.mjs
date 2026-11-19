@@ -250,3 +250,49 @@ test('saisie : IBU et EBC contrôlés et arrondis', () => {
   assert.equal(b.recette, null);
   assert.equal(b.ibu, null);
 });
+
+/* ---------- Ingrédients modifiés à la main ---------- */
+
+test('ingrédients modifiés à la main : houblon changé et ajouté, détails d’origine gardés', () => {
+  const r = lireGrainfather(); // Magnum (ébullition) puis Sabro
+  const magnum = r.houblons.findIndex((h) => h.nom === 'Magnum');
+  const lignes = {
+    malts: r.malts.map((m, index) => ({ index, nom: m.nom, quantite: index === 0 ? 4 : m.kg })),
+    houblons: [
+      { index: magnum, nom: 'Magnum', quantite: 13, usage: 'Boil', duree: 60 },
+      { index: null, nom: 'Citra', quantite: 50, usage: 'Dry Hop', duree: 3 },
+      { index: null, nom: 'Nectaron', quantite: 50, usage: 'Aroma', duree: 20 },
+      { index: null, nom: '', quantite: null, usage: 'Boil', duree: null }, // ligne laissée vide
+    ],
+    levures: r.levures.map((l, index) => ({ index, nom: l.nom, quantite: 1, unite: 'g' })),
+    autres: [],
+  };
+  const { recette, erreur } = R.recetteModifiee(r, lignes, { maintenant: new Date('2026-11-19T12:00:00Z') });
+  assert.equal(erreur, undefined);
+  assert.equal(recette.malts[0].kg, 4);
+  assert.equal(recette.malts[0].type, r.malts[0].type); // type du malt gardé
+  assert.deepEqual(recette.houblons.map((h) => [h.nom, h.g, sansInsecables(R.usageHoublon(h))]), [
+    ['Magnum', 13, 'Ébullition 60 min'],
+    ['Citra', 50, 'Dry hop 3 jours'],
+    ['Nectaron', 50, 'Whirlpool 20 min'],
+  ]);
+  assert.equal(recette.houblons[0].alpha, r.houblons[magnum].alpha); // alpha d'origine gardé
+  assert.equal(recette.levures[0].labo, r.levures[0].labo);
+  assert.equal(recette.autres.length, 0);
+  assert.equal(recette.nom, r.nom);
+  assert.equal(recette.modifieeLe, '2026-11-19T12:00:00.000Z');
+  // Saisie relue telle qu'elle s'affiche dans la fenêtre : jours pour un dry hop
+  assert.equal(R.dureeSaisieHoublon(recette.houblons[1]), 3);
+  assert.equal(R.codeUsageHoublon('Hopstand'), 'Aroma');
+  assert.equal(R.codeUsageHoublon(''), 'Boil');
+});
+
+test('ingrédients saisis sans recette importée, et saisies refusées', () => {
+  const vide = { malts: [{ index: null, nom: 'Pilsner', quantite: 4 }], houblons: [], levures: [], autres: [] };
+  const { recette } = R.recetteModifiee(null, vide, { nom: 'Cold IPA' });
+  assert.equal(recette.nom, 'Cold IPA');
+  assert.deepEqual(recette.malts.map((m) => [m.nom, m.kg]), [['Pilsner', 4]]);
+  assert.match(R.recetteModifiee(null, { ...vide, houblons: [{ nom: '', quantite: 20, usage: 'Boil' }] }).erreur, /Houblons : indiquer le nom de la ligne 1/);
+  assert.match(R.recetteModifiee(null, { ...vide, malts: [{ nom: 'Pilsner', quantite: NaN }] }).erreur, /Malts : quantité invalide pour « Pilsner »/);
+  assert.match(R.recetteModifiee(null, { ...vide, houblons: [{ nom: 'Citra', quantite: 5, usage: 'Dry Hop', duree: -1 }] }).erreur, /durée invalide/);
+});

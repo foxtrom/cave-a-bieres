@@ -263,6 +263,67 @@ export function resumeFermentation(recette) {
     .join(' puis ');
 }
 
+/* ------------------------------------------------------------------ */
+/* Ingrédients saisis à la main (formulaire du brassin)                */
+/* ------------------------------------------------------------------ */
+
+/** Utilisations d'un houblon proposées à la saisie : [code BeerXML, libellé]. */
+export const USAGES_SAISIE_HOUBLON = [
+  ['Boil', 'Ébullition'],
+  ['Aroma', 'Whirlpool'],
+  ['Dry Hop', 'Dry hop'],
+  ['Mash', 'Empâtage'],
+  ['First Wort', 'Premier moût'],
+];
+
+/** Utilisation d'un houblon importé, ramenée à l'une de celles proposées à la saisie (Ébullition sinon). */
+export function codeUsageHoublon(usage) {
+  const libelle = USAGES_HOUBLON[sansAccents(usage)];
+  return USAGES_SAISIE_HOUBLON.find(([, l]) => l === libelle)?.[0] ?? 'Boil';
+}
+
+/** Durée d'un houblon telle qu'elle se saisit : en jours pour un dry hop, en minutes sinon. */
+export const dureeSaisieHoublon = (h) =>
+  h.minutes == null ? null : codeUsageHoublon(h.usage) === 'Dry Hop' ? arrondi(h.minutes / 1440, 1) : h.minutes;
+
+const SORTES = {
+  malts: 'Malts',
+  houblons: 'Houblons',
+  levures: 'Levures',
+  autres: 'Autres ingrédients',
+};
+
+/**
+ * Recette après saisie des ingrédients. Les lignes ({ malts, houblons, levures, autres }, chacune
+ * [{ index, nom, quantite, unite?, usage?, duree? }], nombres déjà lus : null si vide, NaN si
+ * illisible) remplacent les ingrédients ; ce qui ne se saisit pas (alpha d'un houblon, labo d'une
+ * levure, type d'un malt…) est gardé d'après l'élément d'origine (index). Une ligne vide est
+ * ignorée. Sans recette (ancienne null), une recette est créée. Renvoie { recette } ou { erreur }.
+ */
+export function recetteModifiee(ancienne, lignes, { nom = '', maintenant = new Date() } = {}) {
+  const base = ancienne ?? { nom, malts: [], houblons: [], levures: [], autres: [] };
+  const resultat = {};
+  for (const [sorte, titre] of Object.entries(SORTES)) {
+    const saisies = (lignes[sorte] ?? []).filter((l) => String(l.nom ?? '').trim() || l.quantite != null);
+    const elements = [];
+    for (const [i, l] of saisies.entries()) {
+      const nomSaisi = String(l.nom ?? '').trim();
+      if (!nomSaisi) return { erreur: `${titre} : indiquer le nom de la ligne ${i + 1}.` };
+      if (l.quantite != null && !(l.quantite >= 0)) return { erreur: `${titre} : quantité invalide pour « ${nomSaisi} ».` };
+      if (l.duree != null && !(l.duree >= 0)) return { erreur: `${titre} : durée invalide pour « ${nomSaisi} ».` };
+      const origine = base[sorte]?.[l.index] ?? {};
+      if (sorte === 'malts') elements.push({ ...origine, nom: nomSaisi, kg: l.quantite });
+      else if (sorte === 'houblons') {
+        const usage = USAGES_SAISIE_HOUBLON.some(([code]) => code === l.usage) ? l.usage : 'Boil';
+        const minutes = l.duree == null ? null : usage === 'Dry Hop' ? l.duree * 1440 : l.duree;
+        elements.push({ ...origine, nom: nomSaisi, g: l.quantite, usage, minutes });
+      } else elements.push({ ...origine, nom: nomSaisi, quantite: l.quantite, unite: l.unite === 'ml' ? 'ml' : 'g' });
+    }
+    resultat[sorte] = elements;
+  }
+  return { recette: normaliserRecette({ ...base, ...resultat, modifieeLe: maintenant.toISOString() }) };
+}
+
 /** Résumé sur une ligne : style, nombre de malts, houblons, levure. */
 export function resumeComposition(recette) {
   const noms = (elements) => [...new Set(elements.map((x) => x.nom).filter(Boolean))].join(', ');

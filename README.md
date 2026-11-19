@@ -123,6 +123,7 @@ Format **STYLE-AAMM-N**, calculé automatiquement d'après le style et la date d
 La fiche du brassin montre ensuite la recette : malts (poids et part), houblons (quantité, acides alpha, moment d'ajout), levure, et, repliés, l'empâtage, la fermentation et les notes de la recette. Pendant la fermentation, la fiche annonce la fin prévue d'après la durée indiquée dans la recette.
 
 - **Brassin déjà créé** : **Modifier** → **Importer une recette** (ou **Remplacer**). Un nom ou un degré tapé à la main est conservé ; les valeurs venues de l'ancienne recette sont remplacées. Le style, lui, ne change pas, pour garder le code.
+- **Modifier les ingrédients** (formulaire **Modifier** d'un brassin, bloc Recette) : malts, houblons (quantité, utilisation : ébullition, whirlpool, dry hop… et durée), levures et autres ingrédients, une ligne chacun ; **+ Ajouter** et **Retirer** dans chaque section ; les noms des articles du stock sont proposés. Les détails importés que l'on ne saisit pas (alpha d'un houblon, labo d'une levure…) sont gardés. Sans recette importée : **Saisir les ingrédients**. Enregistré avec **Enregistrer**, comme le reste du formulaire ; la fiche indique la date de la modification. La déduction du stock et l'étiquette suivent la recette modifiée.
 - **Fichier contenant plusieurs recettes** : l'appli demande laquelle importer.
 - **Retirer** enlève la recette du brassin (à confirmer avec **Enregistrer**) ; l'IBU et l'EBC saisis restent.
 

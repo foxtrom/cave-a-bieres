@@ -925,8 +925,14 @@ function stockRecette(b) {
   if (b.deduction) {
     const le = formaterDateCourte(dateLocale(new Date(b.deduction.le)), aujourdhui());
     return html`<div class="stock-recette">
-      <p>Ingrédients déduits du stock le ${le}.</p>
-      <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="remettre-ingredients">Remettre en stock</button>
+      <p>Ingrédients déduits du stock le ${le} :</p>
+      <ul class="ingredients ingredients-deduits">${b.deduction.lignes.map(
+        (l) => html`<li><span>${l.nom}</span><span class="quantite">${I.formaterQuantite(l.quantite, l.unite)}</span></li>`,
+      )}</ul>
+      <div class="boutons-deduction">
+        <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="deduire-ingredients">Corriger…</button>
+        <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="remettre-ingredients">Remettre en stock</button>
+      </div>
     </div>`;
   }
   if (!inventaire.articles.some((a) => a.categorie !== 'materiel')) return '';
@@ -2000,57 +2006,136 @@ async function partagerCourses() {
 
 /* ---------- Déduction des ingrédients d'un brassin ---------- */
 
+/** Articles du stock qu'on peut déduire (pas le matériel), par ordre alphabétique. */
+const ingredientsDuStock = () =>
+  etat.donnees.inventaire.articles.filter((a) => a.categorie !== 'materiel').sort((x, y) => x.nom.localeCompare(y.nom, 'fr'));
+
+let lignesAjoutees = 0; // numérote les lignes « hors recette » de la fenêtre de déduction
+
+/**
+ * Une ligne de la fenêtre de déduction : l'article du stock et la quantité à retirer.
+ * rendues : ce que la déduction en cours avait retiré, compté dans le stock affiché (si on la corrige).
+ */
+function ligneDeduction({ nom, titre, detail = '', articleId = '', quantite = null, besoin = null }, ingredients, rendues) {
+  const article = ingredients.find((a) => a.id === articleId);
+  const horsRecette = besoin === null;
+  return html`<div class="ligne-deduction"${horsRecette ? '' : brut(` data-besoin="${besoin}"`)}>
+    <div class="ligne-deduction-tete">
+      <p class="libelle">${titre}${detail ? html` <small>${detail}</small>` : ''}</p>
+      ${horsRecette ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="retirer-ligne-deduction">Retirer</button>` : ''}
+    </div>
+    <div class="deux-colonnes">
+      <select name="article${nom}" aria-label="${horsRecette ? 'Article du stock ajouté' : `Article du stock pour ${titre}`}">
+        <option value="">${horsRecette ? 'Choisir un article…' : 'Pas dans le stock'}</option>
+        ${ingredients.map(
+          (a) => html`<option value="${a.id}" ${a.id === articleId ? 'selected' : ''}>${a.nom} (${I.formaterQuantite(R.arrondi(a.quantite + (rendues.get(a.id) ?? 0), 3), a.unite) || '0'})</option>`,
+        )}
+      </select>
+      <span class="champ-unite"><input name="quantite${nom}" inputmode="decimal" value="${enChamp(quantite)}"
+        aria-label="Quantité à retirer" autocomplete="off"><span data-unite>${article?.unite ?? ''}</span></span>
+    </div>
+  </div>`;
+}
+
+/**
+ * Déduire les ingrédients du brassin, ou corriger la déduction déjà faite : quantités réelles,
+ * ingrédients ajoutés pendant le brassage (un houblon que la recette ne cite pas…).
+ */
 function ouvrirDeduction() {
   const b = brassinCourant();
   if (!b?.recette) return;
-  const inventaire = etat.donnees.inventaire;
-  const ingredients = inventaire.articles.filter((a) => a.categorie !== 'materiel').sort((x, y) => x.nom.localeCompare(y.nom, 'fr'));
-  const lignes = I.verifierRecette(inventaire.articles, b.recette);
+  const ingredients = ingredientsDuStock();
+  const verification = I.verifierRecette(etat.donnees.inventaire.articles, b.recette);
+  const rendues = I.quantitesRetirees(b.deduction);
+  const { recette, horsRecette } = I.lignesDeduction(verification, b.deduction);
+  const corriger = Boolean(b.deduction);
+  lignesAjoutees = 0;
   const feuille = ouvrirFeuille(html`<form class="feuille-contenu" data-form="deduction" novalidate>
-    <h2 tabindex="-1" autofocus>Déduire du stock ?</h2>
-    <p>Recette « ${b.recette.nom} » : quantités à retirer du stock, modifiables. « Pas dans le stock » laisse l’ingrédient de côté.</p>
-    ${lignes.map(
-      (l, i) => html`<div class="ligne-deduction">
-        <p class="libelle">${R.nomIngredient(l.besoin.nom)} <small>${I.formaterQuantite(l.besoin.quantite, l.besoin.unite) || 'quantité non précisée'}</small></p>
-        <div class="deux-colonnes">
-          <select name="article${i}" aria-label="Article du stock pour ${l.besoin.nom}">
-            <option value="">Pas dans le stock</option>
-            ${ingredients.map((a) => html`<option value="${a.id}" ${a.id === l.article?.id ? 'selected' : ''}>${a.nom} (${I.formaterQuantite(a.quantite, a.unite) || '0'})</option>`)}
-          </select>
-          <span class="champ-unite"><input name="quantite${i}" inputmode="decimal" value="${enChamp(l.article ? l.necessaire : null)}"
-            aria-label="Quantité à retirer" autocomplete="off"><span data-unite="${i}">${l.article?.unite ?? ''}</span></span>
-        </div>
-      </div>`,
+    <h2 tabindex="-1" autofocus>${corriger ? 'Corriger la déduction' : 'Déduire du stock ?'}</h2>
+    <p>${
+      corriger
+        ? `Recette « ${b.recette.nom} » : quantités vraiment utilisées. Le stock est recalculé : ce qui avait été retiré est rendu, puis ces quantités sont retirées.`
+        : `Recette « ${b.recette.nom} » : quantités à retirer du stock, modifiables. « Pas dans le stock » laisse l’ingrédient de côté.`
+    }</p>
+    ${recette.map((l, i) =>
+      ligneDeduction(
+        {
+          nom: i,
+          titre: R.nomIngredient(l.besoin.nom),
+          detail: `recette : ${I.formaterQuantite(l.besoin.quantite, l.besoin.unite) || 'quantité non précisée'}`,
+          articleId: l.articleId,
+          quantite: l.quantite,
+          besoin: i,
+        },
+        ingredients,
+        rendues,
+      ),
     )}
-    ${boutonsFeuille('Déduire')}
+    <h3 class="titre-hors-recette">Hors recette</h3>
+    <p class="aide">Ingrédients ajoutés pendant le brassage (un houblon en plus…) : ils sont retirés du stock eux aussi.</p>
+    <div data-hors-recette>${horsRecette.map((l) =>
+      ligneDeduction({ nom: `-ajout${++lignesAjoutees}`, titre: 'Ajouté au brassin', articleId: l.articleId, quantite: l.quantite }, ingredients, rendues),
+    )}</div>
+    <button type="button" class="e-btn e-btn--secondaire e-btn--large" data-action="ajouter-ligne-deduction">${SYMBOLES.plus}Ajouter un ingrédient du stock</button>
+    ${boutonsFeuille(corriger ? 'Enregistrer' : 'Déduire')}
   </form>`);
-  // Autre article choisi : unité et quantité proposée suivent.
-  lignes.forEach((l, i) => {
-    const form = feuille.querySelector('form');
-    form.elements[`article${i}`].addEventListener('change', (e) => {
-      const article = inventaire.articles.find((a) => a.id === e.target.value);
-      form.elements[`quantite${i}`].value = enChamp(I.quantiteDansUnite(l.besoin, article));
-      form.querySelector(`[data-unite="${i}"]`).textContent = article?.unite ?? '';
-    });
+  // Autre article choisi : l'unité suit, et pour un ingrédient de la recette, la quantité proposée aussi.
+  feuille.querySelector('form').addEventListener('change', (e) => {
+    const select = e.target.closest('select[name^="article"]');
+    if (!select) return;
+    const ligne = select.closest('.ligne-deduction');
+    const article = ingredients.find((a) => a.id === select.value);
+    if (ligne.dataset.besoin != null) {
+      ligne.querySelector('input').value = enChamp(I.quantiteDansUnite(verification[Number(ligne.dataset.besoin)].besoin, article));
+    }
+    ligne.querySelector('[data-unite]').textContent = article?.unite ?? '';
   });
+}
+
+/** « + Ajouter un ingrédient du stock » : une ligne hors recette, à choisir. */
+function ajouterLigneDeduction() {
+  const b = brassinCourant();
+  const zone = document.querySelector('#feuille [data-hors-recette]');
+  if (!b || !zone) return;
+  zone.insertAdjacentHTML(
+    'beforeend',
+    String(ligneDeduction({ nom: `-ajout${++lignesAjoutees}`, titre: 'Ajouté au brassin' }, ingredientsDuStock(), I.quantitesRetirees(b.deduction))),
+  );
+  zone.lastElementChild.querySelector('select').focus();
 }
 
 function validerDeduction(form) {
   const b = brassinCourant();
   if (!b) return;
   const lignes = [];
-  for (let i = 0; form.elements[`article${i}`]; i++) {
-    const articleId = form.elements[`article${i}`].value;
-    const quantite = B.lireNombre(form.elements[`quantite${i}`].value);
+  for (const ligne of form.querySelectorAll('.ligne-deduction')) {
+    const articleId = ligne.querySelector('select').value;
+    const quantite = B.lireNombre(ligne.querySelector('input').value);
     if (!articleId || quantite === null) continue;
     if (!(quantite >= 0)) return erreurFeuille(form, 'Quantité invalide.');
     lignes.push({ articleId, quantite });
   }
-  const retire = I.deduire(etat.donnees.inventaire, lignes);
-  if (!retire.length) return erreurFeuille(form, 'Aucun ingrédient du stock choisi.');
-  b.deduction = { le: new Date().toISOString(), lignes: retire };
+  const inventaire = etat.donnees.inventaire;
+  const precedente = b.deduction;
+  if (!precedente) {
+    const retire = I.deduire(inventaire, lignes);
+    if (!retire.length) return erreurFeuille(form, 'Aucun ingrédient du stock choisi.');
+    b.deduction = { le: new Date().toISOString(), lignes: retire };
+    modifie(b);
+    toast(`${pluriel(retire.length, 'ingrédient')} déduit${retire.length >= 2 ? 's' : ''} du stock.`, { action: remettreIngredients });
+    return;
+  }
+  // Correction : l'ancienne déduction est rendue au stock, la nouvelle retirée ; « Annuler » revient en arrière.
+  const retire = I.corrigerDeduction(inventaire, precedente.lignes, lignes);
+  b.deduction = retire.length ? { le: precedente.le, lignes: retire } : null;
   modifie(b);
-  toast(`${pluriel(retire.length, 'ingrédient')} déduit${retire.length >= 2 ? 's' : ''} du stock.`, { action: remettreIngredients });
+  toast(retire.length ? 'Déduction corrigée : stock recalculé.' : 'Ingrédients remis en stock.', {
+    action: () => {
+      I.corrigerDeduction(inventaire, b.deduction?.lignes, precedente.lignes);
+      b.deduction = precedente;
+      modifie(b);
+    },
+  });
 }
 
 function remettreIngredients() {
@@ -2737,6 +2822,8 @@ const ACTIONS = {
   'retirer-achat': retirerAchat,
   'partager-courses': partagerCourses,
   'deduire-ingredients': ouvrirDeduction,
+  'ajouter-ligne-deduction': ajouterLigneDeduction,
+  'retirer-ligne-deduction': (bouton) => bouton.closest('.ligne-deduction')?.remove(),
   'remettre-ingredients': remettreIngredients,
   'regenerer-code': regenererCode,
   'prete-vue': marquerPreteVue,

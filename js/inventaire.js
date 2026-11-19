@@ -340,6 +340,48 @@ export function remettre(inventaire, retire) {
   }
 }
 
+/**
+ * Corrige une déduction déjà faite : ce qu'elle avait retiré est remis en stock, puis
+ * les nouvelles quantités sont retirées. Renvoie ce qui a vraiment été retiré.
+ */
+export function corrigerDeduction(inventaire, precedente, lignes) {
+  remettre(inventaire, precedente ?? []);
+  return deduire(inventaire, lignes);
+}
+
+/** Quantités qu'une déduction a retirées, par article (rendues au stock si on la corrige). */
+export function quantitesRetirees(deduction) {
+  const parArticle = new Map();
+  for (const { articleId, quantite } of deduction?.lignes ?? []) {
+    parArticle.set(articleId, arrondi((parArticle.get(articleId) ?? 0) + quantite, 3));
+  }
+  return parArticle;
+}
+
+/**
+ * Contenu de la fenêtre de déduction. Pour chaque ingrédient de la recette : l'article et
+ * la quantité à retirer ; puis les articles retirés hors recette (houblon ajouté pendant le
+ * brassage…). Première déduction : article trouvé et quantité de la recette. Correction d'une
+ * déduction : ce qui a vraiment été retiré ; un article retiré qui ne correspond à aucun
+ * ingrédient de la recette passe en « hors recette ».
+ */
+export function lignesDeduction(verification, deduction = null) {
+  if (!deduction) {
+    return {
+      recette: verification.map((l) => ({ besoin: l.besoin, articleId: l.article?.id ?? '', quantite: l.article ? l.necessaire : null })),
+      horsRecette: [],
+    };
+  }
+  const restantes = [...deduction.lignes];
+  const recette = verification.map((l) => {
+    const k = l.article ? restantes.findIndex((d) => d.articleId === l.article.id) : -1;
+    if (k < 0) return { besoin: l.besoin, articleId: '', quantite: null };
+    const [d] = restantes.splice(k, 1);
+    return { besoin: l.besoin, articleId: d.articleId, quantite: d.quantite };
+  });
+  return { recette, horsRecette: restantes.map(({ articleId, quantite }) => ({ articleId, quantite })) };
+}
+
 /* ------------------------------------------------------------------ */
 /* Liste de courses                                                    */
 /* ------------------------------------------------------------------ */

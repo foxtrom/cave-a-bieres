@@ -559,6 +559,16 @@ textarea:focus-visible {
 .liste-copies .e-btn { flex: none; margin: 0; }
 
 .ligne-deduction { margin-bottom: 14px; }
+.ligne-deduction-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; }
+.ligne-deduction-tete .libelle { margin: 6px 0; }
+.ligne-deduction-tete .e-btn { margin-right: -10px; }
+#feuille .titre-hors-recette { margin: 22px 0 4px; }
+#feuille .titre-hors-recette + .aide { margin: 0 0 12px; }
+[data-hors-recette] + .e-btn { margin-bottom: 4px; }
+/* Fiche : ce qui a été retiré du stock, puis « Corriger… » et « Remettre en stock » */
+.stock-recette .ingredients-deduits { flex: 1 1 100%; margin: 0; font-size: 0.875rem; }
+.stock-recette .ingredients-deduits li { padding: 5px 0; }
+.boutons-deduction { display: flex; flex-wrap: wrap; gap: 4px 10px; flex: 1 1 100%; }
 .ligne-deduction .libelle small { font-weight: 500; color: var(--texte-doux); }
 .ligne-deduction select { font-size: 16px; }
 

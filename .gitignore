@@ -7,6 +7,8 @@ GRAINFATHER/
 PHOTOS/
 INVENTAIRES BRASSAGE/
 BUG/
+# Sauvegardes de l'appli exportées de l'iPhone (données personnelles)
+BACKUP/
 # Captures et exports personnels posés à la racine (ex. pages Cloudflare en PDF)
 /*.pdf
 # Cache de Miniflare / Wrangler (essais du relais)

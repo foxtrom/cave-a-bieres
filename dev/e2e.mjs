@@ -769,6 +769,50 @@ try {
     await attendreQuantite('Pilsner', '1,4 kg');
   });
 
+  await etape('Corriger la déduction : quantité réelle, houblon ajouté hors recette, « Annuler », puis retour', async () => {
+    const corriger = async () => {
+      await page.goto(`${BASE}#/brassin/${F.code}`);
+      await page.click('.stock-recette [data-action="deduire-ingredients"]');
+      await attendreTexte('#feuille h2', 'Corriger la déduction');
+    };
+    const horsRecette = '#feuille [data-hors-recette] .ligne-deduction';
+    // 1. Pilsner pesé à 4 kg, et 10 g de Magnum en plus de la recette (houblonnage ajouté).
+    await corriger();
+    assert.equal(await page.inputValue('#feuille input[name="quantite0"]'), '3,6'); // ce qui avait été retiré
+    await page.fill('#feuille input[name="quantite0"]', '4');
+    await page.click('[data-action="ajouter-ligne-deduction"]');
+    const ajout = page.locator(horsRecette).last();
+    const magnum = await ajout.locator('option', { hasText: /^Magnum/ }).getAttribute('value');
+    await ajout.locator('select').selectOption(magnum);
+    assert.equal(await ajout.locator('[data-unite]').textContent(), 'g');
+    await ajout.locator('input').fill('10');
+    await page.waitForTimeout(300);
+    await capture('31-deduction-corrigee');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Déduction corrigée/);
+    await attendreTexte('.ingredients-deduits', 'Magnum');
+    await attendreQuantite('Pilsner', '1 kg');
+    await attendreQuantite('Magnum', '27 g');
+    // 2. Nouvelle correction, annulée depuis le message : retour à la correction 1.
+    await corriger();
+    await attendreNombre(page, horsRecette, 1);
+    assert.equal(await page.inputValue(`${horsRecette} input`), '10');
+    await page.fill('#feuille input[name="quantite0"]', '4,5');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Déduction corrigée/);
+    await page.click('#toast button');
+    await attendreQuantite('Pilsner', '1 kg');
+    // 3. Retour aux quantités de la recette : ligne hors recette retirée, stock d'avant l'étape.
+    await corriger();
+    await page.fill('#feuille input[name="quantite0"]', '3,6');
+    await page.click(`${horsRecette} [data-action="retirer-ligne-deduction"]`);
+    await attendreNombre(page, horsRecette, 0);
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Déduction corrigée/);
+    await attendreQuantite('Pilsner', '1,4 kg');
+    await attendreQuantite('Magnum', '37 g');
+  });
+
   await etape(`Embouteillage de ${F.code} : bouteilles vides et capsules déduites, puis annulé`, async () => {
     await page.goto(`${BASE}#/brassin/${F.code}`);
     await page.click('#barre-actions [data-action="embouteiller"]');

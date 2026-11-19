@@ -187,6 +187,41 @@ test('déduction confirmée, jamais sous zéro, puis remise en stock', () => {
   assert.equal(sabro.quantite, 60);
 });
 
+test('déduction corrigée : quantités changées, houblon ajouté hors recette', () => {
+  const stock = stockDeTest();
+  const [pils, , sabro, magnum] = stock.articles;
+  const premiere = I.deduire(stock, [{ articleId: pils.id, quantite: 3.6 }, { articleId: sabro.id, quantite: 20 }]);
+  // Brassage réel : 4 kg de Pilsner, 30 g de Sabro, et du Magnum que la recette ne cite pas.
+  const corrigee = I.corrigerDeduction(stock, premiere, [
+    { articleId: pils.id, quantite: 4 },
+    { articleId: sabro.id, quantite: 30 },
+    { articleId: magnum.id, quantite: 0.02 },
+  ]);
+  assert.equal(pils.quantite, 1);
+  assert.equal(sabro.quantite, 30);
+  assert.equal(magnum.quantite, 0.03);
+  assert.deepEqual(corrigee.map((r) => r.quantite), [4, 30, 0.02]);
+  assert.deepEqual([...I.quantitesRetirees({ lignes: corrigee })], [[pils.id, 4], [sabro.id, 30], [magnum.id, 0.02]]);
+  // Annuler la correction : on revient à la première déduction.
+  I.corrigerDeduction(stock, corrigee, premiere);
+  assert.deepEqual([pils.quantite, sabro.quantite, magnum.quantite], [1.4, 40, 0.05]);
+});
+
+test('fenêtre de déduction : recette proposée, puis ce qui a vraiment été retiré', () => {
+  const stock = stockDeTest();
+  const [pils, , sabro, magnum] = stock.articles;
+  const recette = { malts: [{ nom: 'Pilsner', kg: 3.6, type: 'Grain' }], houblons: [{ nom: 'Sabro', g: 20 }], levures: [], autres: [] };
+  const v = I.verifierRecette(stock.articles, recette);
+  const proposees = I.lignesDeduction(v);
+  assert.deepEqual(proposees.recette.map((l) => [l.articleId, l.quantite]), [[pils.id, 3.6], [sabro.id, 20]]);
+  assert.deepEqual(proposees.horsRecette, []);
+  // Sabro laissé de côté, Magnum ajouté pendant le brassage.
+  const deduction = { le: '', lignes: I.deduire(stock, [{ articleId: pils.id, quantite: 4 }, { articleId: magnum.id, quantite: 0.02 }]) };
+  const corrigees = I.lignesDeduction(I.verifierRecette(stock.articles, recette), deduction);
+  assert.deepEqual(corrigees.recette.map((l) => [l.articleId, l.quantite]), [[pils.id, 4], ['', null]]);
+  assert.deepEqual(corrigees.horsRecette, [{ articleId: magnum.id, quantite: 0.02 }]);
+});
+
 test('bouteilles vides et capsules : ajustées, jamais négatives', () => {
   const stock = stockDeTest();
   assert.equal(I.ajusterMateriel(stock, 'bouteilles33', 1), 1);

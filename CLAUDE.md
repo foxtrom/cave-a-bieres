@@ -8,7 +8,7 @@
   - les tests passent (`node --test "dev/tests/*.test.mjs"`) ;
   - si un fichier servi par l'appli a changé, `VERSION` est incrémentée dans `sw.js` et les nouveaux fichiers sont ajoutés à `FICHIERS`. Sinon l'iPhone garde l'ancienne version en cache.
 - Message de commit en français, qui dit ce que la modification change.
-- Ne jamais envoyer `GRAINFATHER/`, `PHOTOS/`, `INVENTAIRES BRASSAGE/`, `BUG/` (vidéos de bugs) ni `prive/` (clé et adresse du relais) (déjà exclus par `.gitignore`) ; un nouveau dossier personnel apparu à la racine est à exclure de même. Garder l'identité Git du dépôt (`foxtrom@users.noreply.github.com`) : aucune autre adresse e-mail dans les commits.
+- Ne jamais envoyer `GRAINFATHER/`, `PHOTOS/`, `INVENTAIRES BRASSAGE/`, `BUG/` (vidéos de bugs), `BACKUP/` (sauvegardes de l'appli) ni `prive/` (clé et adresse du relais) (déjà exclus par `.gitignore`) ; un nouveau dossier personnel apparu à la racine est à exclure de même. Garder l'identité Git du dépôt (`foxtrom@users.noreply.github.com`) : aucune autre adresse e-mail dans les commits.
 - Après le push, indiquer à l'utilisateur que la mise à jour sera en ligne dans environ une minute.
 
 ## Questions à l'utilisateur : toujours un questionnaire à cliquer

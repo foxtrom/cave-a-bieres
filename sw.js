@@ -4,7 +4,7 @@
 // IMPORTANT : changer VERSION à chaque mise en ligne d'une modification,
 // sinon l'iPhone continuera d'utiliser l'ancienne copie.
 
-const VERSION = '1.16.6';
+const VERSION = '1.17.0';
 const CACHE = `ensen-${VERSION}`;
 
 const FICHIERS = [

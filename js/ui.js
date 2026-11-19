@@ -1,7 +1,7 @@
 // Composants d'interface : icônes, silhouette, messages, feuilles, confirmation.
 
 import { brut, html } from './outils.js';
-import { COLLINE as LIGNE_COLLINE, LOINTAIN, cheminSvg, crete } from './naouri.js';
+import { COLLINE as LIGNE_COLLINE, cheminSvg, crete } from './naouri.js';
 
 const icone = (traces) =>
   brut(
@@ -26,18 +26,18 @@ export const ICONES = {
   clocheCoupee: icone('<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 21h4M3.5 3.5l17 17"/>'),
 };
 
-// Les lignes de crête sont prolongées à gauche : l'en-tête est souvent plus large que le dessin.
-const versLaGauche = (points) => [[-1800, points[0][1]], ...points];
-const SCENE = { largeur: 512, ySommet: 232, exageration: 1.5, yBas: 512 };
+// Le versant gauche descend jusqu'au pied de l'en-tête (même niveau que le versant droit) :
+// la colline est posée en bas à droite, entière, sans bord coupé.
+const AU_PIED = 192.4;
+const DEPUIS_LE_PIED = [[60, AU_PIED], ...LIGNE_COLLINE.filter(([x]) => x >= 130)];
+const SCENE = { largeur: 512, ySommet: 0, exageration: 1.5, yBas: 160 };
 
 /**
- * Silhouette du Puy de Naouri au lever du soleil, même tracé que l'icône
- * et les étiquettes (js/naouri.js). Cadrée sur le sommet, à droite de l'en-tête.
+ * Silhouette du Puy de Naouri, même tracé que l'icône et les étiquettes (js/naouri.js) :
+ * nette (bords francs, couleur pleine, sans transparence), en bas à droite de l'en-tête.
  */
-export const COLLINE = brut(`<svg class="marque-colline" viewBox="0 120 512 250" preserveAspectRatio="xMaxYMax meet" aria-hidden="true" focusable="false">
-  <circle class="soleil" cx="331" cy="224" r="56"/>
-  <path class="crete" d="${cheminSvg(crete(versLaGauche(LOINTAIN), SCENE))}"/>
-  <path class="colline" d="${cheminSvg(crete(versLaGauche(LIGNE_COLLINE), SCENE))}"/>
+export const COLLINE = brut(`<svg class="marque-colline" viewBox="30 -2 482 151" preserveAspectRatio="xMaxYMax meet" aria-hidden="true" focusable="false">
+  <path class="colline" d="${cheminSvg(crete(DEPUIS_LE_PIED, SCENE))}"/>
 </svg>`);
 
 /** « 1 bouteille », « 3 bouteilles », « 0 bouteille ». */

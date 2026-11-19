@@ -222,6 +222,30 @@ test('fenêtre de déduction : recette proposée, puis ce qui a vraiment été r
   assert.deepEqual(corrigees.horsRecette, [{ articleId: magnum.id, quantite: 0.02 }]);
 });
 
+test('recette modifiée : le stock suit la nouvelle recette, les vrais ajouts hors recette restent', () => {
+  const stock = stockDeTest();
+  const [pils, carapils, sabro, magnum] = stock.articles;
+  const ancienne = { malts: [{ nom: 'Pilsner', kg: 3.6 }, { nom: 'Carapils', kg: 0.2 }], houblons: [{ nom: 'Sabro', g: 20 }], levures: [], autres: [] };
+  // Déduit le jour du brassage : la recette, plus du Magnum ajouté hors recette.
+  const deduction = {
+    le: '',
+    lignes: I.deduire(stock, [
+      { articleId: pils.id, quantite: 3.6 },
+      { articleId: carapils.id, quantite: 200 },
+      { articleId: sabro.id, quantite: 20 },
+      { articleId: magnum.id, quantite: 0.01 },
+    ]),
+  };
+  // Recette corrigée : 4 kg de Pilsner, plus de Carapils, Sabro porté à 40 g.
+  const nouvelle = { malts: [{ nom: 'Pilsner', kg: 4 }], houblons: [{ nom: 'Sabro', g: 40 }], levures: [], autres: [] };
+  const v = I.verifierRecette(stock.articles, nouvelle);
+  const { recette, horsRecette } = I.lignesApresRecette(v, deduction, I.verifierRecette(stock.articles, ancienne));
+  assert.deepEqual(recette.map((l) => [l.articleId, l.quantite]), [[pils.id, 4], [sabro.id, 40]]);
+  assert.deepEqual(horsRecette, [{ articleId: magnum.id, quantite: 0.01 }]); // le Carapils enlevé n'y est plus
+  I.corrigerDeduction(stock, deduction.lignes, [...recette, ...horsRecette]);
+  assert.deepEqual([pils.quantite, carapils.quantite, sabro.quantite, magnum.quantite], [1, 300, 20, 0.04]); // Carapils rendu
+});
+
 test('bouteilles vides et capsules : ajustées, jamais négatives', () => {
   const stock = stockDeTest();
   assert.equal(I.ajusterMateriel(stock, 'bouteilles33', 1), 1);

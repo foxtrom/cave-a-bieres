@@ -324,6 +324,17 @@ export function recetteModifiee(ancienne, lignes, { nom = '', maintenant = new D
   return { recette: normaliserRecette({ ...base, ...resultat, modifieeLe: maintenant.toISOString() }) };
 }
 
+/** Empreinte des ingrédients (noms et quantités) : deux recettes aux mêmes ingrédients ont la même. */
+export function empreinteIngredients(recette) {
+  if (!recette) return '';
+  return JSON.stringify([
+    (recette.malts ?? []).map((m) => [m.nom, m.kg]),
+    (recette.houblons ?? []).map((h) => [h.nom, h.g]),
+    (recette.levures ?? []).map((l) => [l.nom, l.quantite, l.unite]),
+    (recette.autres ?? []).map((x) => [x.nom, x.quantite, x.unite]),
+  ]);
+}
+
 /** Résumé sur une ligne : style, nombre de malts, houblons, levure. */
 export function resumeComposition(recette) {
   const noms = (elements) => [...new Set(elements.map((x) => x.nom).filter(Boolean))].join(', ');

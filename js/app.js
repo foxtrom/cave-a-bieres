@@ -24,7 +24,7 @@ const etat = {
   lectureImpossible: false, // données présentes mais illisibles : on n'écrase rien
   persistant: false,
   jourAffiche: aujourdhui(),
-  deductionAProposer: null, // brassin tout juste créé avec une recette
+  deductionAProposer: null, // { id, ancienneRecette? } : brassin créé avec une recette, ou dont les ingrédients ont changé
 };
 
 const $ = (selecteur) => document.querySelector(selecteur);
@@ -396,9 +396,10 @@ function vueFiche(b) {
       // Mesures de la Pill : au plus une fois par heure, à l'ouverture de la fiche.
       if (st === 'fermentation' && b.fermentation && relaisConfigure()) actualiserSuivi(b);
       // Brassin tout juste créé avec une recette : proposer de déduire les ingrédients du stock.
-      if (etat.deductionAProposer === b.id) {
+      if (etat.deductionAProposer?.id === b.id) {
+        const { ancienneRecette } = etat.deductionAProposer;
         etat.deductionAProposer = null;
-        ouvrirDeduction();
+        ouvrirDeduction(null, { ancienneRecette });
       }
     },
   };
@@ -1187,6 +1188,8 @@ function enregistrerBrassin(form) {
   if (Object.keys(erreurs).length) return;
 
   const auj = aujourdhui();
+  const ancienneRecette = existant?.recette ?? null;
+  const ingredientsChanges = !creation && Boolean(saisie.recette) && R.empreinteIngredients(ancienneRecette) !== R.empreinteIngredients(saisie.recette);
   const b = existant ?? B.nouveauBrassin();
   B.appliquerSaisie(b, saisie, { creation });
   // Alerte « prête à boire » : seulement si la date n'est pas déjà passée à la création.
@@ -1196,8 +1199,9 @@ function enregistrerBrassin(form) {
   b.modifieLe = new Date().toISOString();
   if (creation) etat.donnees.brassins.push(b);
   sauver();
-  if (creation && b.recette && etat.donnees.inventaire.articles.some((a) => a.categorie !== 'materiel')) {
-    etat.deductionAProposer = b.id; // ouvert par la fiche, une fois affichée
+  if ((creation || ingredientsChanges) && b.recette && etat.donnees.inventaire.articles.some((a) => a.categorie !== 'materiel')) {
+    // Ouvert par la fiche, une fois affichée : déduction à la création, mise à jour du stock après une recette modifiée.
+    etat.deductionAProposer = { id: b.id, ancienneRecette: ingredientsChanges ? ancienneRecette : undefined };
   }
   naviguer(`brassin/${encodeURIComponent(b.code)}`, { remplacer: true });
   toast(creation ? `Brassin ${b.code} ajouté.` : 'Modifications enregistrées.');
@@ -2158,19 +2162,26 @@ function ligneDeduction({ nom, titre, detail = '', articleId = '', quantite = nu
  * Déduire les ingrédients du brassin, ou corriger la déduction déjà faite : quantités réelles,
  * ingrédients ajoutés pendant le brassage (un houblon que la recette ne cite pas…).
  */
-function ouvrirDeduction() {
+function ouvrirDeduction(bouton, { ancienneRecette } = {}) {
   const b = brassinCourant();
   if (!b?.recette) return;
   const ingredients = ingredientsDuStock();
-  const verification = I.verifierRecette(etat.donnees.inventaire.articles, b.recette);
+  const articles = etat.donnees.inventaire.articles;
+  const verification = I.verifierRecette(articles, b.recette);
   const rendues = I.quantitesRetirees(b.deduction);
-  const { recette, horsRecette } = I.lignesDeduction(verification, b.deduction);
+  // Recette tout juste modifiée (ancienneRecette, null si elle n'existait pas) : la nouvelle recette fait foi.
+  const apresRecette = ancienneRecette !== undefined;
+  const { recette, horsRecette } = apresRecette
+    ? I.lignesApresRecette(verification, b.deduction, ancienneRecette ? I.verifierRecette(articles, ancienneRecette) : [])
+    : I.lignesDeduction(verification, b.deduction);
   const corriger = Boolean(b.deduction);
   lignesAjoutees = 0;
   const feuille = ouvrirFeuille(html`<form class="feuille-contenu" data-form="deduction" novalidate>
-    <h2 tabindex="-1" autofocus>${corriger ? 'Corriger la déduction' : 'Déduire du stock ?'}</h2>
+    <h2 tabindex="-1" autofocus>${corriger ? (apresRecette ? 'Mettre le stock à jour ?' : 'Corriger la déduction') : 'Déduire du stock ?'}</h2>
     <p>${
-      corriger
+      corriger && apresRecette
+        ? `Recette « ${b.recette.nom} » modifiée : quantités de la nouvelle recette, modifiables. Le stock est recalculé : ce qui avait été retiré est rendu (ingrédient enlevé compris), puis ces quantités sont retirées.`
+        : corriger
         ? `Recette « ${b.recette.nom} » : quantités vraiment utilisées. Le stock est recalculé : ce qui avait été retiré est rendu, puis ces quantités sont retirées.`
         : `Recette « ${b.recette.nom} » : quantités à retirer du stock, modifiables. « Pas dans le stock » laisse l’ingrédient de côté.`
     }</p>

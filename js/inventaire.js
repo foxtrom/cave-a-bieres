@@ -359,6 +359,20 @@ export function quantitesRetirees(deduction) {
 }
 
 /**
+ * Fenêtre de déduction après une recette modifiée : la nouvelle recette fait foi. Chaque
+ * ingrédient avec l'article trouvé et la quantité de la recette ; parmi les articles déjà
+ * retirés, ceux qui n'étaient dans aucune des deux recettes (vrais ajouts « hors recette »)
+ * restent proposés ; ceux d'un ingrédient enlevé de la recette ne le sont plus, et seront
+ * donc rendus au stock en validant.
+ */
+export function lignesApresRecette(verification, deduction = null, verificationAncienne = []) {
+  const recette = verification.map((l) => ({ besoin: l.besoin, articleId: l.article?.id ?? '', quantite: l.article ? l.necessaire : null }));
+  const recettes = new Set([...verification, ...verificationAncienne].map((l) => l.article?.id).filter(Boolean));
+  const horsRecette = (deduction?.lignes ?? []).filter((d) => !recettes.has(d.articleId)).map(({ articleId, quantite }) => ({ articleId, quantite }));
+  return { recette, horsRecette };
+}
+
+/**
  * Contenu de la fenêtre de déduction. Pour chaque ingrédient de la recette : l'article et
  * la quantité à retirer ; puis les articles retirés hors recette (houblon ajouté pendant le
  * brassage…). Première déduction : article trouvé et quantité de la recette. Correction d'une

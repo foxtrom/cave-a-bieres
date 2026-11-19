@@ -887,12 +887,22 @@ try {
     await attendreTexte('.recette-jointe', 'Citra, Nectaron');
     await page.click('button[form="form-brassin"]');
     await page.waitForURL(new RegExp(`#/brassin/${F.code}$`));
+    // Recette modifiée : la fiche propose de mettre le stock à jour d'après la nouvelle recette
+    await attendreTexte('#feuille[open] h2', 'Mettre le stock à jour ?');
+    const titres = await page.locator('#feuille .ligne-deduction[data-besoin] .libelle').allInnerTexts();
+    assert.ok(titres.some((t) => t.startsWith('Citra')) && !titres.some((t) => t.startsWith('Sabro')), titres.join(' | '));
+    await capture('43-stock-apres-recette');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Déduction corrigée/);
     await attendreTexte('.bloc-recette', 'Nectaron');
     await attendreTexte('.bloc-recette', 'Ingrédients modifiés à la main le');
     // Listes de la recette (pas celle des ingrédients déjà déduits du stock, où le Sabro reste)
     const recette = (await page.locator('.bloc-recette .ingredients:not(.ingredients-deduits)').allInnerTexts()).join(' ');
     assert.match(recette.replace(/\s+/g, ' '), /Dry hop 3 jours/);
     assert.doesNotMatch(recette, /Sabro/);
+    // Le Sabro, enlevé de la recette, est rendu au stock ; le Pilsner ne bouge pas
+    await attendreQuantite('Pilsner', '1,4 kg');
+    assert.notEqual(await quantiteArticle('Sabro'), '0 g');
   });
 
   await etape('Import d’un tableau collé depuis Excel : aperçu, import, annulation', async () => {

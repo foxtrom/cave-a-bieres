@@ -4,7 +4,7 @@
 // IMPORTANT : changer VERSION à chaque mise en ligne d'une modification,
 // sinon l'iPhone continuera d'utiliser l'ancienne copie.
 
-const VERSION = '1.17.2';
+const VERSION = '1.18.0';
 const CACHE = `ensen-${VERSION}`;
 
 const FICHIERS = [
@@ -16,6 +16,7 @@ const FICHIERS = [
   './js/app.js',
   './js/beerxml.js',
   './js/brassins.js',
+  './js/capsules.js',
   './js/composants.js',
   './js/dates.js',
   './js/db.js',

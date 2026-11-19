@@ -9,6 +9,7 @@ import { decoderOctets, lireBeerXml } from './beerxml.js';
 import * as R from './recettes.js';
 import * as E from './etiquettes.js';
 import * as I from './inventaire.js';
+import * as C from './capsules.js';
 import * as F from './fermentation.js';
 import { POLICES } from './polices.js';
 import { copieRelaisDue, creerSauvegarde, donneesVides, empreinteDonnees, lireSauvegarde, nomFichierSauvegarde, normaliserDonnees, rappelSauvegarde } from './donnees.js';
@@ -348,7 +349,7 @@ function vueFiche(b) {
 
       ${blocEtat(b, auj)}
 
-      ${st === 'fermentation' ? blocSuivi(b, auj) : blocStock(b, { seuil: etat.donnees.reglages.seuilStockBas, auj })}
+      ${st === 'fermentation' ? blocSuivi(b, auj) : blocStock(b, { seuil: etat.donnees.reglages.seuilStockBas, auj, capsules: C.capsulesDuStock(etat.donnees.inventaire.articles).length > 0 })}
 
       ${frise(b, auj)}
 
@@ -2431,11 +2432,71 @@ async function supprimerBrassin() {
   });
 }
 
+/* ---------- Capsules de couleur (embouteillage, fiche) ---------- */
+
+let lignesCapsules = 0; // numérote les lignes de couleur d'une fenêtre
+
+/**
+ * Une ligne de couleur : lot de capsules du stock et nombre posé. Un lot supprimé du stock
+ * depuis (anciennes) reste proposé avec sa couleur, pour ne rien perdre en corrigeant.
+ */
+function ligneCapsule({ articleId = '', nombre = null, auto = false, retirable = true }, lots, anciennes = []) {
+  const n = ++lignesCapsules;
+  const disparues = anciennes.filter((c) => !lots.some((a) => a.id === c.articleId));
+  return html`<div class="ligne-capsule">
+    <div class="deux-colonnes">
+      <select name="capsule${n}" aria-label="Couleur des capsules">
+        ${lots.map((a) => html`<option value="${a.id}" ${a.id === articleId ? 'selected' : ''}>${C.libelleCapsule(a)} (${a.quantite})</option>`)}
+        ${disparues.map((c) => html`<option value="${c.articleId}" ${c.articleId === articleId ? 'selected' : ''}>${c.couleur} (plus en stock)</option>`)}
+      </select>
+      <span class="champ-unite"><input name="nombre${n}" inputmode="numeric" pattern="[0-9]*" value="${nombre ?? ''}"${auto ? brut(' data-auto') : ''}
+        aria-label="Nombre de capsules" autocomplete="off"><span>capsules</span></span>
+    </div>
+    ${retirable ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="retirer-ligne-capsule">Retirer cette couleur</button>` : ''}
+  </div>`;
+}
+
+/** Zone « Capsules (33 cl) » d'une fenêtre : une ligne par couleur, « + Ajouter une couleur ». */
+const zoneCapsules = ({ lignes, total = null, aide = '' }) => html`<div class="zone-capsules"${total === null ? '' : brut(` data-total="${total}"`)}>
+  <h3>Capsules (33 cl)</h3>
+  <div data-capsules>${lignes}</div>
+  <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="ajouter-ligne-capsule">${SYMBOLES.plus}Ajouter une couleur</button>
+  ${aide ? html`<p class="aide">${aide}</p>` : ''}
+</div>`;
+
+/** Lignes de couleur d'un formulaire : [{ articleId, nombre }] (nombre null si invalide). */
+function lireCapsules(form) {
+  return [...form.querySelectorAll('.ligne-capsule')].map((ligne) => {
+    const n = B.lireNombre(ligne.querySelector('input').value);
+    return { articleId: ligne.querySelector('select').value, nombre: n === null ? 0 : Number.isInteger(n) && n >= 0 ? n : null };
+  });
+}
+
+/** « + Ajouter une couleur » : nouvelle ligne avec le reste des 33 cl et une couleur pas encore choisie. */
+function ajouterLigneCapsule() {
+  const form = document.querySelector('#feuille form');
+  const zone = form?.querySelector('[data-capsules]');
+  if (!zone) return;
+  const b = brassinCourant();
+  const lots = C.capsulesDuStock(etat.donnees.inventaire.articles);
+  const total = form.elements.b33 ? B.lireNombre(form.elements.b33.value) ?? 0 : Number(form.querySelector('.zone-capsules').dataset.total || 0);
+  const lignes = lireCapsules(form);
+  const reste = Math.max(0, total - lignes.reduce((s, l) => s + (l.nombre ?? 0), 0));
+  const libre = lots.find((a) => !lignes.some((l) => l.articleId === a.id)) ?? lots[0];
+  for (const champ of zone.querySelectorAll('input[data-auto]')) delete champ.dataset.auto; // plusieurs couleurs : plus de recopie automatique
+  zone.insertAdjacentHTML('beforeend', String(ligneCapsule({ articleId: libre?.id, nombre: reste || null }, lots, b?.capsules ?? [])));
+  zone.lastElementChild.querySelector('select').focus();
+}
+
 function ouvrirEmbouteillage() {
   const b = brassinCourant();
   if (!b) return;
   const auj = aujourdhui();
-  ouvrirFeuille(html`<form class="feuille-contenu" data-form="embouteiller" novalidate>
+  const articles = etat.donnees.inventaire.articles;
+  const lots = C.capsulesDuStock(articles);
+  const parDefaut = C.capsuleParDefaut(articles, etat.donnees.brassins.filter((x) => x.id !== b.id));
+  lignesCapsules = 0;
+  const feuille = ouvrirFeuille(html`<form class="feuille-contenu" data-form="embouteiller" novalidate>
     <h2 tabindex="-1" autofocus>Embouteiller ${b.code}</h2>
     <label class="champ"><span class="libelle">Date d’embouteillage</span>
       <input type="date" name="date" value="${b.dateEmbouteillage && b.dateEmbouteillage >= auj ? b.dateEmbouteillage : auj}"></label>
@@ -2445,10 +2506,26 @@ function ouvrirEmbouteillage() {
       <label class="champ"><span class="libelle">Bouteilles 66 cl</span>
         <input name="b66" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="${b.bouteilles['66'].depart || ''}" autocomplete="off"></label>
     </div>
+    ${
+      lots.length
+        ? zoneCapsules({
+            lignes: ligneCapsule({ articleId: parDefaut?.id, nombre: b.bouteilles['33'].depart || null, auto: true, retirable: false }, lots),
+            aide: 'Retirées du stock avec les bouteilles. Une couleur ne suffit pas ? « Ajouter une couleur ».',
+          })
+        : ''
+    }
     <label class="champ"><span class="libelle">Garde en bouteille</span>
       <span class="champ-unite"><input name="garde" inputmode="numeric" pattern="[0-9]*" value="${b.gardeSemaines}" autocomplete="off"><span>semaines</span></span></label>
     ${boutonsFeuille('Valider')}
   </form>`);
+  // Une seule couleur : son nombre suit celui des 33 cl, tant qu'il n'est pas tapé à la main.
+  const form = feuille.querySelector('form');
+  form.addEventListener('input', (e) => {
+    if (e.target.name === 'b33') {
+      const auto = form.querySelector('.ligne-capsule input[data-auto]');
+      if (auto && form.querySelectorAll('.ligne-capsule').length === 1) auto.value = e.target.value;
+    } else if (e.target.closest('.ligne-capsule') && e.target.matches('input')) delete e.target.dataset.auto;
+  });
 }
 
 function validerEmbouteillage(form) {
@@ -2464,7 +2541,15 @@ function validerEmbouteillage(form) {
   if (b.dateBrassage && date < b.dateBrassage) return erreurFeuille(form, 'L’embouteillage ne peut pas précéder le brassage.');
   if (!entier(n33, 999) || !entier(n66, 999)) return erreurFeuille(form, 'Nombre de bouteilles invalide.');
   if (n33 + n66 === 0) return erreurFeuille(form, 'Indiquer au moins une bouteille.');
-  if (garde !== null && !entier(garde, 52)) return erreurFeuille(form, 'Garde : entre 0 et 52 semaines.');
+  if (garde !== null && !entier(garde, 52)) return erreurFeuille(form, 'Garde : entre 0 et 52 semaines.');
+  const inventaire = etat.donnees.inventaire;
+  const lignes = n33 ? lireCapsules(form) : []; // les 66 cl sont à clapet : pas de capsule
+  if (lignes.some((l) => l.nombre === null)) return erreurFeuille(form, 'Nombre de capsules invalide.');
+  const capsules = C.capsulesChoisies(inventaire.articles, lignes);
+  const posees = capsules.reduce((s, c) => s + c.nombre, 0);
+  if (lignes.length && posees !== n33) {
+    return erreurFeuille(form, `Capsules : ${posees} pour ${pluriel(n33, 'bouteille')} de 33 cl.`);
+  }
 
   // Pour « Annuler » : le brassin tel qu'il était, et les variations du stock de matériel.
   const avant = structuredClone({
@@ -2473,25 +2558,71 @@ function validerEmbouteillage(form) {
     mouvements: b.mouvements,
     gardeSemaines: b.gardeSemaines,
     preteVue: b.preteVue,
+    capsules: b.capsules,
   });
   b.dateEmbouteillage = date;
   b.bouteilles = { 33: { depart: n33, restant: n33 }, 66: { depart: n66, restant: n66 } };
   b.mouvements = [];
   if (garde !== null) b.gardeSemaines = garde;
   b.preteVue = B.datePrete(b) <= aujourdhui();
-  const inventaire = etat.donnees.inventaire;
+  if (lignes.length) b.capsules = capsules;
   const variations = [
     ['bouteilles33', I.ajusterMateriel(inventaire, 'bouteilles33', -n33)],
     ['bouteilles66', I.ajusterMateriel(inventaire, 'bouteilles66', -n66)],
-    ['capsules', I.ajusterMateriel(inventaire, 'capsules', -n33)], // les 66 cl sont à clapet : pas de capsule
   ];
+  // Capsules : chaque couleur choisie est retirée de son lot ; sans lot de capsules au stock, rien.
+  const capsulesRetirees = C.retirerCapsules(inventaire, lignes.length ? capsules : []);
   modifie(b);
-  const stock = variations.some(([, v]) => v) ? ' Bouteilles vides et capsules déduites du stock.' : '';
-  toast(`${b.code} embouteillée\u00a0: ${pluriel(n33 + n66, 'bouteille')}.${stock}`, {
+  const stock = variations.some(([, v]) => v) || capsulesRetirees.length ? ' Bouteilles vides et capsules déduites du stock.' : '';
+  // Plus de capsules posées que le stock n'en comptait : le lot passe à zéro, et on le dit.
+  const manques = (lignes.length ? capsules : [])
+    .map((c) => [c.couleur, c.nombre - (capsulesRetirees.find((r) => r.articleId === c.articleId)?.quantite ?? 0)])
+    .filter(([, manque]) => manque > 0)
+    .map(([couleur, manque]) => ` ${couleur} : ${manque} de plus que le stock, mis à zéro.`)
+    .join('');
+  toast(`${b.code} embouteillée : ${pluriel(n33 + n66, 'bouteille')}.${stock}${manques}`, {
     duree: 8000,
     action: () => {
       Object.assign(b, avant);
       for (const [role, v] of variations) I.ajusterMateriel(inventaire, role, -v);
+      C.rendreCapsules(inventaire, capsulesRetirees);
+      modifie(b);
+    },
+  });
+}
+
+/** Fiche : préciser ou corriger les couleurs des capsules d'un brassin déjà embouteillé (le stock ne change pas). */
+function ouvrirCapsules() {
+  const b = brassinCourant();
+  if (!b) return;
+  const articles = etat.donnees.inventaire.articles;
+  const lots = C.capsulesDuStock(articles);
+  const total = b.bouteilles['33'].depart;
+  lignesCapsules = 0;
+  const lignes = b.capsules.length
+    ? b.capsules.map((c, i) => ligneCapsule({ articleId: c.articleId, nombre: c.nombre, retirable: i > 0 }, lots, b.capsules))
+    : [ligneCapsule({ articleId: C.capsuleParDefaut(articles, etat.donnees.brassins)?.id, nombre: total || null, retirable: false }, lots)];
+  ouvrirFeuille(html`<form class="feuille-contenu" data-form="capsules" novalidate>
+    <h2 tabindex="-1" autofocus>Capsules de ${b.code}</h2>
+    <p>Couleurs posées sur les bouteilles de 33 cl${total ? ` (${total} au départ)` : ''}. Le stock de capsules ne change pas.</p>
+    ${zoneCapsules({ lignes, total })}
+    ${boutonsFeuille('Enregistrer')}
+  </form>`);
+}
+
+function validerCapsules(form) {
+  const b = brassinCourant();
+  if (!b) return;
+  const lignes = lireCapsules(form);
+  if (lignes.some((l) => l.nombre === null)) return erreurFeuille(form, 'Nombre de capsules invalide.');
+  // Une seule couleur sans nombre : toutes les 33 cl.
+  if (lignes.length === 1 && !lignes[0].nombre) lignes[0].nombre = Math.max(1, b.bouteilles['33'].depart);
+  const avant = b.capsules;
+  b.capsules = C.capsulesChoisies(etat.donnees.inventaire.articles, lignes, avant);
+  modifie(b);
+  toast(b.capsules.length ? 'Capsules enregistrées.' : 'Couleur des capsules retirée.', {
+    action: () => {
+      b.capsules = avant;
       modifie(b);
     },
   });
@@ -2792,6 +2923,9 @@ const ACTIONS = {
   desarchiver,
   supprimer: supprimerBrassin,
   embouteiller: ouvrirEmbouteillage,
+  'ajouter-ligne-capsule': ajouterLigneCapsule,
+  'retirer-ligne-capsule': (bouton) => bouton.closest('.ligne-capsule')?.remove(),
+  'modifier-capsules': ouvrirCapsules,
   exporter,
   importer,
   'importer-recette': importerRecette,
@@ -2837,6 +2971,7 @@ const FORMULAIRES = {
   offrir: validerOffre,
   don: validerDon,
   embouteiller: validerEmbouteillage,
+  capsules: validerCapsules,
   etiquettes: creerPdfEtiquettes,
   article: validerArticle,
   'import-stock': validerImportStock,

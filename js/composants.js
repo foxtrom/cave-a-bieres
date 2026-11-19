@@ -5,6 +5,7 @@
 // Le bac à sable (dev/bac-a-sable/) les montre dans tous leurs états.
 
 import * as B from './brassins.js';
+import { teinteCouleur } from './capsules.js';
 import { ajouterJours, duree, formaterDate, formaterDateCourte, joursEntre, relatif } from './dates.js';
 import { brut, html } from './outils.js';
 import * as R from './recettes.js';
@@ -98,6 +99,22 @@ function texteAge(b, auj) {
 const points = (classe, elements) =>
   html`<p class="${classe}"><span class="e-points">${elements.map((e) => html`<span>${e}</span>`)}</span></p>`;
 
+/* ---------- Capsules de couleur ---------- */
+
+/** Pastille de la couleur et son nom (jamais la couleur seule) ; pastille vide si la couleur n'est pas reconnue. */
+export function pastilleCapsule(couleur, detail = '') {
+  const teinte = teinteCouleur(couleur);
+  return html`<span class="e-capsule"><span class="e-capsule-rond${teinte ? '' : ' e-capsule-rond--inconnue'}"${
+    teinte ? brut(` style="--teinte:${teinte}"`) : ''
+  } aria-hidden="true"></span>${couleur}${detail ? html` <small>${detail}</small>` : ''}</span>`;
+}
+
+/** Couleurs des capsules d'un brassin, sur la carte de la Cave (à côté du code). */
+export const capsulesCarte = (b) =>
+  b.capsules?.length
+    ? html`<span class="e-capsules" role="img" aria-label="Capsules ${b.capsules.map((c) => c.couleur).join(', ')}">${b.capsules.map((c) => pastilleCapsule(c.couleur))}</span>`
+    : '';
+
 /* ---------- Carte de brassin ---------- */
 
 export function carteBrassin(b, { auj, seuil, href = '#' }) {
@@ -115,7 +132,7 @@ export function carteBrassin(b, { auj, seuil, href = '#' }) {
   return html`<a class="e-carte${bas ? ' e-carte--alerte' : ''}${termine ? ' e-carte--terminee' : ''}" href="${href}">
     <div class="e-carte-grille${sansStock ? ' e-carte-grille--sans-stock' : ''}">
       <div class="e-carte-haut">
-        <span class="e-code">${b.code}</span>
+        <span class="e-carte-code"><span class="e-code">${b.code}</span>${capsulesCarte(b)}</span>
         ${badges.length ? html`<span class="e-badges">${badges}</span>` : ''}
       </div>
       <p class="e-carte-nom">${b.nom}</p>
@@ -200,7 +217,25 @@ export function blocEtat(b, auj) {
 
 /* ---------- Fiche : bloc de stock ---------- */
 
-export function blocStock(b, { seuil, auj }) {
+/**
+ * Ligne « Capsules » du bloc de stock : couleurs posées (avec leur nombre s'il y en a plusieurs),
+ * et le bouton pour les préciser ou les corriger (data-action="modifier-capsules", sans toucher au stock).
+ */
+function ligneCapsules(b) {
+  const capsules = b.capsules ?? [];
+  const plusieurs = capsules.length > 1;
+  return html`<div class="e-capsules-fiche">
+    <span class="e-capsules-libelle">Capsules</span>
+    ${
+      capsules.length
+        ? html`<span class="e-capsules">${capsules.map((c) => pastilleCapsule(c.couleur, plusieurs ? `× ${c.nombre}` : ''))}</span>`
+        : html`<span class="e-capsules-vide">couleur non précisée</span>`
+    }
+    <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="modifier-capsules">${capsules.length ? 'Modifier' : 'Préciser'}</button>
+  </div>`;
+}
+
+export function blocStock(b, { seuil, auj, capsules = false }) {
   const s = B.stock(b);
   const bas = B.estStockBas(b, seuil, auj);
   const formats = B.formatsUtilises(b);
@@ -221,6 +256,7 @@ export function blocStock(b, { seuil, auj }) {
           )}</dl>`
         : ''
     }
+    ${capsules || b.capsules?.length ? ligneCapsules(b) : ''}
     ${bas ? html`<p class="e-message e-message--alerte">${SYMBOLES.alerte}<span>Stock bas : moins de ${pluriel(seuil, 'bouteille')}.</span></p>` : ''}
   </section>`;
 }

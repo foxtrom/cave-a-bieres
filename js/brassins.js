@@ -3,6 +3,7 @@
 
 import { ajouterJours, duree, estDateValide, joursEntre } from './dates.js';
 import { nouvelId } from './outils.js';
+import { normaliserCapsules } from './capsules.js';
 import { normaliserFermentation } from './fermentation.js';
 import { normaliserRecette } from './recettes.js';
 
@@ -105,6 +106,7 @@ export function nouveauBrassin(id = nouvelId(), maintenant = new Date().toISOStr
     recette: null, // recette importée d'un fichier BeerXML (voir recettes.js)
     etiquette: null, // textes retouchés pour l'étiquette (voir etiquettes.js)
     deduction: null, // ingrédients retirés du stock pour ce brassin (voir inventaire.js)
+    capsules: [], // couleurs des capsules posées à l'embouteillage (voir capsules.js)
     fermentation: null, // suivi par une RAPT Pill (voir fermentation.js)
     archive: false,
     preteVue: false,
@@ -182,6 +184,7 @@ export function normaliserBrassin(source) {
     recette: normaliserRecette(source.recette),
     etiquette: normaliserEtiquette(source.etiquette),
     deduction: normaliserDeduction(source.deduction),
+    capsules: normaliserCapsules(source.capsules),
     fermentation: normaliserFermentation(source.fermentation),
     archive: Boolean(source.archive),
     preteVue: Boolean(source.preteVue),
@@ -279,7 +282,11 @@ export function rechercher(brassins, requete) {
   const q = cleRecherche(requete);
   if (!q) return [...brassins];
   return brassins.filter(
-    (b) => cleRecherche(b.code).includes(q) || cleRecherche(b.nom).includes(q) || cleRecherche(nomStyle(b.style)).includes(q),
+    (b) =>
+      cleRecherche(b.code).includes(q) ||
+      cleRecherche(b.nom).includes(q) ||
+      cleRecherche(nomStyle(b.style)).includes(q) ||
+      (b.capsules ?? []).some((c) => cleRecherche(c.couleur).includes(q)), // « doré » retrouve les capsules dorées
   );
 }
 

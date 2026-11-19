@@ -1175,6 +1175,56 @@ try {
     await capture('39-pill-hors-liquide');
   });
 
+  await etape(`Capsules de couleur : ${H.code} embouteillée en deux couleurs, retrouvée par sa couleur, corrigée`, async () => {
+    await page.goto(`${BASE}#/stock`);
+    await ajouterArticle({ categorie: 'materiel', nom: 'Capsules - Argent', quantite: '8' });
+    await ajouterArticle({ categorie: 'materiel', nom: 'Capsules - Dorée', quantite: '30' });
+    const lignes = '#feuille .ligne-capsule';
+    const choisir = async (ligne, couleur) => {
+      const valeur = await ligne.locator('option', { hasText: new RegExp(`^${couleur} \\(`) }).getAttribute('value');
+      await ligne.locator('select').selectOption(valeur);
+    };
+    // Embouteillage : 8 Argent (tout le lot), puis le reste en Dorée
+    await page.goto(`${BASE}#/brassin/${H.code}`);
+    await page.click('#barre-actions [data-action="embouteiller"]');
+    await page.fill('#feuille input[name="b33"]', '20');
+    await attendreNombre(page, lignes, 1);
+    assert.equal(await page.inputValue(`${lignes} input`), '20'); // une seule couleur : suit les 33 cl
+    await choisir(page.locator(lignes).first(), 'Argent');
+    await page.fill(`${lignes} input`, '8');
+    await page.click('[data-action="ajouter-ligne-capsule"]');
+    await attendreNombre(page, lignes, 2);
+    assert.equal(await page.locator(lignes).last().locator('input').inputValue(), '12'); // le reste des 33 cl
+    await choisir(page.locator(lignes).last(), 'Dorée');
+    await page.waitForTimeout(300);
+    await capture('40-embouteillage-capsules');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/embouteillée/);
+    await attendreTexte('.e-capsules-fiche', 'Argent');
+    await attendreTexte('.e-capsules-fiche', 'Dorée');
+    await attendreQuantite('Capsules - Argent', '0');
+    await attendreQuantite('Capsules - Dorée', '18');
+    // Dans la Cave : pastilles à côté du code ; « dorée » retrouve le brassin
+    await page.goto(BASE);
+    const carte = page.locator('.e-carte', { hasText: H.code });
+    assert.equal(await carte.locator('.e-capsule').count(), 2);
+    await capture('41-cave-capsules');
+    await page.fill('#recherche', 'dorée');
+    await page.press('#recherche', 'Enter');
+    await page.waitForURL(new RegExp(`#/brassin/${H.code}$`));
+    // Correction depuis la fiche : une seule couleur, le stock ne change pas
+    await page.click('[data-action="modifier-capsules"]');
+    await attendreNombre(page, lignes, 2);
+    await page.click(`${lignes} [data-action="retirer-ligne-capsule"]`);
+    await attendreNombre(page, lignes, 1);
+    await page.fill(`${lignes} input`, '20');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Capsules enregistrées/);
+    await attendreNombre(page, '.e-capsules-fiche .e-capsule', 1);
+    await attendreTexte('.e-capsules-fiche', 'Argent');
+    await attendreQuantite('Capsules - Dorée', '18');
+  });
+
   await etape('Copie de sauvegarde automatique sur le relais, puis restauration', async () => {
     // À l'ouverture de l'appli, la copie est déposée d'elle-même. (Elle a pu l'être plus tôt,
     // une minute après une modification : les deux cas conviennent.)

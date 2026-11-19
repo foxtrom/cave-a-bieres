@@ -237,7 +237,9 @@ html { font-size: 17px; }
 .e-carte-stock span { margin-top: 2px; color: var(--e-texte-2); font: 400 0.8125rem/1.2 var(--e-police); }
 .e-carte-stock--bas b { color: var(--e-alerte-texte); }
 .e-carte-stock--vide b { color: var(--e-texte-2); }
-.e-carte-stock--attente .e-icone { width: 1.75rem; height: 1.75rem; color: var(--e-texte-2); }
+/* En cuve : sablier épais, cuivre, à la taille des nombres de bouteilles (il saute aux yeux) */
+.e-carte-stock--attente .e-icone { width: 2.25rem; height: 2.25rem; color: var(--e-cuivre); stroke-width: 2.6; }
+.e-carte-stock--attente span { color: var(--e-cuivre-texte); font-weight: 650; }
 .e-carte--terminee { background: transparent; box-shadow: none; }
 
 /* Très grand texte : une seule colonne, le stock sous le nom (« 34 bouteilles ») */
@@ -246,7 +248,7 @@ html { font-size: 17px; }
   .e-carte-stock { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; margin-top: 4px; text-align: left; }
   /* « en cuve » : sablier à la taille du texte, centré sur la même ligne */
   .e-carte-stock--attente { align-items: center; }
-  .e-carte-stock--attente .e-icone { width: 1.1rem; height: 1.1rem; }
+  .e-carte-stock--attente .e-icone { width: 1.4rem; height: 1.4rem; }
 }
 
 /* Liste « Ambrée · 6,2 % · … » : chaque élément porte son point, et le point qui

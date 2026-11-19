@@ -358,7 +358,7 @@ function vueFiche(b) {
       ${st === 'fermentation' ? '' : blocSuivi(b, auj)}
 
       <a class="bloc lien-etiquettes" href="${lienBrassin(b, '/etiquettes')}">
-        ${brut(E.etiquetteSvg(E.donneesEtiquette(b), '33 cl', { classe: 'etiquette etiquette-vignette' }))}
+        ${brut(E.etiquetteSvg(E.donneesEtiquette(b, etat.donnees.inventaire.articles), '33 cl', { classe: 'etiquette etiquette-vignette' }))}
         <span class="lien-etiquettes-texte"><strong>Étiquettes</strong><small>Aperçu et planche PDF à imprimer</small></span>
         ${ICONES.suivant}
       </a>
@@ -1349,13 +1349,13 @@ const dimensionsEtiquette = (f) =>
   `${(E.LARGEUR * f.echelle).toLocaleString('fr-FR')} × ${(E.HAUTEUR * f.echelle).toLocaleString('fr-FR')} mm`;
 
 function vueEtiquettes(b) {
-  const textes = E.textesEtiquette(b);
+  const textes = E.textesEtiquette(b, etat.donnees.inventaire.articles);
   const embouteille = Boolean(b.dateEmbouteillage);
   return {
     titre: `Étiquettes ${b.code}`,
     entete: enteteBarre({ retour: { href: lienBrassin(b), texte: b.code }, titre: 'Étiquettes' }),
     contenu: html`<div class="e-page e-etiquettes">
-      <div class="apercu-etiquette" id="apercu-etiquette">${brut(E.etiquetteSvg(E.donneesEtiquette(b), '33 cl'))}</div>
+      <div class="apercu-etiquette" id="apercu-etiquette">${brut(E.etiquetteSvg(E.donneesEtiquette(b, etat.donnees.inventaire.articles), '33 cl'))}</div>
       <p class="aide centre">Taille réelle : ${E.FORMATS_ETIQUETTE.map((f) => `${dimensionsEtiquette(f)} (${f.volume})`).join(' · ')}</p>
       <form id="form-etiquettes" class="e-formulaire" data-form="etiquettes" novalidate>
         <fieldset>
@@ -1366,6 +1366,7 @@ function vueEtiquettes(b) {
             <input name="malts" value="${textes.malts}" placeholder="Pilsner, Carapils…" autocomplete="off"></label>
           <label class="champ"><span class="libelle">Houblons</span>
             <input name="houblons" value="${textes.houblons}" placeholder="Magnum, Sabro…" autocomplete="off" autocapitalize="words"></label>
+          ${E.textesDepuisDeduction(b, etat.donnees.inventaire.articles) ? html`<p class="aide">Malts et houblons proposés d’après les ingrédients déduits du stock pour ce brassin.</p>` : ''}
           <p class="aide">Le nom, le degré, l’IBU et l’EBC viennent de la fiche du brassin (« Modifier »).
             ${embouteille ? '' : 'La date d’embouteillage s’ajoutera après « Embouteiller ».'}</p>
           ${b.etiquette ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="etiquette-textes-proposes">Revenir aux textes proposés</button>` : ''}
@@ -1413,7 +1414,7 @@ function brancherEtiquettes(b) {
   let minuteur = null;
   const textesModifies = () => {
     // Seuls les textes retouchés sont gardés : les autres suivent la recette.
-    const proposes = E.textesParDefaut(b);
+    const proposes = E.textesParDefaut(b, etat.donnees.inventaire.articles);
     const saisis = Object.fromEntries(
       champsTextes.map((cle) => {
         const valeur = form.elements[cle].value.trim();
@@ -1421,7 +1422,7 @@ function brancherEtiquettes(b) {
       }),
     );
     b.etiquette = Object.values(saisis).some((v) => v !== null) ? saisis : null;
-    $('#apercu-etiquette').innerHTML = E.etiquetteSvg(E.donneesEtiquette(b), '33 cl');
+    $('#apercu-etiquette').innerHTML = E.etiquetteSvg(E.donneesEtiquette(b, etat.donnees.inventaire.articles), '33 cl');
     clearTimeout(minuteur);
     minuteur = setTimeout(() => {
       b.modifieLe = new Date().toISOString();
@@ -1449,7 +1450,7 @@ async function creerPdfEtiquettes(form) {
   if (!E.nombrePlanches(quantites)) return toast('Indiquer au moins une étiquette.');
   // Polices déjà chargées : tout se fait tout de suite, iOS n'autorise le partage que juste après le toucher.
   const polices = octetsPolices ?? (await chargerPolices());
-  const pdf = E.planchePdf(E.donneesEtiquette(b), quantites, polices);
+  const pdf = E.planchePdf(E.donneesEtiquette(b, etat.donnees.inventaire.articles), quantites, polices);
   const fichier = new File([pdf], `etiquettes-${b.code}.pdf`, { type: 'application/pdf' });
   const message = `PDF prêt : ${pluriel(E.nombrePlanches(quantites), 'planche')} A4.`;
   if (navigator.canShare?.({ files: [fichier] })) {

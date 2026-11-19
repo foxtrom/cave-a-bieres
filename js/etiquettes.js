@@ -57,19 +57,38 @@ const AUXILIAIRES = /hull|husk|balles? de riz|coques? de riz/i;
 
 const uniques = (noms) => [...new Set(noms.filter(Boolean))].join(', ');
 
-/** Textes proposés d'après le brassin et sa recette. */
-export function textesParDefaut(b) {
+/**
+ * Ingrédients vraiment utilisés, d'après la déduction du stock : noms des articles d'une
+ * catégorie (malt, houblon), dans l'ordre de la déduction. La catégorie est gardée sur chaque
+ * ligne ; pour une déduction plus ancienne, elle est lue sur l'article du stock (articles).
+ */
+function deduits(b, categorie, articles) {
+  const lignes = b.deduction?.lignes ?? [];
+  const categorieDe = (l) => l.categorie ?? articles.find((a) => a.id === l.articleId)?.categorie;
+  return lignes.filter((l) => categorieDe(l) === categorie && !AUXILIAIRES.test(l.nom)).map((l) => l.nom.trim());
+}
+
+/**
+ * Textes proposés : malts et houblons vraiment retirés du stock pour ce brassin (recette
+ * changée en cours de brassage, houblon ajouté…), sinon ceux de la recette importée.
+ */
+export function textesParDefaut(b, articles = []) {
   const r = b.recette;
+  const malts = deduits(b, 'malt', articles);
+  const houblons = deduits(b, 'houblon', articles);
   return {
     style: nomStyle(b.style),
-    malts: r ? uniques(r.malts.filter((m) => !AUXILIAIRES.test(m.nom)).map((m) => nomIngredient(m.nom))) : '',
-    houblons: r ? uniques(r.houblons.map((h) => h.nom.trim())) : '',
+    malts: malts.length ? uniques(malts) : r ? uniques(r.malts.filter((m) => !AUXILIAIRES.test(m.nom)).map((m) => nomIngredient(m.nom))) : '',
+    houblons: houblons.length ? uniques(houblons) : r ? uniques(r.houblons.map((h) => h.nom.trim())) : '',
   };
 }
 
+/** Malts et houblons proposés d'après la déduction du stock (et non la recette) ? */
+export const textesDepuisDeduction = (b, articles = []) => deduits(b, 'malt', articles).length > 0 || deduits(b, 'houblon', articles).length > 0;
+
 /** Textes de l'étiquette : ceux retouchés pour l'étiquette, sinon ceux proposés. */
-export function textesEtiquette(b) {
-  const defaut = textesParDefaut(b);
+export function textesEtiquette(b, articles = []) {
+  const defaut = textesParDefaut(b, articles);
   const saisi = b.etiquette ?? {};
   return {
     style: saisi.style ?? defaut.style,
@@ -80,9 +99,9 @@ export function textesEtiquette(b) {
 
 const dateCourte = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
 
-/** Tout ce qu'imprime l'étiquette d'un brassin. */
-export function donneesEtiquette(b) {
-  const t = textesEtiquette(b);
+/** Tout ce qu'imprime l'étiquette d'un brassin (articles : stock, pour les ingrédients déduits). */
+export function donneesEtiquette(b, articles = []) {
+  const t = textesEtiquette(b, articles);
   return {
     nom: b.nom,
     style: t.style,

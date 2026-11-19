@@ -327,7 +327,7 @@ export function deduire(inventaire, lignes) {
     if (!article || !(quantite > 0)) continue;
     const q = arrondi(Math.min(article.quantite, quantite), 3);
     article.quantite = arrondi(article.quantite - q, 3);
-    retire.push({ articleId, quantite: q, nom: article.nom, unite: article.unite });
+    retire.push({ articleId, quantite: q, nom: article.nom, unite: article.unite, categorie: article.categorie });
   }
   return retire;
 }

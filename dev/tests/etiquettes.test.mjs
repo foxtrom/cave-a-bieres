@@ -32,6 +32,29 @@ function brassin(champs = {}) {
 
 /* ---------- Textes ---------- */
 
+test('textes proposés d’après les ingrédients vraiment déduits du stock (houblons changés au brassage)', () => {
+  const deduction = {
+    le: '2026-11-19T10:00:00.000Z',
+    lignes: [
+      { articleId: 'p', quantite: 3.6, nom: 'Pilsner', unite: 'kg', categorie: 'malt' },
+      { articleId: 'r', quantite: 200, nom: 'Coques de riz', unite: 'g', categorie: 'autre' },
+      { articleId: 'm', quantite: 13, nom: 'Magnum', unite: 'g' }, // déduction d'avant la 1.19 : catégorie lue dans le stock
+      { articleId: 'c', quantite: 50, nom: 'Citra', unite: 'g', categorie: 'houblon' },
+      { articleId: 'n', quantite: 50, nom: 'Nectaron', unite: 'g', categorie: 'houblon' },
+    ],
+  };
+  const stock = [{ id: 'm', categorie: 'houblon' }];
+  const b = brassin({ deduction });
+  assert.deepEqual(E.textesParDefaut(b, stock), { style: 'IPA', malts: 'Pilsner', houblons: 'Magnum, Citra, Nectaron' });
+  assert.equal(E.textesDepuisDeduction(b, stock), true);
+  // Sans le stock, le Magnum (sans catégorie) n'est pas reconnu ; sans déduction, la recette.
+  assert.equal(E.textesParDefaut(b).houblons, 'Citra, Nectaron');
+  assert.deepEqual(E.textesParDefaut(brassin(), stock).houblons, 'Magnum, Sabro');
+  assert.equal(E.textesDepuisDeduction(brassin(), stock), false);
+  // Ce qui a été retouché pour l'étiquette l'emporte toujours.
+  assert.equal(E.textesEtiquette(brassin({ deduction, etiquette: { houblons: 'Citra' } }), stock).houblons, 'Citra');
+});
+
 test('textes proposés d’après la recette : noms en français, sans les balles de riz', () => {
   assert.deepEqual(E.textesParDefaut(brassin()), { style: 'IPA', malts: 'Pilsner, flocons de maïs, Carapils', houblons: 'Magnum, Sabro' });
   assert.deepEqual(E.textesParDefaut(brassin({ recette: null, style: 'WHT' })), { style: 'Blanche', malts: '', houblons: '' });

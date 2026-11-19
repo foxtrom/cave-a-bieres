@@ -131,6 +131,7 @@ Sur la fiche d'un brassin, toucher **Étiquettes** : l'aperçu montre l'étiquet
 
 - **Fond commun** à toutes les bières : le Puy de Naouri au lever du soleil (tracé d'après la photo), la frise de petits sommets et le bandeau « Brasserie Ensen ». La couleur du bandeau dépend du style : vert pour les IPA, or pour les blondes, blanc cassé pour les blanches, cuivre pour les ambrées, café au lait pour les stouts, lavande pour les saisons.
 - **Infos du brassin** : style écrit à la main entre deux flèches, nom, « Vence · brassée avec l'eau de la Foux », degré, IBU, EBC, malts, houblons, code (`IPA-26/11-2`), date d'embouteillage et contenance.
+- **Malts et houblons** : ceux vraiment retirés du stock pour ce brassin (fenêtre de déduction, ingrédients hors recette compris), sinon ceux de la recette importée. Ils restent modifiables ; **Revenir aux textes proposés** efface la retouche.
 - Le **style**, les **malts** et les **houblons** sont repris de la recette (balles de riz exclues, noms courants traduits : « Corn, Flaked » → « maïs floconné »). On peut les retoucher pour l'étiquette, par exemple « Cold IPA » au lieu d'« IPA ». **Revenir aux textes proposés** annule ces retouches. Le nom, le degré, l'IBU et l'EBC se modifient dans la fiche du brassin.
 - **Nombre d'étiquettes** : proposé d'après les bouteilles embouteillées, en 33 cl et en 66 cl.
 - **Créer le PDF** ouvre la feuille de partage : **Imprimer**, **Enregistrer dans Fichiers**, envoyer par Mail au service d'impression…

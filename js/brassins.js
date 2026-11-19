@@ -136,7 +136,13 @@ function normaliserDeduction(source) {
   if (!source || typeof source !== 'object' || !Array.isArray(source.lignes)) return null;
   const lignes = source.lignes
     .filter((l) => l && typeof l.articleId === 'string' && Number.isFinite(Number(l.quantite)))
-    .map((l) => ({ articleId: l.articleId, quantite: Number(l.quantite), nom: String(l.nom ?? ''), unite: String(l.unite ?? '') }));
+    .map((l) => ({
+      articleId: l.articleId,
+      quantite: Number(l.quantite),
+      nom: String(l.nom ?? ''),
+      unite: String(l.unite ?? ''),
+      ...(typeof l.categorie === 'string' ? { categorie: l.categorie } : {}), // malt, houblon… (déductions depuis la 1.19)
+    }));
   return { le: String(source.le ?? ''), lignes };
 }
 

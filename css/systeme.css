@@ -939,6 +939,11 @@ html { font-size: 17px; }
 .e-sucre-doses { display: grid; gap: 1px; color: var(--e-texte); font: 650 0.9375rem/1.35 var(--e-police); }
 .e-sucre-doses small { color: var(--e-texte-2); font: 400 0.8125rem/1.35 var(--e-police); }
 
+/* Réglages › Notifications : activées sur cet appareil (coche + texte) */
+#notifications-etat { margin-top: var(--e-3); }
+#notifications-etat .e-message { margin: 0; }
+.notifications-actives { display: flex; align-items: center; gap: 6px; margin: 0 0 var(--e-3); color: var(--e-sauge-texte); font: 650 1rem/1.3 var(--e-police); }
+
 /* ---------- Moins d'animations si l'iPhone le demande ---------- */
 
 @media (prefers-reduced-motion: reduce) {

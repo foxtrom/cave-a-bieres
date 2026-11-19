@@ -4,7 +4,7 @@
 // IMPORTANT : changer VERSION à chaque mise en ligne d'une modification,
 // sinon l'iPhone continuera d'utiliser l'ancienne copie.
 
-const VERSION = '1.20.1';
+const VERSION = '1.21.0';
 const CACHE = `ensen-${VERSION}`;
 
 const FICHIERS = [
@@ -54,6 +54,38 @@ self.addEventListener('activate', (evenement) => {
       .keys()
       .then((noms) => Promise.all(noms.filter((nom) => nom.startsWith('ensen-') && nom !== CACHE).map((nom) => caches.delete(nom))))
       .then(() => self.clients.claim()),
+  );
+});
+
+// Notifications envoyées par le relais RAPT (fermentation stable, Pill, bière prête à boire).
+self.addEventListener('push', (evenement) => {
+  let message = {};
+  try {
+    message = evenement.data ? evenement.data.json() : {};
+  } catch {
+    message = { texte: evenement.data?.text() ?? '' };
+  }
+  evenement.waitUntil(
+    self.registration.showNotification(message.titre || 'Brasserie Ensen', {
+      body: message.texte || '',
+      tag: message.tag || undefined,
+      icon: './icons/icon-192.png',
+      data: { url: message.url || '#/' },
+    }),
+  );
+});
+
+// Notification touchée : l'appli s'ouvre sur la fiche du brassin concerné.
+self.addEventListener('notificationclick', (evenement) => {
+  evenement.notification.close();
+  const cible = new URL(evenement.notification.data?.url || '#/', self.registration.scope).href;
+  evenement.waitUntil(
+    (async () => {
+      const [fenetre] = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      if (!fenetre) return self.clients.openWindow(cible);
+      await fenetre.focus();
+      return 'navigate' in fenetre ? fenetre.navigate(cible) : null;
+    })(),
   );
 });
 

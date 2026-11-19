@@ -275,7 +275,19 @@ Dans ce qui suit, `<relais>` est le nom du Worker, `<sous-domaine>` le sous-doma
 
 Quand le fichier `relais-rapt/worker.js` change (c'est indiqué avec la mise à jour de l'appli) : Cloudflare → **Workers & Pages** → le Worker → **Edit code** → tout remplacer par le nouveau contenu → **Deploy**. Le stockage, la clé et le flux RAPT Brew ne changent pas. Contrôle : **Tester la connexion** dans l'appli.
 
-### e) Sécurité
+### e) Notifications sur l'iPhone
+
+Le relais prévient l'iPhone : **fermentation terminée** (densité stable depuis 48 h, même règle que l'appli), **Pill qui ne flotte plus** (densité impossible) et **bière prête à boire** (fin de la garde). Chaque alerte n'arrive qu'une fois, jamais entre 22 h et 8 h (heure de Paris). Le relais s'appuie sur la dernière copie de sauvegarde déposée par l'appli et sur les mesures des Pills.
+
+Une seule fois :
+
+1. **Mettre à jour le relais** (section d) avec le nouveau `relais-rapt/worker.js`.
+2. Cloudflare → le Worker → **Settings** → **Triggers** → **Cron Triggers** → **Add** : `0 * * * *` (une vérification par heure) → **Add trigger**.
+3. Sur l'iPhone, dans l'appli ouverte depuis son icône (iOS 16.4 ou plus) : **Réglages → Notifications → Activer les notifications**, puis **Autoriser**. **Envoyer un essai** vérifie que tout fonctionne.
+
+Rien d'autre à régler : le relais crée lui-même ses clés de notification (VAPID) et les garde dans son espace KV ; il n'envoie qu'aux services de notification d'Apple, Google, Mozilla et Microsoft. **Désactiver** (même écran) arrête les notifications sur cet appareil.
+
+### f) Sécurité
 
 - **Qui peut appeler le relais ?** N'importe qui connaissant son adresse, mais sans la clé il refuse tout (erreur 401) avant de lire ou d'écrire quoi que ce soit : ni les mesures, ni les copies de sauvegarde ne sortent, et le stockage n'est pas sollicité. En mode flux, le relais n'appelle jamais RAPT.
 - **Seul risque restant** : des appels en masse épuiseraient le quota gratuit de Cloudflare (100 000 par jour) ; le relais s'arrêterait alors jusqu'à minuit UTC, sans frais. Une adresse difficile à deviner (nom du Worker et sous-domaine au hasard) le rend très improbable.

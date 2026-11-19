@@ -2154,6 +2154,96 @@ function remettreIngredients() {
 /* Vue : réglages                                                      */
 /* ================================================================== */
 
+/* ---------- Notifications sur l'iPhone (relais RAPT, Web Push) ---------- */
+
+/** Clé publique du relais (base64url) → octets, pour PushManager.subscribe. */
+function octetsBase64url(texte) {
+  const b64 = String(texte).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(b64 + '==='.slice((b64.length + 3) % 4)), (c) => c.charCodeAt(0));
+}
+
+const notificationsPossibles = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+/** Inscription du service worker, sans attendre indéfiniment (pas de service worker : null). */
+async function inscriptionServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  return Promise.race([navigator.serviceWorker.ready, new Promise((ok) => setTimeout(() => ok(null), 3000))]);
+}
+
+/** Abonnement de cet appareil, ou null. */
+async function abonnementActuel() {
+  if (!notificationsPossibles()) return null;
+  const inscription = await inscriptionServiceWorker();
+  return (await inscription?.pushManager.getSubscription()) ?? null;
+}
+
+/** État et boutons du bloc Notifications des Réglages. */
+async function afficherNotifications() {
+  const zone = $('#notifications-etat');
+  if (!zone) return;
+  let contenu;
+  if (!relaisConfigure()) {
+    contenu = html`<p class="aide">Régler d’abord le relais RAPT, ci-dessus.</p>`;
+  } else if (!notificationsPossibles()) {
+    contenu = html`<p class="aide">Sur iPhone, ouvrir l’appli depuis son icône de l’écran d’accueil (iOS 16.4 ou plus) pour recevoir des notifications.</p>`;
+  } else if (Notification.permission === 'denied') {
+    contenu = html`<p class="e-message e-message--alerte">${SYMBOLES.alerte}<span>Notifications refusées : les autoriser dans Réglages de l’iPhone › Notifications › Brasserie Ensen.</span></p>`;
+  } else if (await abonnementActuel().catch(() => null)) {
+    contenu = html`<p class="notifications-actives">${SYMBOLES.prete}Activées sur cet appareil.</p>
+      <div class="e-actions">
+        <button type="button" class="e-btn e-btn--secondaire" data-action="essai-notifications">${SYMBOLES.cloche}Envoyer un essai</button>
+        <button type="button" class="e-btn e-btn--discret" data-action="desactiver-notifications">Désactiver</button>
+      </div>`;
+  } else {
+    contenu = html`<button type="button" class="e-btn e-btn--principal e-btn--large" data-action="activer-notifications">${SYMBOLES.cloche}Activer les notifications</button>`;
+  }
+  if ($('#notifications-etat') === zone) zone.innerHTML = String(contenu);
+}
+
+async function activerNotifications() {
+  if (!notificationsPossibles()) return afficherNotifications();
+  // Demandée tout de suite, dans le geste de l'utilisateur : iOS l'exige.
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    toast('Notifications non autorisées.');
+    return afficherNotifications();
+  }
+  try {
+    const { clePublique } = await appelerRelais('notifications');
+    const inscription = await inscriptionServiceWorker();
+    if (!inscription) throw new Error('Appli pas encore prête : la rouvrir, puis réessayer.');
+    // Ancien abonnement (autre clé du relais) : remplacé.
+    await (await inscription.pushManager.getSubscription())?.unsubscribe();
+    const abonnement = await inscription.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: octetsBase64url(clePublique) });
+    await appelerRelais('notifications/abonnement', {}, { methode: 'PUT', corps: JSON.stringify(abonnement.toJSON()) });
+    toast('Notifications activées sur cet appareil.');
+  } catch (erreur) {
+    // Relais d'avant la 1.21 : il ne connaît pas encore les notifications.
+    const ancienRelais = /Adresse inconnue/.test(erreur?.message ?? '');
+    toast(ancienRelais ? 'Relais à mettre à jour pour les notifications (README, section 7 e).' : erreur?.message || 'Activation des notifications impossible.', { duree: 8000 });
+  }
+  return afficherNotifications();
+}
+
+async function essayerNotifications() {
+  try {
+    await appelerRelais('notifications/essai', {}, { methode: 'POST' });
+    toast('Notification d’essai envoyée : elle arrive dans quelques secondes.');
+  } catch (erreur) {
+    toast(erreur.message, { duree: 8000 });
+  }
+}
+
+async function desactiverNotifications() {
+  const abonnement = await abonnementActuel().catch(() => null);
+  if (abonnement) {
+    await appelerRelais('notifications/abonnement', {}, { methode: 'DELETE', corps: JSON.stringify({ endpoint: abonnement.endpoint }) }).catch(() => {});
+    await abonnement.unsubscribe().catch(() => {});
+  }
+  toast('Notifications désactivées sur cet appareil.');
+  return afficherNotifications();
+}
+
 function vueReglages() {
   const r = etat.donnees.reglages;
   const { derniereSauvegarde } = etat.donnees.meta;
@@ -2198,6 +2288,12 @@ function vueReglages() {
       </section>
 
       <section class="bloc">
+        <h3>Notifications</h3>
+        <p class="aide">Le relais prévient cet appareil : fermentation terminée (densité stable depuis 48 h), Pill qui ne flotte plus, bière prête à boire. Jamais entre 22 h et 8 h.</p>
+        <div id="notifications-etat" aria-live="polite"></div>
+      </section>
+
+      <section class="bloc">
         <h3>Sauvegarde</h3>
         <p>${derniereSauvegarde ? `Dernier export : ${formaterDate(dateLocale(new Date(derniereSauvegarde)))}.` : 'Aucun export pour l’instant.'}</p>
         <p id="copie-etat">${texteEtatCopie()}</p>
@@ -2215,7 +2311,10 @@ function vueReglages() {
         <p class="aide">Version <span id="version">…</span> · Stockage ${etat.persistant ? 'persistant' : 'standard'}</p>
       </section>
     </div>`,
-    apres: afficherVersion,
+    apres: () => {
+      afficherVersion();
+      afficherNotifications();
+    },
   };
 }
 
@@ -3019,6 +3118,9 @@ const ACTIONS = {
   'modifier-di': ouvrirDensiteInitiale,
   'utiliser-degre': utiliserDegre,
   'tester-rapt': testerRapt,
+  'activer-notifications': activerNotifications,
+  'essai-notifications': essayerNotifications,
+  'desactiver-notifications': desactiverNotifications,
   'copies-relais': ouvrirCopiesRelais,
   'restaurer-copie': restaurerCopie,
   'verifier-recette': verifierRecetteStock,

@@ -58,7 +58,7 @@ test('accès : CORS pour l’appli seulement, clé obligatoire', async () => {
   assert.equal(options.status, 204);
   assert.equal(options.headers.get('Access-Control-Allow-Origin'), ORIGINE);
   assert.equal(options.headers.get('Access-Control-Allow-Headers'), 'X-Cle, Content-Type');
-  assert.equal(options.headers.get('Access-Control-Allow-Methods'), 'GET, PUT');
+  assert.equal(options.headers.get('Access-Control-Allow-Methods'), 'GET, PUT, POST, DELETE');
   const autre = await appeler('/pills', { origine: 'https://ailleurs.example', env });
   assert.equal(autre.headers.get('Access-Control-Allow-Origin'), null);
   const sansCle = await appeler('/pills', { cle: null, env });

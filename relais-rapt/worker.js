@@ -30,6 +30,11 @@
 //                               les 12 plus récentes sont gardées)
 //   GET  /sauvegardes           copies gardées, de la plus récente à la plus ancienne
 //   GET  /sauvegarde?semaine=AAAA-MM-JJ   contenu d'une copie (lundi de sa semaine)
+//   GET  /notifications         clé publique des notifications (créée à la première demande)
+//   PUT  /notifications/abonnement   abonne un iPhone (DELETE : le désabonne)
+//   POST /notifications/essai   envoie une notification d'essai aux iPhones abonnés
+// Déclencheur (Worker › Settings › Triggers › Cron Triggers) : « 0 * * * * », une fois par heure,
+// pour les notifications (fermentation stable, Pill qui ne flotte plus, bière prête à boire).
 // La clé passe par l'en-tête X-Cle ; seul le flux RAPT Brew peut la mettre dans l'adresse.
 // Le dernier envoi de RAPT est gardé tel quel dans l'espace KV, sous « flux:dernier » :
 // il se lit dans Cloudflare (Workers KV › l'espace › KV Pairs), pas par le relais.
@@ -273,6 +278,273 @@ async function relevesApi(env, pill, debut, fin) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Notifications sur l'iPhone (Web Push, RFC 8030, 8291 et 8292)        */
+/* ------------------------------------------------------------------ */
+//
+// L'appli installée s'abonne (Réglages → Notifications) ; le relais garde l'abonnement dans KV.
+// Une fois par heure (déclencheur Cron du Worker), il regarde la dernière copie de sauvegarde et
+// les mesures des Pills, et prévient : fermentation stable, Pill qui ne flotte plus, bière prête
+// à boire. Chaque alerte n'est envoyée qu'une fois, jamais entre 22 h et 8 h (heure de Paris).
+// Les clés VAPID sont créées par le relais à la première demande et gardées dans KV.
+
+const HEURE = 3_600_000;
+const FUSEAU = 'Europe/Paris';
+const NUIT = { debut: 22, fin: 8 }; // heures sans notification
+const MEMOIRE_ALERTE = 90 * 86_400; // secondes : une alerte envoyée n'est pas renvoyée pendant ce temps
+// Services de notification reconnus (Apple, Google, Mozilla, Microsoft) : le relais n'envoie rien ailleurs.
+const SERVICES_PUSH = /(^|\.)push\.apple\.com$|^fcm\.googleapis\.com$|(^|\.)push\.services\.mozilla\.com$|(^|\.)notify\.windows\.com$/;
+
+const octetsTexte = (texte) => new TextEncoder().encode(texte);
+
+export const base64url = {
+  coder(octets) {
+    let texte = '';
+    for (const o of new Uint8Array(octets)) texte += String.fromCharCode(o);
+    return btoa(texte).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  },
+  decoder(texte) {
+    const b64 = String(texte).replace(/-/g, '+').replace(/_/g, '/');
+    return Uint8Array.from(atob(b64 + '==='.slice((b64.length + 3) % 4)), (c) => c.charCodeAt(0));
+  },
+};
+
+function concatener(...parties) {
+  const resultat = new Uint8Array(parties.reduce((n, p) => n + p.length, 0));
+  let position = 0;
+  for (const p of parties) {
+    resultat.set(p, position);
+    position += p.length;
+  }
+  return resultat;
+}
+
+async function hkdf(sel, ikm, info, octets) {
+  const cle = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: sel, info }, cle, octets * 8));
+}
+
+/** Clés VAPID du relais : créées à la première demande, puis gardées dans KV. */
+export async function clesVapid(env) {
+  const gardees = await env.MESURES.get('notifications:vapid', 'json');
+  if (gardees?.publique && gardees?.privee) return gardees;
+  const paire = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const cles = {
+    publique: base64url.coder(await crypto.subtle.exportKey('raw', paire.publicKey)),
+    privee: await crypto.subtle.exportKey('jwk', paire.privateKey),
+  };
+  await env.MESURES.put('notifications:vapid', JSON.stringify(cles));
+  return cles;
+}
+
+/** Jeton VAPID (JWT ES256) pour le service de notification de l'abonnement, valable 12 h. */
+export async function jetonVapid(cles, endpoint, sujet, maintenant = Date.now()) {
+  const coder = (objet) => base64url.coder(octetsTexte(JSON.stringify(objet)));
+  const entete = coder({ typ: 'JWT', alg: 'ES256' });
+  const charge = coder({ aud: new URL(endpoint).origin, exp: Math.floor(maintenant / 1000) + 12 * 3600, sub: sujet });
+  const cle = await crypto.subtle.importKey('jwk', cles.privee, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, cle, octetsTexte(`${entete}.${charge}`));
+  return `${entete}.${charge}.${base64url.coder(signature)}`;
+}
+
+/** Message chiffré pour un abonnement (aes128gcm, RFC 8291) : seul l'iPhone abonné peut le lire. */
+export async function chiffrerMessage(abonnement, message) {
+  const publiqueAppareil = base64url.decoder(abonnement.keys.p256dh);
+  const secretAppareil = base64url.decoder(abonnement.keys.auth);
+  const ephemere = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const publiqueRelais = new Uint8Array(await crypto.subtle.exportKey('raw', ephemere.publicKey));
+  const cleAppareil = await crypto.subtle.importKey('raw', publiqueAppareil, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const partage = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: cleAppareil }, ephemere.privateKey, 256));
+  const ikm = await hkdf(secretAppareil, partage, concatener(octetsTexte('WebPush: info\0'), publiqueAppareil, publiqueRelais), 32);
+  const sel = crypto.getRandomValues(new Uint8Array(16));
+  const cleContenu = await hkdf(sel, ikm, octetsTexte('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdf(sel, ikm, octetsTexte('Content-Encoding: nonce\0'), 12);
+  const cle = await crypto.subtle.importKey('raw', cleContenu, 'AES-GCM', false, ['encrypt']);
+  const clair = concatener(octetsTexte(JSON.stringify(message)), new Uint8Array([2])); // 2 : dernier (et seul) bloc
+  const chiffre = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, cle, clair));
+  return concatener(sel, new Uint8Array([0, 0, 16, 0]), new Uint8Array([publiqueRelais.length]), publiqueRelais, chiffre);
+}
+
+/** Abonnement envoyé par l'appli, vérifié : { endpoint, keys: { p256dh, auth } }. */
+export function lireAbonnement(corps) {
+  const endpoint = String(corps?.endpoint ?? '');
+  let url;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    throw new ErreurRelais(400, 'Abonnement illisible.');
+  }
+  if (url.protocol !== 'https:' || !SERVICES_PUSH.test(url.hostname)) throw new ErreurRelais(400, 'Service de notification inconnu.');
+  const p256dh = String(corps?.keys?.p256dh ?? '');
+  const auth = String(corps?.keys?.auth ?? '');
+  if (!/^[\w-]{80,100}$/.test(p256dh) || !/^[\w-]{16,32}$/.test(auth)) throw new ErreurRelais(400, 'Clés de l’abonnement illisibles.');
+  return { endpoint, keys: { p256dh, auth } };
+}
+
+async function cleAbonnement(endpoint) {
+  const empreinte = new Uint8Array(await crypto.subtle.digest('SHA-256', octetsTexte(endpoint)));
+  return `abonnement:${[...empreinte.slice(0, 16)].map((o) => o.toString(16).padStart(2, '0')).join('')}`;
+}
+
+async function abonnements(env) {
+  const { keys } = await env.MESURES.list({ prefix: 'abonnement:' });
+  return (await Promise.all(keys.map(async (k) => ({ cle: k.name, abonnement: await env.MESURES.get(k.name, 'json') })))).filter((a) => a.abonnement);
+}
+
+/**
+ * Envoie un message à tous les iPhones abonnés. Un abonnement que le service de notification
+ * déclare périmé (404, 410 : appli supprimée, notifications coupées) est oublié.
+ * Renvoie le nombre d'envois acceptés.
+ */
+export async function notifierTous(env, message) {
+  const liste = await abonnements(env);
+  if (!liste.length) return 0;
+  const cles = await clesVapid(env);
+  const sujet = String(env.ORIGINE ?? '').split(',')[0].trim().replace(/\/+$/, '') || 'https://github.com';
+  let acceptes = 0;
+  for (const { cle, abonnement } of liste) {
+    try {
+      const reponse = await fetch(abonnement.endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `vapid t=${await jetonVapid(cles, abonnement.endpoint, sujet)}, k=${cles.publique}`,
+          'Content-Encoding': 'aes128gcm',
+          'Content-Type': 'application/octet-stream',
+          TTL: '86400',
+          Urgency: 'normal',
+        },
+        body: await chiffrerMessage(abonnement, message),
+      });
+      if (reponse.status === 404 || reponse.status === 410) await env.MESURES.delete(cle);
+      else if (reponse.ok) acceptes += 1;
+    } catch {
+      /* service injoignable : l'alerte sera retentée à la prochaine vérification */
+    }
+  }
+  return acceptes;
+}
+
+/* ---------- Ce qui mérite une notification ---------- */
+
+const ajouterJoursIso = (iso, jours) => new Date(Date.parse(`${iso}T00:00:00Z`) + jours * 86_400_000).toISOString().slice(0, 10);
+
+/** Date (AAAA-MM-JJ) et heure à Paris. */
+export function heureDeParis(maintenant) {
+  const morceaux = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', { timeZone: FUSEAU, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' })
+      .formatToParts(maintenant)
+      .map((p) => [p.type, p.value]),
+  );
+  return { jour: `${morceaux.year}-${morceaux.month}-${morceaux.day}`, heure: Number(morceaux.hour) };
+}
+
+/** Densité en SG (1,048), comme l'appli ; null si impossible (Pill couchée ou hors du liquide). */
+function densiteSg(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const sg = n > 2 ? n / 1000 : n;
+  return sg >= 0.98 && sg <= 1.2 ? sg : null;
+}
+
+const moyenne = (liste) => liste.reduce((s, v) => s + v, 0) / liste.length;
+
+/** Densité stable, même règle que l'appli : sur 48 h, moins d'un point d'écart entre les 6 premières et les 6 dernières heures. */
+export function densiteStable(releves) {
+  const valables = releves.map((r) => ({ t: Date.parse(r.date), d: densiteSg(r.densite) })).filter((r) => r.d !== null && Number.isFinite(r.t));
+  if (!valables.length) return null;
+  const fin = valables.at(-1).t;
+  const deuxJours = valables.filter((r) => r.t >= fin - 2 * 86_400_000);
+  const debut = deuxJours[0].t;
+  if (fin - debut < 1.75 * 86_400_000) return null;
+  const avant = deuxJours.filter((r) => r.t <= debut + 6 * HEURE).map((r) => r.d);
+  const apres = deuxJours.filter((r) => r.t >= fin - 6 * HEURE).map((r) => r.d);
+  return Math.abs(moyenne(avant) - moyenne(apres)) <= 0.001 + 1e-9 ? valables.at(-1).d : null;
+}
+
+const fr = (n, decimales) => n.toLocaleString('fr-FR', { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
+const lien = (b) => `#/brassin/${encodeURIComponent(b.code)}`;
+const nomBrassin = (b) => (b.nom ? `${b.code} · ${b.nom}` : b.code);
+
+/**
+ * Alertes à envoyer d'après les données de l'appli (dernière copie) et les mesures des Pills :
+ * [{ cle, titre, texte, url }]. cle : identifiant de l'alerte, pour ne l'envoyer qu'une fois.
+ */
+export async function alertes(donnees, lireReleves, maintenant = new Date()) {
+  const { jour } = heureDeParis(maintenant);
+  const liste = [];
+  for (const b of donnees?.brassins ?? []) {
+    if (!b || typeof b.code !== 'string' || b.archive) continue;
+    // Bière prête à boire : fin de la garde, aujourd'hui ou ces trois derniers jours (pas d'alerte pour un ancien brassin).
+    if (b.dateEmbouteillage) {
+      const prete = ajouterJoursIso(b.dateEmbouteillage, Math.round(Number(b.gardeSemaines ?? 0) * 7));
+      const restantes = Number(b.bouteilles?.['33']?.restant ?? 0) + Number(b.bouteilles?.['66']?.restant ?? 0);
+      if (prete <= jour && prete >= ajouterJoursIso(jour, -3) && restantes > 0 && !b.preteVue) {
+        liste.push({ cle: `prete:${b.id}:${prete}`, titre: 'Prête à boire 🍺', texte: `${nomBrassin(b)} : la garde est finie.`, url: lien(b) });
+      }
+      continue;
+    }
+    // En fermentation, suivie par une Pill : densité stable, ou Pill qui ne flotte plus.
+    const suivi = b.fermentation;
+    if (!suivi?.pillId || suivi.fin) continue;
+    const releves = await lireReleves(suivi.pillId, new Date(maintenant - 3 * 86_400_000).toISOString(), maintenant.toISOString());
+    const recentes = releves.filter((r) => maintenant - Date.parse(r.date) <= 6 * HEURE);
+    const derniere = recentes.at(-1);
+    if (derniere && densiteSg(derniere.densite) === null) {
+      liste.push({
+        cle: `flotte:${b.id}:${derniere.date.slice(0, 10)}`,
+        titre: 'La Pill flotte-t-elle ?',
+        texte: `${nomBrassin(b)} : densité impossible (${fr(Number(derniere.densite) > 2 ? Number(derniere.densite) / 1000 : Number(derniere.densite), 3)}). La Pill est peut-être couchée ou hors du liquide.`,
+        url: lien(b),
+      });
+    }
+    const stable = densiteStable(releves);
+    if (stable !== null) {
+      liste.push({
+        cle: `stable:${b.id}`,
+        titre: 'Fermentation terminée ?',
+        texte: `${nomBrassin(b)} : densité stable depuis 48 h (${fr(stable, 3)}). Prête à embouteiller.`,
+        url: lien(b),
+      });
+    }
+  }
+  return liste;
+}
+
+/** Dernière copie de sauvegarde déposée par l'appli : ses données, ou null. */
+async function dernieresDonnees(env) {
+  const { keys } = await env.MESURES.list({ prefix: 'sauvegarde:' });
+  const derniere = keys.map((k) => k.name).sort().at(-1);
+  if (!derniere) return null;
+  try {
+    return JSON.parse(await env.MESURES.get(derniere))?.donnees ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Vérification (déclencheur Cron, une fois par heure) : envoie les alertes nouvelles, hors de la
+ * nuit ; une alerte n'est notée « envoyée » que si un iPhone l'a acceptée. Renvoie les clés envoyées.
+ */
+export async function verifierNotifications(env, maintenant = new Date()) {
+  if (!env.MESURES) return [];
+  const { heure } = heureDeParis(maintenant);
+  if (heure >= NUIT.debut || heure < NUIT.fin) return [];
+  if (!(await abonnements(env)).length) return [];
+  const donnees = await dernieresDonnees(env);
+  if (!donnees) return [];
+  const envoyees = [];
+  for (const alerte of await alertes(donnees, (pill, debut, fin) => relevesFlux(env, pill, debut, fin), maintenant)) {
+    if (await env.MESURES.get(`alerte:${alerte.cle}`)) continue;
+    const { cle, ...message } = alerte;
+    if ((await notifierTous(env, { ...message, tag: cle })) > 0) {
+      await env.MESURES.put(`alerte:${cle}`, maintenant.toISOString(), { expirationTtl: MEMOIRE_ALERTE });
+      envoyees.push(cle);
+    }
+  }
+  return envoyees;
+}
+
+/* ------------------------------------------------------------------ */
 /* Réponses                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -289,6 +561,11 @@ const estIdentifiant = (v) => /^[\w:.-]{1,64}$/.test(v ?? '');
 const estDate = (v) => !v || Number.isFinite(Date.parse(v));
 
 export default {
+  /** Déclencheur Cron (une fois par heure) : notifications à envoyer. */
+  async scheduled(controleur, env, ctx) {
+    ctx.waitUntil(verifierNotifications(env, new Date(controleur?.scheduledTime ?? Date.now())));
+  },
+
   async fetch(requete, env) {
     const url = new URL(requete.url);
     const chemin = url.pathname;
@@ -302,7 +579,7 @@ export default {
     if (autorisees.includes(origine)) {
       Object.assign(entetes, {
         'Access-Control-Allow-Origin': origine,
-        'Access-Control-Allow-Methods': 'GET, PUT',
+        'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE',
         'Access-Control-Allow-Headers': 'X-Cle, Content-Type',
         'Access-Control-Max-Age': '86400',
       });
@@ -331,6 +608,34 @@ export default {
         if (chemin === '/sauvegardes') return repondre(200, await listerCopies(env));
         return new Response(await lireCopie(env, url.searchParams.get('semaine')), { status: 200, headers: entetes });
       }
+      if (chemin === '/notifications' || chemin.startsWith('/notifications/')) {
+        if (!flux) return repondre(500, { erreur: 'Relier un espace KV nommé MESURES au relais pour les notifications.' });
+        if (chemin === '/notifications' && methode === 'GET') {
+          const cles = await clesVapid(env);
+          return repondre(200, { clePublique: cles.publique, abonnements: (await abonnements(env)).length });
+        }
+        if (chemin === '/notifications/abonnement' && (methode === 'PUT' || methode === 'DELETE')) {
+          let corps;
+          try {
+            corps = await requete.json();
+          } catch {
+            throw new ErreurRelais(400, 'Abonnement illisible.');
+          }
+          if (methode === 'DELETE') {
+            await env.MESURES.delete(await cleAbonnement(String(corps?.endpoint ?? '')));
+            return repondre(200, { supprime: true });
+          }
+          const abonnement = lireAbonnement(corps);
+          await env.MESURES.put(await cleAbonnement(abonnement.endpoint), JSON.stringify({ ...abonnement, le: new Date().toISOString() }));
+          return repondre(200, { enregistre: true, abonnements: (await abonnements(env)).length });
+        }
+        if (chemin === '/notifications/essai' && methode === 'POST') {
+          const envois = await notifierTous(env, { titre: 'Brasserie Ensen', texte: 'Les notifications arrivent bien sur cet appareil. 🍺', url: '#/', tag: 'essai' });
+          if (!envois) throw new ErreurRelais(502, 'Aucun appareil n’a accepté la notification d’essai.');
+          return repondre(200, { envois });
+        }
+        return repondre(405, { erreur: 'Notifications : GET /notifications, PUT ou DELETE /notifications/abonnement, POST /notifications/essai.' });
+      }
       if (methode !== 'GET') return repondre(405, { erreur: 'Seule la lecture est possible.' });
       if (chemin === '/pills') return repondre(200, flux ? await pillsFlux(env) : await pillsApi(env));
       if (chemin === '/releves') {
@@ -341,7 +646,7 @@ export default {
         if (!estDate(debut) || !estDate(fin)) return repondre(400, { erreur: 'Dates illisibles.' });
         return repondre(200, flux ? await relevesFlux(env, pill, debut, fin) : await relevesApi(env, pill, debut, fin));
       }
-      return repondre(404, { erreur: 'Adresse inconnue : /pills, /releves, /flux, /sauvegardes.' });
+      return repondre(404, { erreur: 'Adresse inconnue : /pills, /releves, /flux, /sauvegardes, /notifications.' });
     } catch (erreur) {
       return repondre(erreur.statut ?? 502, { erreur: erreur.statut ? erreur.message : 'Le relais n’a pas pu répondre (RAPT ou stockage indisponible) : réessayer plus tard.' });
     }

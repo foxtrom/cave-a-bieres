@@ -206,6 +206,58 @@ export function densiteInitiale(f, { diRecette = null, dateBrassage = '' } = {})
 const moyenne = (valeurs) => valeurs.reduce((s, v) => s + v, 0) / valeurs.length;
 
 /**
+ * Depuis combien d'heures la densité varie de moins d'un point, avec la règle de la FG stable :
+ * pour une période qui finit à la dernière mesure, écart entre la moyenne de son début et celle
+ * de sa fin (6 h chacune, moins pour une période courte). La période s'allonge heure par heure
+ * tant que l'écart reste sous un point (une période courte qui échoue, bruit de la Pill, ne clôt
+ * pas la recherche).
+ */
+function heuresDeCalme(releves, fin) {
+  const temps = releves.map((r) => Date.parse(r.t));
+  const premier = temps[0];
+  let calme = 0;
+  for (let w = HEURE; fin - w >= premier && w <= JOURS_STABLE_MAX * JOUR; w += HEURE) {
+    const debut = fin - w;
+    const bord = Math.min(6 * HEURE, w / 2);
+    const avant = releves.filter((r, i) => temps[i] >= debut && temps[i] <= debut + bord).map((r) => r.d);
+    const apres = releves.filter((r, i) => temps[i] >= fin - bord).map((r) => r.d);
+    if (!avant.length || !apres.length) continue;
+    if (Math.abs(moyenne(avant) - moyenne(apres)) <= 0.001 + 1e-9) calme = w;
+    else if (w >= 12 * HEURE) break;
+  }
+  return calme / HEURE;
+}
+
+const fr1 = (n) => n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+const points = (n) => `${fr1(n)} point${Math.abs(n) >= 2 ? 's' : ''}`;
+
+/** « 18 h », « 1 j 6 h », « 2 j » */
+export function dureeHeures(heures) {
+  const h = Math.round(heures);
+  if (h < 24) return `${h} h`;
+  const j = Math.floor(h / 24);
+  const reste = h % 24;
+  return reste ? `${j} j ${reste} h` : `${j} j`;
+}
+
+/**
+ * Où en est la fermentation, en une phrase qui suit les mesures (hors FG stable, dite par l'appli
+ * avec sa date) : vitesse tant que la densité baisse ; puis le temps de calme déjà passé et ce qu'il
+ * reste avant de juger la FG stable. Vide sans mesure assez longue pour juger.
+ */
+export function phraseFermentation(a) {
+  if (!a?.derniere || a.stable || a.vitesse === null) return '';
+  const visee = a.dfAtteinte ? ' Densité visée par la recette atteinte.' : '';
+  const jours = `${a.joursStable} jour${a.joursStable >= 2 ? 's' : ''}`;
+  if (a.vitesse >= 0.5) return `Fermentation en cours : la densité baisse de ${points(a.vitesse)} par jour.${visee}`;
+  const rythme = ` (${points(Math.max(0, a.vitesse))} par jour)`;
+  const calme = a.calmeDepuis ?? 0;
+  if (calme < 6) return `La densité ralentit${rythme} : la FG sera jugée stable après ${jours} sans variation.${visee}`;
+  const reste = Math.max(1, a.joursStable * 24 - calme);
+  return `La densité ne baisse presque plus${rythme} : moins d’un point d’écart depuis ${dureeHeures(calme)}, sur les ${jours} demandés — encore ${dureeHeures(reste)} environ avant de juger la FG stable.${visee}`;
+}
+
+/**
  * Où en est la fermentation : dernière mesure, densité initiale, degré et
  * atténuation, vitesse (points de densité perdus par jour, sur 24 h), densité
  * stable (moins d'un point d'écart entre le début et la fin des derniers
@@ -228,6 +280,7 @@ export function analyserFermentation(
   }
   let vitesse = null;
   let stable = false;
+  let calmeDepuis = null;
   if (derniere) {
     const fin = Date.parse(derniere.t);
     const jour = releves.filter((r) => Date.parse(r.t) >= fin - JOUR);
@@ -241,6 +294,7 @@ export function analyserFermentation(
       const apres = periode.filter((r) => Date.parse(r.t) >= fin - 6 * HEURE).map((r) => r.d);
       stable = Math.abs(moyenne(avant) - moyenne(apres)) <= 0.001 + 1e-9;
     }
+    calmeDepuis = heuresDeCalme(releves, fin);
   }
   // Mesure écartée plus récente que la dernière gardée : la Pill envoie, mais ne flotte sans doute pas.
   const ecartee = f?.ecartee && (!derniere || f.ecartee.t > derniere.t) ? f.ecartee : null;
@@ -254,6 +308,8 @@ export function analyserFermentation(
     attenuation,
     vitesse,
     stable,
+    calmeDepuis,
+    joursStable: Math.min(JOURS_STABLE_MAX, Math.max(1, joursStable)),
     dfVisee: dfRecette,
     dfAtteinte: dfRecette != null && d !== null && d <= dfRecette + 0.002,
     silencieuse: silence !== null && silence >= SILENCE_HEURES,

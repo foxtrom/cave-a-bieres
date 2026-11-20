@@ -1151,8 +1151,17 @@ try {
     assert.equal(appelsRelais.filter((a) => a.startsWith('/releves')).length, 1);
     assert.ok(appelsRelais.at(-1).includes(`pill=${PILLS[0].id}`));
     // FG stable après 3 jours (réglage par défaut) : la densité a encore perdu environ 3 points en 3 jours
-    await attendreTexte('.bloc-suivi', 'La densité ne baisse presque plus.');
-    assert.equal(await page.locator('.bloc-suivi', { hasText: 'FG stable' }).count(), 0);
+    // (vitesse et durées dépendent de l'heure du test : la fermentation simulée part de minuit)
+    await page
+      .waitForFunction(
+        () => /La densité ne baisse presque plus \(0,\d point par jour\) : moins d’un point d’écart depuis \d j( \d+ h)?, sur les 3 jours demandés — encore \d+ h environ/.test(document.querySelector('.bloc-suivi')?.textContent ?? ''),
+        null,
+        { timeout: 5000 },
+      )
+      .catch(async () => {
+        throw new Error(`Phrase de la fermentation inattendue : « ${await texte('.bloc-suivi .etat-suivi').catch(() => '')} »`);
+      });
+    assert.equal(await page.locator('.bloc-suivi', { hasText: 'FG stable : moins' }).count(), 0);
     await attendreTexte('.bloc-suivi', 'mesurée par la Pill');
     assert.ok((await page.getAttribute('.bloc-suivi path.ligne-densite', 'd')).startsWith('M'));
     assert.ok((await page.getAttribute('.bloc-suivi path.ligne-temperature', 'd')).startsWith('M'));

@@ -542,10 +542,11 @@ function blocSuivi(b, auj) {
       const jours = etat.donnees.reglages.joursStabilite;
       const depuis = f.stable ? `, repérée le ${formaterDateCourte(dateLocale(new Date(f.stable.le)), auj)}` : '';
       etatTexte = `FG stable : moins d’un point d’écart en ${pluriel(jours, 'jour')}${depuis}. La fermentation semble terminée.`;
+      if (a.dfAtteinte) etatTexte += ' Densité visée par la recette atteinte.';
+    } else {
+      // Phrase qui suit les mesures : vitesse, puis temps de calme passé et restant avant la FG stable.
+      etatTexte = F.phraseFermentation(a);
     }
-    else if (a.vitesse !== null && a.vitesse >= 0.5) etatTexte = `Fermentation en cours : la densité baisse de ${fr1(a.vitesse)} points par jour.`;
-    else if (a.vitesse !== null) etatTexte = 'La densité ne baisse presque plus.';
-    if (a.dfAtteinte) etatTexte += ' Densité visée par la recette atteinte.';
   }
   // Mesure reçue mais écartée : « densité impossible (1,289, il y a 12 min) »
   const ecartee = a.ecartee

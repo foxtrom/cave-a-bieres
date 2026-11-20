@@ -181,3 +181,20 @@ test('brassin : suivi gardé dans la sauvegarde, suivi abîmé écarté', () => 
   assert.equal(normaliserBrassin({ ...base, fermentation: { pillNom: 'sans id' } }).fermentation, null);
   assert.equal(normaliserBrassin(base).fermentation, null);
 });
+
+test('phrase de la fermentation : vitesse, puis calme passé et restant jusqu’à la FG stable', () => {
+  const debut = Date.parse('2026-11-07T00:00:00Z');
+  const tous = F.lireReleves(mesures(debut, 5));
+  const a = (heures, joursStable = 3) =>
+    F.analyserFermentation({ ...F.nouveauSuivi({ id: 'p1' }, new Date(debut)), di: 1.052, releves: tous.filter((r) => Date.parse(r.t) <= debut + heures * HEURE) }, { maintenant: new Date(debut + heures * HEURE), joursStable });
+  assert.match(F.phraseFermentation(a(24)), /^Fermentation en cours : la densité baisse de \d+(,\d)? points par jour\.$/);
+  const fin = a(5 * 24);
+  assert.ok(fin.calmeDepuis > 40 && fin.calmeDepuis < 60, String(fin.calmeDepuis));
+  assert.match(F.phraseFermentation(fin), /^La densité ne baisse presque plus \(0,\d point par jour\) : moins d’un point d’écart depuis 2 j \d+ h, sur les 3 jours demandés — encore \d+ h environ avant de juger la FG stable\.$/);
+  // Plus de jours demandés : il en reste davantage ; FG stable : la phrase laisse la place au repère
+  assert.match(F.phraseFermentation(a(5 * 24, 5)), /sur les 5 jours demandés — encore 2 j \d+ h/);
+  assert.equal(F.phraseFermentation(a(5 * 24, 2)), '');
+  assert.equal(F.dureeHeures(18.4), '18 h');
+  assert.equal(F.dureeHeures(30), '1 j 6 h');
+  assert.equal(F.dureeHeures(48), '2 j');
+});

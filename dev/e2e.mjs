@@ -1154,7 +1154,7 @@ try {
     // (vitesse et durées dépendent de l'heure du test : la fermentation simulée part de minuit)
     await page
       .waitForFunction(
-        () => /La densité ne baisse presque plus \(0,\d point par jour\) : moins d’un point d’écart depuis \d j( \d+ h)?, sur les 3 jours demandés — encore \d+ h environ/.test(document.querySelector('.bloc-suivi')?.textContent ?? ''),
+        () => /La densité ne baisse presque plus \((0,\d point par jour|stable sur 24 h)\) : moins d’un point d’écart depuis \d j( \d+ h)?, sur les 3 jours demandés — encore \d+ h environ/.test(document.querySelector('.bloc-suivi')?.textContent ?? ''),
         null,
         { timeout: 5000 },
       )

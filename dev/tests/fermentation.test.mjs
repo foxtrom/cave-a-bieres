@@ -198,3 +198,21 @@ test('phrase de la fermentation : vitesse, puis calme passé et restant jusqu’
   assert.equal(F.dureeHeures(30), '1 j 6 h');
   assert.equal(F.dureeHeures(48), '2 j');
 });
+
+test('phrase de la fermentation : densité à plat mais agitée (houblonnage), ou à plat et calme', () => {
+  const debut = Date.parse('2026-11-16T00:00:00Z');
+  const suivi = (densite) => {
+    const releves = [];
+    for (let h = 0; h <= 72; h += 0.5) releves.push({ date: new Date(debut + h * HEURE).toISOString(), densite: densite(h), temperature: 20 });
+    return { ...F.nouveauSuivi({ id: 'p1' }, new Date(debut)), di: 1.05, releves: F.lireReleves(releves) };
+  };
+  const maintenant = new Date(debut + 72 * HEURE);
+  // Houblons ajoutés il y a 5 h : la densité lue fait une bosse de 3 points, en cours
+  const agitee = F.analyserFermentation(suivi((h) => (h > 67 ? 1.015 : 1.012)), { maintenant });
+  assert.ok(agitee.vitesse < 0, String(agitee.vitesse)); // elle remonte (moyennes, pas une mesure isolée)
+  assert.match(F.phraseFermentation(agitee), /^La densité varie encore d’une heure à l’autre \(houblonnage, température…\), sans baisser sur 24 h : le compte des 3 jours sans variation commencera quand elle se sera calmée\.$/);
+  // À plat et calme depuis la veille : « stable sur 24 h », jamais « 0 point »
+  const plate = F.analyserFermentation(suivi((h) => (h < 40 ? 1.02 - h * 0.0002 : 1.012)), { maintenant });
+  assert.match(F.phraseFermentation(plate), /^La densité ne baisse presque plus \(stable sur 24 h\) : moins d’un point d’écart depuis 1 j \d+ h/);
+  assert.doesNotMatch(F.phraseFermentation(plate), /0 point/);
+});

@@ -250,8 +250,14 @@ export function phraseFermentation(a) {
   const visee = a.dfAtteinte ? ' Densité visée par la recette atteinte.' : '';
   const jours = `${a.joursStable} jour${a.joursStable >= 2 ? 's' : ''}`;
   if (a.vitesse >= 0.5) return `Fermentation en cours : la densité baisse de ${points(a.vitesse)} par jour.${visee}`;
-  const rythme = ` (${points(Math.max(0, a.vitesse))} par jour)`;
+  // Vitesse sur 24 h : « 0,2 point par jour », « stable sur 24 h » (moins de 0,1), « remonte de 0,3 point par jour ».
+  const tendance = a.vitesse >= 0.05 ? `${points(a.vitesse)} par jour` : a.vitesse <= -0.05 ? `remonte de ${points(-a.vitesse)} par jour` : 'stable sur 24 h';
+  const rythme = ` (${tendance})`;
   const calme = a.calmeDepuis ?? 0;
+  if (calme < 6 && a.vitesse < 0.05) {
+    // Pas de baisse sur 24 h, mais des écarts d'un point ou plus d'une heure à l'autre (houblonnage à cru, température…)
+    return `La densité varie encore d’une heure à l’autre (houblonnage, température…), sans baisser sur 24 h : le compte des ${jours} sans variation commencera quand elle se sera calmée.${visee}`;
+  }
   if (calme < 6) return `La densité ralentit${rythme} : la FG sera jugée stable après ${jours} sans variation.${visee}`;
   const reste = Math.max(1, a.joursStable * 24 - calme);
   return `La densité ne baisse presque plus${rythme} : moins d’un point d’écart depuis ${dureeHeures(calme)}, sur les ${jours} demandés — encore ${dureeHeures(reste)} environ avant de juger la FG stable.${visee}`;
@@ -285,7 +291,14 @@ export function analyserFermentation(
     const fin = Date.parse(derniere.t);
     const jour = releves.filter((r) => Date.parse(r.t) >= fin - JOUR);
     const duree = fin - Date.parse(jour[0].t);
-    if (duree >= 6 * HEURE) vitesse = arrondi(((jour[0].d - d) * 1000) / (duree / JOUR), 1);
+    if (duree >= 6 * HEURE) {
+      // Moyennes des 2 premières et des 2 dernières heures : une mesure isolée (bosse d'un houblonnage,
+      // bulle de CO₂) ne fausse pas la vitesse.
+      const t0 = Date.parse(jour[0].t);
+      const debutMoyen = moyenne(jour.filter((r) => Date.parse(r.t) <= t0 + 2 * HEURE).map((r) => r.d));
+      const finMoyenne = moyenne(jour.filter((r) => Date.parse(r.t) >= fin - 2 * HEURE).map((r) => r.d));
+      vitesse = arrondi(((debutMoyen - finMoyenne) * 1000) / ((duree - 2 * HEURE) / JOUR), 1) || 0;
+    }
     const fenetre = Math.min(JOURS_STABLE_MAX, Math.max(1, joursStable)) * JOUR;
     const periode = releves.filter((r) => Date.parse(r.t) >= fin - fenetre);
     const debut = Date.parse(periode[0].t);

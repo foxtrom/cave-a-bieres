@@ -1246,6 +1246,24 @@ try {
     await saisir('3,3');
     await attendreTexte('.bloc-embouteillage .e-message--ok', 'Assez de bouteilles');
     await attendreTexte('.bloc-embouteillage', 'Volume mesuré, noté sur ce brassin');
+    await attendreTexte('.bloc-embouteillage', 'Proposée : les 33 cl du stock d’abord');
+    // Répartition choisie : 5 × 33 cl ne suffisent pas pour 3,3 L → alerte, puis compléter, puis revenir
+    const champ33 = '.bloc-embouteillage [data-repartition="33"]';
+    await page.fill(champ33, '5');
+    await page.locator(champ33).dispatchEvent('change');
+    await attendreTexte('.bloc-embouteillage', 'Répartition choisie pour ce brassin');
+    await attendreTexte('.bloc-embouteillage .calcul-embouteillage', '5 × 0,33 L = 1,65 L');
+    await attendreTexte('.bloc-embouteillage .e-message--alerte', 'Pas assez de bouteilles');
+    await attendreTexte('.bloc-embouteillage .e-message--alerte', 'Il manque 1,65 L, soit encore 5 bouteilles de 33 cl ou 3 de 66 cl');
+    await page.locator('.bloc-embouteillage').evaluate((s) => s.scrollIntoView({ block: 'center' }));
+    await capture('46-embouteillage-repartition-choisie');
+    await page.click('[data-action="completer-embouteillage"]');
+    await attendreTexte('.bloc-embouteillage .calcul-embouteillage', '10 × 0,33 L = 3,3 L');
+    assert.equal(await page.inputValue(champ33), '10');
+    assert.equal(await page.locator('.bloc-embouteillage .e-message--alerte', { hasText: 'Pas assez' }).count(), 0);
+    await page.click('[data-action="repartition-proposee"]');
+    await attendreToast(/Répartition proposée/);
+    await attendreTexte('.bloc-embouteillage', 'Proposée : les 33 cl du stock d’abord');
     // 200 L : bien plus que le stock de bouteilles vides et de capsules
     await saisir('200');
     await attendreTexte('.bloc-embouteillage .e-message--alerte', 'Pour 200 L');

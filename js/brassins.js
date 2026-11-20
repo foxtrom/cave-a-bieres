@@ -4,6 +4,7 @@
 import { ajouterJours, duree, estDateValide, joursEntre } from './dates.js';
 import { nouvelId } from './outils.js';
 import { normaliserCapsules } from './capsules.js';
+import { normaliserRepartition } from './embouteillage.js';
 import { normaliserFermentation } from './fermentation.js';
 import { normaliserRecette } from './recettes.js';
 import { normaliserRefermentation } from './refermentation.js';
@@ -110,6 +111,7 @@ export function nouveauBrassin(id = nouvelId(), maintenant = new Date().toISOStr
     capsules: [], // couleurs des capsules posées à l'embouteillage (voir capsules.js)
     refermentation: null, // sucre dosé par bouteille à l'embouteillage (voir refermentation.js)
     volumeAEmbouteiller: null, // litres à mettre en bouteilles, mesurés (sinon ceux de la recette)
+    repartitionEmbouteillage: null, // { b33, b66 } choisis pour l'embouteillage (sinon ceux proposés)
     fermentation: null, // suivi par une RAPT Pill (voir fermentation.js)
     archive: false,
     preteVue: false,
@@ -196,6 +198,7 @@ export function normaliserBrassin(source) {
     capsules: normaliserCapsules(source.capsules),
     refermentation: normaliserRefermentation(source.refermentation),
     volumeAEmbouteiller: nombreOuNull(source.volumeAEmbouteiller),
+    repartitionEmbouteillage: normaliserRepartition(source.repartitionEmbouteillage),
     fermentation: normaliserFermentation(source.fermentation),
     archive: Boolean(source.archive),
     preteVue: Boolean(source.preteVue),

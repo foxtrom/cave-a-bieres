@@ -146,6 +146,7 @@ const heures = (h) => new Date(MAINTENANT - h * 3_600_000).toISOString();
 const serie = (densite) => Array.from({ length: 21 }, (_, i) => 60 - i * 3).map((h) => ({ date: heures(h), densite: densite(h), temperature: 21 }));
 
 const donnees = {
+  reglages: { joursStabilite: 2 }, // « FG stable après 2 jours » (Réglages › RAPT Pill)
   brassins: [
     { id: 'a', code: 'IPA-2602-1', nom: 'Cold IPA', dateEmbouteillage: '2026-11-05', gardeSemaines: 2, bouteilles: { 33: { restant: 50 }, 66: { restant: 6 } } },
     { id: 'b', code: 'WHT-2607-1', nom: 'Witbier', dateEmbouteillage: '2026-08-03', gardeSemaines: 3, bouteilles: { 33: { restant: 0 }, 66: { restant: 13 } } },
@@ -163,16 +164,19 @@ test('alertes : bière prête aujourd’hui, fermentation stable, Pill qui ne fl
   const liste = await alertes(donnees, lireReleves, MAINTENANT);
   assert.deepEqual(liste.map((a) => a.cle), ['prete:a:2026-11-19', 'stable:c', 'flotte:d:2026-11-19']);
   assert.equal(liste[0].url, '#/brassin/IPA-2602-1');
-  assert.match(liste[1].texte, /STO-2611-1 · Stout du Naouri : densité stable depuis 48 h \(1,012\)/);
+  assert.match(liste[1].texte, /STO-2611-1 · Stout du Naouri : FG stable \(1,012\), moins d’un point d’écart en 2 jours/);
+  // Réglage par défaut (3 jours) : 60 h de mesures ne suffisent pas encore
+  assert.deepEqual((await alertes({ ...donnees, reglages: {} }, lireReleves, MAINTENANT)).map((a) => a.cle), ['prete:a:2026-11-19', 'flotte:d:2026-11-19']);
   assert.match(liste[2].texte, /densité impossible \(1,289\)/);
   // Ancienne bière prête (août) : pas d'alerte ; brassin archivé : rien
   assert.equal((await alertes({ brassins: [{ ...donnees.brassins[0], archive: true }] }, lireReleves, MAINTENANT)).length, 0);
 });
 
-test('densité stable : même règle que l’appli (48 h, moins d’un point d’écart)', () => {
-  assert.equal(densiteStable(serie(() => 1.012)), 1.012);
-  assert.equal(densiteStable(serie((h) => 1.012 + h / 20_000)), null); // perd encore 3 points en 60 h
-  assert.equal(densiteStable(serie(() => 1.012).slice(-8)), null); // moins de 42 h de mesures
+test('densité stable : même règle que l’appli (jours réglés, moins d’un point d’écart)', () => {
+  assert.equal(densiteStable(serie(() => 1.012), 2), 1.012);
+  assert.equal(densiteStable(serie(() => 1.012)), null); // 3 jours par défaut : 60 h ne suffisent pas
+  assert.equal(densiteStable(serie((h) => 1.012 + h / 20_000), 2), null); // perd encore 3 points en 60 h
+  assert.equal(densiteStable(serie(() => 1.012).slice(-8), 2), null); // moins de 42 h de mesures
 });
 
 test('vérification horaire : une seule fois par alerte, jamais la nuit, rien sans abonné', async () => {

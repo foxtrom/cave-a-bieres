@@ -1150,7 +1150,9 @@ try {
     await attendreTexte('.bloc-suivi .mesures', 'Densité1,010');
     assert.equal(appelsRelais.filter((a) => a.startsWith('/releves')).length, 1);
     assert.ok(appelsRelais.at(-1).includes(`pill=${PILLS[0].id}`));
-    await attendreTexte('.bloc-suivi', 'Densité stable depuis 2 jours : la fermentation semble terminée.');
+    // FG stable après 3 jours (réglage par défaut) : la densité a encore perdu environ 3 points en 3 jours
+    await attendreTexte('.bloc-suivi', 'La densité ne baisse presque plus.');
+    assert.equal(await page.locator('.bloc-suivi', { hasText: 'FG stable' }).count(), 0);
     await attendreTexte('.bloc-suivi', 'mesurée par la Pill');
     assert.ok((await page.getAttribute('.bloc-suivi path.ligne-densite', 'd')).startsWith('M'));
     assert.ok((await page.getAttribute('.bloc-suivi path.ligne-temperature', 'd')).startsWith('M'));
@@ -1176,6 +1178,35 @@ try {
     await page.waitForTimeout(200);
     await capture('37-suivi-pill-sombre');
     await page.emulateMedia({ colorScheme: 'light' });
+  });
+
+  await etape('FG stable : nombre de jours réglé dans Réglages, repère sur la fiche et dans la Cave', async () => {
+    const regler = async (jours) => {
+      await page.goto(`${BASE}#/reglages`);
+      await page.fill('[data-reglage="joursStabilite"]', jours);
+      await page.locator('[data-reglage="joursStabilite"]').dispatchEvent('change');
+      await attendreToast(/Réglage enregistré/);
+    };
+    const carteG = () => page.locator('.e-carte', { hasText: G.code });
+    // 2 jours : la densité varie de moins d'un point sur les 2 derniers jours → repère « FG stable »
+    await regler('2');
+    await page.goto(`${BASE}#/brassin/${G.code}`);
+    await attendreTexte('.bloc-suivi', 'FG stable : moins d’un point d’écart en 2 jours, repérée le');
+    await attendreTexte('.e-etat', 'FG stable (1,010) depuis le');
+    await page.goto(BASE);
+    await carteG().getByText('FG stable').waitFor();
+    await capture('44-fg-stable');
+    // Retour à 3 jours : le repère est retiré, la carte redit « En fermentation »
+    await regler('3');
+    await page.goto(BASE);
+    await carteG().getByText('En fermentation').waitFor();
+    // Valeur hors bornes refusée
+    await page.goto(`${BASE}#/reglages`);
+    await page.fill('[data-reglage="joursStabilite"]', '0');
+    await page.locator('[data-reglage="joursStabilite"]').dispatchEvent('change');
+    await attendreToast(/entre 1 et 14/);
+    // Les étapes suivantes (degré noté d'après la Pill) supposent la densité stable : 2 jours
+    await regler('2');
   });
 
   await etape('Suivi RAPT Pill : densité initiale corrigée, degré noté sur le brassin, suivi arrêté puis repris', async () => {

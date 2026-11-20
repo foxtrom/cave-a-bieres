@@ -22,6 +22,7 @@ export const REGLAGES_DEFAUT = {
   theme: 'auto', // 'auto' | 'clair' | 'sombre'
   seuilStockBas: 6, // bouteilles
   gardeSemaines: 3, // durée de refermentation proposée pour un nouveau brassin
+  joursStabilite: 3, // jours sans variation de densité (moins d'un point) pour juger la FG stable
   tri: 'recent',
   triHistorique: 'note',
   raptRelais: '', // adresse du relais Cloudflare vers l'API RAPT (voir relais-rapt/)

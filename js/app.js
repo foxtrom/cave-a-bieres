@@ -464,6 +464,7 @@ async function actualiserSuivi(b, { manuel = false } = {}) {
     const actuel = etat.donnees.brassins.find((x) => x.id === b.id);
     if (actuel?.fermentation?.pillId === f.pillId) {
       actuel.fermentation = F.ajouterReleves(actuel.fermentation, recus, maintenant);
+      majReperesStabilite([actuel]);
       erreursSuivi.delete(b.id);
       sauver();
     }
@@ -493,7 +494,22 @@ function analyseSuivi(b) {
     diRecette: b.recette?.di ?? null,
     dfRecette: b.recette?.df ?? null,
     dateBrassage: b.dateBrassage,
+    joursStable: etat.donnees.reglages.joursStabilite,
   });
+}
+
+/** Repère « FG stable » de chaque brassin suivi, recalculé (nouvelles mesures, réglage changé). Renvoie true s'il a changé. */
+function majReperesStabilite(brassins = etat.donnees.brassins) {
+  let change = false;
+  for (const b of brassins) {
+    if (!b.fermentation || b.dateEmbouteillage) continue;
+    const suivi = F.marquerStabilite(b.fermentation, analyseSuivi(b));
+    if (suivi !== b.fermentation) {
+      b.fermentation = suivi;
+      change = true;
+    }
+  }
+  return change;
 }
 
 /** Bloc « RAPT Pill » de la fiche : pendant la fermentation, puis en résumé une fois le brassin embouteillé. */
@@ -522,7 +538,11 @@ function blocSuivi(b, auj) {
 
   let etatTexte = '';
   if (d && enFermentation) {
-    if (a.stable) etatTexte = 'Densité stable depuis 2 jours : la fermentation semble terminée.';
+    if (a.stable) {
+      const jours = etat.donnees.reglages.joursStabilite;
+      const depuis = f.stable ? `, repérée le ${formaterDateCourte(dateLocale(new Date(f.stable.le)), auj)}` : '';
+      etatTexte = `FG stable : moins d’un point d’écart en ${pluriel(jours, 'jour')}${depuis}. La fermentation semble terminée.`;
+    }
     else if (a.vitesse !== null && a.vitesse >= 0.5) etatTexte = `Fermentation en cours : la densité baisse de ${fr1(a.vitesse)} points par jour.`;
     else if (a.vitesse !== null) etatTexte = 'La densité ne baisse presque plus.';
     if (a.dfAtteinte) etatTexte += ' Densité visée par la recette atteinte.';
@@ -2408,6 +2428,9 @@ function vueReglages() {
           <input type="url" data-reglage="raptRelais" value="${r.raptRelais}" placeholder="https://….workers.dev" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
         <label class="champ"><span class="libelle">Clé d’accès</span>
           <input type="password" data-reglage="raptCle" value="${r.raptCle}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+        <label class="champ"><span class="libelle">FG stable après</span>
+          <span class="champ-unite"><input data-reglage="joursStabilite" inputmode="numeric" pattern="[0-9]*" value="${r.joursStabilite}"><span>jours</span></span></label>
+        <p class="aide">La densité finale (FG) est jugée stable quand elle varie de moins d’un point (0,001) pendant ce nombre de jours : le brassin reçoit le repère « FG stable » et, si elles sont activées, la notification « Fermentation terminée ? ».</p>
         <button type="button" class="e-btn e-btn--secondaire" data-action="tester-rapt">${SYMBOLES.connexion}Tester la connexion</button>
         <p class="aide" id="rapt-etat" aria-live="polite"></p>
       </section>
@@ -3186,6 +3209,15 @@ function changerReglage(element) {
     }
     valeur = n;
   }
+  if (cle === 'joursStabilite') {
+    const n = B.lireNombre(valeur);
+    if (!Number.isInteger(n) || n < 1 || n > F.JOURS_STABLE_MAX) {
+      element.value = reglages[cle];
+      toast(`Valeur invalide : un nombre entier de jours entre 1 et ${F.JOURS_STABLE_MAX}.`);
+      return;
+    }
+    valeur = n;
+  }
   if (cle === 'raptRelais' || cle === 'raptCle') valeur = String(valeur).trim();
   if (cle === 'raptRelais' && valeur && !/^https:\/\/[^\s/]+\.[^\s/]+/i.test(valeur) && !/^http:\/\/localhost[:/]/i.test(valeur)) {
     element.value = reglages[cle];
@@ -3193,6 +3225,7 @@ function changerReglage(element) {
     return;
   }
   reglages[cle] = valeur;
+  if (cle === 'joursStabilite') majReperesStabilite(); // repères « FG stable » revus avec le nouveau nombre de jours
   if (cle === 'theme') appliquerTheme(valeur);
   if (cle === 'raptRelais' || cle === 'raptCle') {
     erreurCopie = null;
@@ -3398,6 +3431,8 @@ async function demarrer() {
     etat.lectureImpossible = true;
   }
   appliquerTheme(etat.donnees.reglages.theme);
+  // Repères « FG stable » d'après les mesures déjà reçues (règle ou réglage changés depuis la dernière ouverture).
+  if (!etat.lectureImpossible && majReperesStabilite()) sauver();
   afficher();
   if (etat.lectureImpossible) {
     toast('Les données enregistrées n’ont pas pu être lues. Rien ne sera écrasé : importer une sauvegarde pour repartir.', { duree: 0 });

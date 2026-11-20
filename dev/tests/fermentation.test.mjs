@@ -120,7 +120,7 @@ test('analyse : degré, atténuation, vitesse, densité stable, Pill silencieuse
   assert.equal(a1.silencieuse, false);
 
   const fini = { ...enCours, releves: tous };
-  const a2 = F.analyserFermentation(fini, { dfRecette: 1.01, maintenant: new Date(debut + 5 * JOUR + 4 * HEURE) });
+  const a2 = F.analyserFermentation(fini, { dfRecette: 1.01, maintenant: new Date(debut + 5 * JOUR + 4 * HEURE), joursStable: 2 });
   assert.equal(a2.derniere.d, 1.0101);
   assert.equal(a2.abv, 5.5); // (1,052 − 1,0101) × 131,25
   assert.equal(a2.attenuation, 81);
@@ -129,6 +129,25 @@ test('analyse : degré, atténuation, vitesse, densité stable, Pill silencieuse
   assert.equal(a2.silencieuse, true); // rien depuis 4 h
   assert.ok(a2.jours > 4.8 && a2.jours <= 5, String(a2.jours));
   assert.equal(F.analyserFermentation({ releves: [] }).derniere, null);
+});
+
+test('FG stable : nombre de jours réglable, repère posé puis retiré', () => {
+  const debut = Date.parse('2026-11-07T00:00:00Z');
+  const fini = { ...F.nouveauSuivi({ id: 'p1' }, new Date(debut)), di: 1.052, releves: F.lireReleves(mesures(debut, 5)) };
+  const maintenant = new Date(debut + 5 * JOUR + 4 * HEURE);
+  // Même série : stable sur 2 jours, pas encore sur 3 (réglage par défaut) — le « trop vite » d'avant
+  assert.equal(F.analyserFermentation(fini, { maintenant, joursStable: 2 }).stable, true);
+  assert.equal(F.analyserFermentation(fini, { maintenant }).stable, false);
+  assert.equal(F.JOURS_STABLE_DEFAUT, 3);
+  // Repère : posé la première fois, gardé ensuite, retiré si la densité n'est plus stable
+  const stable = F.analyserFermentation(fini, { maintenant, joursStable: 2 });
+  const marque = F.marquerStabilite(fini, stable, maintenant);
+  assert.deepEqual(marque.stable, { le: maintenant.toISOString(), densite: 1.0101 });
+  assert.equal(F.marquerStabilite(marque, stable, new Date(+maintenant + JOUR)), marque);
+  assert.equal(F.marquerStabilite(marque, F.analyserFermentation(fini, { maintenant }), maintenant).stable, null);
+  // Gardé dans les données, relu proprement
+  assert.deepEqual(F.normaliserFermentation(marque).stable, marque.stable);
+  assert.equal(F.normaliserFermentation({ ...marque, stable: { le: 'n’importe quoi' } }).stable, null);
 });
 
 test('« il y a » et graduations de la courbe', () => {

@@ -14,6 +14,9 @@ export const DELAI_ACTUALISATION = HEURE;
 export const DELAI_ACTUALISATION_MANUELLE = 2 * MINUTE;
 /** Sans mesure depuis ce délai, la Pill est signalée silencieuse (pile, wifi…). */
 export const SILENCE_HEURES = 3;
+/** Jours sans variation (moins d'un point de densité) pour juger la FG stable : réglable (Réglages › RAPT Pill). */
+export const JOURS_STABLE_DEFAUT = 3;
+export const JOURS_STABLE_MAX = 14;
 
 /* ------------------------------------------------------------------ */
 /* Lecture des valeurs                                                 */
@@ -126,7 +129,27 @@ export function normaliserFermentation(source) {
     releves,
     ecartee: lireEcartee(source.ecartee),
     actualiseLe: dateIso(source.actualiseLe),
+    stable: lireStable(source.stable),
   };
+}
+
+/** Repère « FG stable » : { le, densite } (date où la densité a été jugée stable), ou null. */
+function lireStable(s) {
+  const le = dateIso(s?.le);
+  const densite = densiteSg(s?.densite);
+  return le && densite !== null ? { le, densite } : null;
+}
+
+/**
+ * Pose ou retire le repère « FG stable » d'après l'analyse : posé (avec la date et la densité)
+ * la première fois que la densité est jugée stable, retiré si elle se remet à bouger (ou si le
+ * nombre de jours réglé a changé). Renvoie le suivi, inchangé s'il n'y a rien à faire.
+ */
+export function marquerStabilite(f, analyse, maintenant = new Date()) {
+  if (!f) return f;
+  if (analyse.stable && !f.stable && analyse.derniere) return { ...f, stable: { le: maintenant.toISOString(), densite: analyse.derniere.d } };
+  if (!analyse.stable && f.stable) return { ...f, stable: null };
+  return f;
 }
 
 /**
@@ -185,10 +208,14 @@ const moyenne = (valeurs) => valeurs.reduce((s, v) => s + v, 0) / valeurs.length
 /**
  * Où en est la fermentation : dernière mesure, densité initiale, degré et
  * atténuation, vitesse (points de densité perdus par jour, sur 24 h), densité
- * stable (moins d'un point d'écart entre le début et la fin des 48 dernières
- * heures), densité visée par la recette atteinte, Pill silencieuse.
+ * stable (moins d'un point d'écart entre le début et la fin des derniers
+ * joursStable jours, mesurés presque en entier), densité visée par la recette
+ * atteinte, Pill silencieuse.
  */
-export function analyserFermentation(f, { diRecette = null, dfRecette = null, dateBrassage = '', maintenant = new Date() } = {}) {
+export function analyserFermentation(
+  f,
+  { diRecette = null, dfRecette = null, dateBrassage = '', maintenant = new Date(), joursStable = JOURS_STABLE_DEFAUT } = {},
+) {
   const releves = f?.releves ?? [];
   const derniere = releves.at(-1) ?? null;
   const di = densiteInitiale(f, { diRecette, dateBrassage });
@@ -206,11 +233,12 @@ export function analyserFermentation(f, { diRecette = null, dfRecette = null, da
     const jour = releves.filter((r) => Date.parse(r.t) >= fin - JOUR);
     const duree = fin - Date.parse(jour[0].t);
     if (duree >= 6 * HEURE) vitesse = arrondi(((jour[0].d - d) * 1000) / (duree / JOUR), 1);
-    const deuxJours = releves.filter((r) => Date.parse(r.t) >= fin - 2 * JOUR);
-    const debut = Date.parse(deuxJours[0].t);
-    if (fin - debut >= 1.75 * JOUR) {
-      const avant = deuxJours.filter((r) => Date.parse(r.t) <= debut + 6 * HEURE).map((r) => r.d);
-      const apres = deuxJours.filter((r) => Date.parse(r.t) >= fin - 6 * HEURE).map((r) => r.d);
+    const fenetre = Math.min(JOURS_STABLE_MAX, Math.max(1, joursStable)) * JOUR;
+    const periode = releves.filter((r) => Date.parse(r.t) >= fin - fenetre);
+    const debut = Date.parse(periode[0].t);
+    if (fin - debut >= fenetre - 6 * HEURE) {
+      const avant = periode.filter((r) => Date.parse(r.t) <= debut + 6 * HEURE).map((r) => r.d);
+      const apres = periode.filter((r) => Date.parse(r.t) >= fin - 6 * HEURE).map((r) => r.d);
       stable = Math.abs(moyenne(avant) - moyenne(apres)) <= 0.001 + 1e-9;
     }
   }

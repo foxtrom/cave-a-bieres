@@ -6,7 +6,7 @@
 
 import * as B from './brassins.js';
 import { teinteCouleur } from './capsules.js';
-import { ajouterJours, duree, formaterDate, formaterDateCourte, joursEntre, relatif } from './dates.js';
+import { ajouterJours, dateLocale, duree, formaterDate, formaterDateCourte, joursEntre, relatif } from './dates.js';
 import { brut, html } from './outils.js';
 import * as R from './recettes.js';
 
@@ -76,7 +76,7 @@ export function badge(type, texte) {
  * c'est l'état normal en cave, seuls les états à surveiller ressortent (choix validé le 14/11).
  */
 export function badgeStatut(b, st, auj) {
-  if (st === 'fermentation') return badge('fermentation', 'En fermentation');
+  if (st === 'fermentation') return b.fermentation?.stable ? badge('prete', 'FG stable') : badge('fermentation', 'En fermentation');
   if (st === 'garde') return badge('garde', `Prête ${relatif(B.datePrete(b), auj)}`);
   if (st === 'historique') return badge('termine', B.stock(b).total ? 'Archivé' : 'Terminé');
   return '';
@@ -109,11 +109,13 @@ export function pastilleCapsule(couleur, detail = '') {
   } aria-hidden="true"></span>${couleur}${detail ? html` <small>${detail}</small>` : ''}</span>`;
 }
 
-/** Couleurs des capsules d'un brassin, sur la carte de la Cave (à côté du code). */
-export const capsulesCarte = (b) =>
-  b.capsules?.length
-    ? html`<span class="e-capsules" role="img" aria-label="Capsules ${b.capsules.map((c) => c.couleur).join(', ')}">${b.capsules.map((c) => pastilleCapsule(c.couleur))}</span>`
+/** Couleurs des capsules d'un brassin, sur la carte de la Cave (à côté du code) ; des capsules sans couleur précisée n'y figurent pas. */
+export function capsulesCarte(b) {
+  const colorees = (b.capsules ?? []).filter((c) => !/^capsules?$/i.test(c.couleur.trim()));
+  return colorees.length
+    ? html`<span class="e-capsules" role="img" aria-label="Capsules ${colorees.map((c) => c.couleur).join(', ')}">${colorees.map((c) => pastilleCapsule(c.couleur))}</span>`
     : '';
+}
 
 /* ---------- Carte de brassin ---------- */
 
@@ -205,6 +207,9 @@ export function blocEtat(b, auj) {
       b.dateBrassage ? `${majuscule(`brassée ${relatif(b.dateBrassage, auj)}`)}.` : null,
       fin ? `Fin de fermentation prévue ${relatif(fin, auj)}, le ${formaterDateCourte(fin, auj)} (${R.resumeFermentation(b.recette)}).` : null,
       prevue ? `Embouteillage prévu le ${formaterDate(b.dateEmbouteillage)}.` : null,
+      b.fermentation?.stable
+        ? html`<strong>FG stable (${b.fermentation.stable.densite.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}) depuis le ${formaterDate(dateLocale(new Date(b.fermentation.stable.le)))} : prête à embouteiller.</strong>`
+        : null,
       html`<span class="e-etat-aide">Le jour de la mise en bouteille, «&nbsp;Embouteiller&nbsp;» démarre le compteur de bouteilles et la garde.</span>`,
     ]);
   }

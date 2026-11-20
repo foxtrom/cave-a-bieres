@@ -447,16 +447,20 @@ function densiteSg(v) {
 
 const moyenne = (liste) => liste.reduce((s, v) => s + v, 0) / liste.length;
 
-/** Densité stable, même règle que l'appli : sur 48 h, moins d'un point d'écart entre les 6 premières et les 6 dernières heures. */
-export function densiteStable(releves) {
+/**
+ * Densité stable, même règle que l'appli : sur les derniers jours (réglage « FG stable après »,
+ * 3 par défaut), moins d'un point d'écart entre les 6 premières et les 6 dernières heures.
+ */
+export function densiteStable(releves, jours = 3) {
   const valables = releves.map((r) => ({ t: Date.parse(r.date), d: densiteSg(r.densite) })).filter((r) => r.d !== null && Number.isFinite(r.t));
   if (!valables.length) return null;
   const fin = valables.at(-1).t;
-  const deuxJours = valables.filter((r) => r.t >= fin - 2 * 86_400_000);
-  const debut = deuxJours[0].t;
-  if (fin - debut < 1.75 * 86_400_000) return null;
-  const avant = deuxJours.filter((r) => r.t <= debut + 6 * HEURE).map((r) => r.d);
-  const apres = deuxJours.filter((r) => r.t >= fin - 6 * HEURE).map((r) => r.d);
+  const fenetre = jours * 86_400_000;
+  const periode = valables.filter((r) => r.t >= fin - fenetre);
+  const debut = periode[0].t;
+  if (fin - debut < fenetre - 6 * HEURE) return null;
+  const avant = periode.filter((r) => r.t <= debut + 6 * HEURE).map((r) => r.d);
+  const apres = periode.filter((r) => r.t >= fin - 6 * HEURE).map((r) => r.d);
   return Math.abs(moyenne(avant) - moyenne(apres)) <= 0.001 + 1e-9 ? valables.at(-1).d : null;
 }
 
@@ -470,6 +474,8 @@ const nomBrassin = (b) => (b.nom ? `${b.code} · ${b.nom}` : b.code);
  */
 export async function alertes(donnees, lireReleves, maintenant = new Date()) {
   const { jour } = heureDeParis(maintenant);
+  // Jours sans variation pour juger la FG stable : réglage de l'appli (Réglages › RAPT Pill), 3 par défaut.
+  const joursStable = Math.min(14, Math.max(1, Math.round(Number(donnees?.reglages?.joursStabilite) || 3)));
   const liste = [];
   for (const b of donnees?.brassins ?? []) {
     if (!b || typeof b.code !== 'string' || b.archive) continue;
@@ -485,7 +491,7 @@ export async function alertes(donnees, lireReleves, maintenant = new Date()) {
     // En fermentation, suivie par une Pill : densité stable, ou Pill qui ne flotte plus.
     const suivi = b.fermentation;
     if (!suivi?.pillId || suivi.fin) continue;
-    const releves = await lireReleves(suivi.pillId, new Date(maintenant - 3 * 86_400_000).toISOString(), maintenant.toISOString());
+    const releves = await lireReleves(suivi.pillId, new Date(maintenant - (joursStable + 1) * 86_400_000).toISOString(), maintenant.toISOString());
     const recentes = releves.filter((r) => maintenant - Date.parse(r.date) <= 6 * HEURE);
     const derniere = recentes.at(-1);
     if (derniere && densiteSg(derniere.densite) === null) {
@@ -496,12 +502,12 @@ export async function alertes(donnees, lireReleves, maintenant = new Date()) {
         url: lien(b),
       });
     }
-    const stable = densiteStable(releves);
+    const stable = densiteStable(releves, joursStable);
     if (stable !== null) {
       liste.push({
         cle: `stable:${b.id}`,
         titre: 'Fermentation terminée ?',
-        texte: `${nomBrassin(b)} : densité stable depuis 48 h (${fr(stable, 3)}). Prête à embouteiller.`,
+        texte: `${nomBrassin(b)} : FG stable (${fr(stable, 3)}), moins d’un point d’écart en ${joursStable} jour${joursStable >= 2 ? 's' : ''}. Prête à embouteiller.`,
         url: lien(b),
       });
     }

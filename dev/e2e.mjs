@@ -1235,6 +1235,33 @@ try {
     await page.locator('.bloc-suivi [data-action="actualiser-pill"]').waitFor();
   });
 
+  await etape(`Embouteillage à venir de ${G.code} : volume, bouteilles suffisantes ou manquantes, courses`, async () => {
+    const volume = '.bloc-embouteillage [data-volume-embouteillage]';
+    const saisir = async (valeur) => {
+      await page.fill(volume, valeur);
+      await page.locator(volume).dispatchEvent('change');
+    };
+    await page.goto(`${BASE}#/brassin/${G.code}`);
+    await attendreTexte('.bloc-embouteillage', 'Indiquer le volume de bière dans le fermenteur'); // brassin sans recette
+    await saisir('3,3');
+    await attendreTexte('.bloc-embouteillage .e-message--ok', 'Assez de bouteilles');
+    await attendreTexte('.bloc-embouteillage', 'Volume mesuré, noté sur ce brassin');
+    // 200 L : bien plus que le stock de bouteilles vides et de capsules
+    await saisir('200');
+    await attendreTexte('.bloc-embouteillage .e-message--alerte', 'Pour 200 L');
+    await attendreTexte('.bloc-embouteillage .e-message--alerte', 'il manque');
+    await page.locator('.bloc-embouteillage').evaluate((s) => s.scrollIntoView({ block: 'center' }));
+    await capture('45-embouteillage-a-venir');
+    await page.click('[data-action="courses-embouteillage"]');
+    await attendreToast(/liste de courses/);
+    await page.goto(`${BASE}#/stock/courses`);
+    await attendreTexte('#vue', 'Bouteilles vides 33 cl');
+    // Volume effacé : celui de la recette (aucune ici)
+    await page.goto(`${BASE}#/brassin/${G.code}`);
+    await saisir('');
+    await attendreTexte('.bloc-embouteillage', 'Indiquer le volume de bière dans le fermenteur');
+  });
+
   await etape(`Embouteillage de ${G.code} : le suivi devient un résumé`, async () => {
     await page.goto(`${BASE}#/brassin/${G.code}`);
     await page.click('#barre-actions [data-action="embouteiller"]');

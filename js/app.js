@@ -10,6 +10,7 @@ import * as R from './recettes.js';
 import * as E from './etiquettes.js';
 import * as I from './inventaire.js';
 import * as C from './capsules.js';
+import * as EM from './embouteillage.js';
 import * as S from './refermentation.js';
 import * as F from './fermentation.js';
 import { POLICES } from './polices.js';
@@ -350,7 +351,7 @@ function vueFiche(b) {
 
       ${blocEtat(b, auj)}
 
-      ${st === 'fermentation' ? blocSuivi(b, auj) : blocStock(b, { seuil: etat.donnees.reglages.seuilStockBas, auj, capsules: C.capsulesDuStock(etat.donnees.inventaire.articles).length > 0 })}
+      ${st === 'fermentation' ? html`${blocSuivi(b, auj)}${blocEmbouteillage(b)}` : blocStock(b, { seuil: etat.donnees.reglages.seuilStockBas, auj, capsules: C.capsulesDuStock(etat.donnees.inventaire.articles).length > 0 })}
 
       ${frise(b, auj)}
 
@@ -513,6 +514,100 @@ function majReperesStabilite(brassins = etat.donnees.brassins) {
 }
 
 /** Bloc « RAPT Pill » de la fiche : pendant la fermentation, puis en résumé une fois le brassin embouteillé. */
+/* ---------- Embouteillage à venir : bouteilles vides et capsules suffisent-elles ? ---------- */
+
+const enLitres = (n) => `${n.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} L`;
+
+/** « 62 × 33 cl et 4 × 66 cl » */
+function repartition(plan) {
+  // Espaces insécables : « 4 × 66 cl » ne se coupe pas en fin de ligne
+  return [plan.b33 ? `${plan.b33} × 33 cl` : '', plan.b66 ? `${plan.b66} × 66 cl` : ''].filter(Boolean).join(' et ') || 'aucune bouteille';
+}
+
+/**
+ * Fiche d'un brassin en fermentation : volume à embouteiller (recette, ou mesuré et noté sur le
+ * brassin), répartition proposée (66 cl du stock d'abord), bouteilles et capsules qui manqueront.
+ */
+function blocEmbouteillage(b) {
+  const articles = etat.donnees.inventaire.articles;
+  // Sans bouteilles vides suivies dans le stock (onglet Stock jamais ouvert), rien à vérifier.
+  if (!articles.some((a) => a.role === 'bouteilles33' || a.role === 'bouteilles66')) return '';
+  const volume = EM.volumeAEmbouteiller(b);
+  const stock = EM.stockEmbouteillage(articles);
+  const plan = volume ? EM.planEmbouteillage(volume, stock) : null;
+  const origine =
+    b.volumeAEmbouteiller != null
+      ? 'Volume mesuré, noté sur ce brassin. Vide : celui de la recette.'
+      : b.recette?.volume != null
+        ? `Volume de la recette (${enLitres(b.recette.volume)} dans le fermenteur) ; à corriger une fois la bière mesurée, pertes comprises.`
+        : 'Indiquer le volume de bière dans le fermenteur pour vérifier les bouteilles.';
+  let verdict = '';
+  if (plan?.suffisant) {
+    verdict = html`<p class="e-message e-message--ok">${SYMBOLES.prete}<span>Assez de bouteilles : ${repartition(plan)} pour ${enLitres(volume)}.</span></p>`;
+  } else if (plan) {
+    const manques = [
+      plan.manque33 ? pluriel(plan.manque33, 'bouteille vide de 33 cl', 'bouteilles vides de 33 cl') : '',
+      plan.manqueCapsules ? pluriel(plan.manqueCapsules, 'capsule') : '',
+    ].filter(Boolean);
+    verdict = html`<p class="e-message e-message--alerte">${SYMBOLES.alerte}<span>Pour ${enLitres(volume)} (${repartition(plan)}), il manque ${manques.join(' et ')}.</span></p>
+      <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="courses-embouteillage">${SYMBOLES.panier}Ajouter aux courses</button>`;
+  }
+  return html`<section class="e-bloc bloc-embouteillage" aria-label="Embouteillage">
+    <h2 class="e-titre-section">Embouteillage</h2>
+    <label class="champ"><span class="libelle">Volume à embouteiller</span>
+      <span class="champ-unite"><input data-volume-embouteillage inputmode="decimal" value="${enChamp(volume)}" placeholder="23" autocomplete="off" aria-label="Volume à embouteiller, en litres"><span>L</span></span></label>
+    <p class="e-aide">${origine}</p>
+    ${verdict}
+    ${
+      plan
+        ? html`<dl class="e-formats">
+            <div><dt>Bouteilles 33 cl</dt><dd>${plan.b33} <small>/ ${stock.stock33} en stock</small></dd></div>
+            <div><dt>Bouteilles 66 cl</dt><dd>${plan.b66} <small>/ ${stock.stock66} en stock</small></dd></div>
+            <div><dt>Capsules</dt><dd>${plan.capsules} <small>/ ${stock.capsules} en stock</small></dd></div>
+          </dl>
+          <p class="e-aide">Les 66 cl du stock d’abord (à clapet, sans capsule), le reste en 33 cl.</p>`
+        : ''
+    }
+  </section>`;
+}
+
+/** Volume saisi sur la fiche : noté sur le brassin (vide : celui de la recette). */
+function changerVolumeEmbouteillage(champ) {
+  const b = brassinCourant();
+  if (!b) return;
+  const n = B.lireNombre(champ.value);
+  if (n !== null && !(n > 0 && n <= EM.VOLUME_MAX)) {
+    champ.value = enChamp(EM.volumeAEmbouteiller(b));
+    toast('Volume invalide : en litres, par exemple 21,5.');
+    return;
+  }
+  // Valeur déjà notée : rien à refaire (le champ quitté pendant le nouvel affichage renvoie un « change »).
+  if (n === b.volumeAEmbouteiller) return;
+  b.volumeAEmbouteiller = n;
+  champ.blur(); // quitter le champ avant de redessiner la fiche
+  modifie(b);
+}
+
+/** Bouteilles vides et capsules qui manqueront : ajoutées à la liste de courses (sans doublon). */
+function coursesEmbouteillage() {
+  const b = brassinCourant();
+  const inventaire = etat.donnees.inventaire;
+  const volume = b && EM.volumeAEmbouteiller(b);
+  if (!volume) return;
+  const plan = EM.planEmbouteillage(volume, EM.stockEmbouteillage(inventaire.articles));
+  const bouteilles = inventaire.articles.find((a) => a.role === 'bouteilles33') ?? null;
+  const capsules = C.capsuleParDefaut(inventaire.articles, etat.donnees.brassins);
+  const manque = (article, nom, quantite) => ({ statut: 'insuffisant', article, besoin: { nom, categorie: 'materiel' }, manque: quantite, uniteManque: 'unité' });
+  const lignes = [
+    plan.manque33 ? manque(bouteilles, 'Bouteilles vides 33 cl', plan.manque33) : null,
+    plan.manqueCapsules ? manque(capsules, 'Capsules', plan.manqueCapsules) : null,
+  ].filter(Boolean);
+  const ajouts = I.ajouterManques(inventaire, lignes, `Embouteillage ${b.code}`);
+  sauver();
+  afficher();
+  toast(ajouts ? `${pluriel(ajouts, 'achat')} ajouté${ajouts >= 2 ? 's' : ''} à la liste de courses.` : 'Déjà dans la liste de courses : quantité mise à jour.');
+}
+
 function blocSuivi(b, auj) {
   const enFermentation = B.statut(b, auj) === 'fermentation';
   const f = b.fermentation;
@@ -3291,6 +3386,7 @@ const ACTIONS = {
   'retirer-achat': retirerAchat,
   'partager-courses': partagerCourses,
   'deduire-ingredients': ouvrirDeduction,
+  'courses-embouteillage': coursesEmbouteillage,
   'ajouter-ligne-deduction': ajouterLigneDeduction,
   'retirer-ligne-deduction': (bouton) => bouton.closest('.ligne-deduction')?.remove(),
   'remettre-ingredients': remettreIngredients,
@@ -3351,6 +3447,8 @@ function installerEcouteurs() {
   document.addEventListener('change', (e) => {
     const element = e.target.closest('[data-reglage]');
     if (element) changerReglage(element);
+    const volume = e.target.closest('[data-volume-embouteillage]');
+    if (volume) changerVolumeEmbouteillage(volume);
   });
 
   // Hauteur réelle de la barre d'actions (elle grandit avec la taille du texte) : réservée sous la page.

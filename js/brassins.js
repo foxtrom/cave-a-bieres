@@ -109,6 +109,7 @@ export function nouveauBrassin(id = nouvelId(), maintenant = new Date().toISOStr
     deduction: null, // ingrédients retirés du stock pour ce brassin (voir inventaire.js)
     capsules: [], // couleurs des capsules posées à l'embouteillage (voir capsules.js)
     refermentation: null, // sucre dosé par bouteille à l'embouteillage (voir refermentation.js)
+    volumeAEmbouteiller: null, // litres à mettre en bouteilles, mesurés (sinon ceux de la recette)
     fermentation: null, // suivi par une RAPT Pill (voir fermentation.js)
     archive: false,
     preteVue: false,
@@ -194,6 +195,7 @@ export function normaliserBrassin(source) {
     deduction: normaliserDeduction(source.deduction),
     capsules: normaliserCapsules(source.capsules),
     refermentation: normaliserRefermentation(source.refermentation),
+    volumeAEmbouteiller: nombreOuNull(source.volumeAEmbouteiller),
     fermentation: normaliserFermentation(source.fermentation),
     archive: Boolean(source.archive),
     preteVue: Boolean(source.preteVue),

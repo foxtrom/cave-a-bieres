@@ -56,6 +56,7 @@ html { font-size: 17px; }
   --e-entete-texte: #f7ecd9;
   --e-entete-doux: #c7b49a;
   --e-colline: #4a3b30; /* silhouette du Puy de Naouri, nette : 1,42:1 sur l'en-tête */
+  --e-soleil: #94602b; /* soleil levant derrière la colline, net : 2,9:1 sur l'en-tête */
   --e-capsule-bord: rgb(0 0 0 / 0.22); /* contour des pastilles de capsule (blanc sur carte claire) */
 
   /* Une seule famille d'ombres, légère */
@@ -107,6 +108,7 @@ html { font-size: 17px; }
   --e-erreur-fond: #3e1e17;
   --e-entete: #221c17;
   --e-colline: #3a2f27;
+  --e-soleil: #7a4f25;
   --e-capsule-bord: rgb(255 255 255 / 0.35);
   --e-ombre: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.3);
 }
@@ -139,6 +141,7 @@ html { font-size: 17px; }
     --e-erreur-fond: #3e1e17;
     --e-entete: #221c17;
     --e-colline: #3a2f27;
+    --e-soleil: #7a4f25;
     --e-capsule-bord: rgb(255 255 255 / 0.35);
     --e-ombre: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.3);
   }
@@ -384,6 +387,9 @@ html { font-size: 17px; }
    (titre 9,2:1, devise 5,3:1 sur la colline). */
 .e-marque .marque-colline { position: absolute; right: 0; bottom: 0; width: auto; height: 46%; max-width: 60%; }
 .e-marque .colline { fill: var(--e-colline); }
+/* Le soleil dépasse au-dessus du dessin : visible, coupé seulement par le bord de l'en-tête */
+.e-marque .marque-colline { overflow: visible; }
+.e-marque .soleil { fill: var(--e-soleil); }
 
 /* ---------- Écran Cave : recherche et tri sur une ligne ---------- */
 

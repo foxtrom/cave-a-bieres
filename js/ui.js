@@ -33,10 +33,12 @@ const DEPUIS_LE_PIED = [[60, AU_PIED], ...LIGNE_COLLINE.filter(([x]) => x >= 130
 const SCENE = { largeur: 512, ySommet: 0, exageration: 1.5, yBas: 160 };
 
 /**
- * Silhouette du Puy de Naouri, même tracé que l'icône et les étiquettes (js/naouri.js) :
- * nette (bords francs, couleur pleine, sans transparence), en bas à droite de l'en-tête.
+ * Silhouette du Puy de Naouri au lever du soleil, même tracé que l'icône et les étiquettes
+ * (js/naouri.js) : nette (bords francs, couleurs pleines, sans transparence), en bas à droite
+ * de l'en-tête ; le soleil se lève derrière le versant droit, à moitié caché par la colline.
  */
 export const COLLINE = brut(`<svg class="marque-colline" viewBox="30 -2 482 151" preserveAspectRatio="xMaxYMax meet" aria-hidden="true" focusable="false">
+  <circle class="soleil" cx="331" cy="-8" r="56"/>
   <path class="colline" d="${cheminSvg(crete(DEPUIS_LE_PIED, SCENE))}"/>
 </svg>`);
 

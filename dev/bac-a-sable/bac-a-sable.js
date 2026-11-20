@@ -62,7 +62,7 @@ const NUANCES = [
   ['Cuivre', ['--e-cuivre', '--e-cuivre-presse', '--e-cuivre-doux', '--e-cuivre-texte']],
   ['Sauge', ['--e-sauge', '--e-sauge-doux', '--e-sauge-texte']],
   ['Alerte et erreur', ['--e-alerte-fond', '--e-alerte-texte', '--e-erreur-fond', '--e-erreur']],
-  ['En-tête de la Cave', ['--e-entete', '--e-entete-texte', '--e-entete-doux', '--e-colline']],
+  ['En-tête de la Cave', ['--e-entete', '--e-entete-texte', '--e-entete-doux', '--e-colline', '--e-soleil']],
 ];
 
 // [usage, couleur du texte, fonds sur lesquels il est posé, décor seulement ?]
@@ -81,6 +81,7 @@ const PAIRES = [
   ['Bouton de tri', '--e-cuivre-texte', ['--e-surface-2']],
   ['Texte 3 (points, inactif)', '--e-texte-3', ['--e-surface'], true],
   ['Silhouette du Naouri (décor)', '--e-colline', ['--e-entete'], true],
+  ['Soleil de l’en-tête (décor)', '--e-soleil', ['--e-entete'], true],
   ['Sauge (jauge)', '--e-sauge', ['--e-surface-2'], true],
 ];
 

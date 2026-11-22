@@ -221,6 +221,21 @@ test('bouteille cassée : retirée du stock, ni bue ni offerte, annulable', () =
   assert.equal(B.normaliserBrassin({ ...structuredClone(b), mouvements: [{ id: 'x', type: '?', format: '33', date: AUJ }] }).mouvements[0].type, 'bue');
 });
 
+test('bouteilles pleines par format : prêtes ou en garde, archivées comprises, pas les brassins en fermentation', () => {
+  // Embouteillée le 1/10 avec 3 semaines de garde : prête le 22/10
+  const prete = brassinEmbouteille({ bouteilles: { 33: { depart: 60, restant: 40 }, 66: { depart: 4, restant: 1 } } });
+  // Embouteillée le 5/11 avec 3 semaines de garde : en garde jusqu'au 26/11
+  const garde = brassinEmbouteille({ dateEmbouteillage: '2026-11-05', bouteilles: { 33: { depart: 20, restant: 20 }, 66: { depart: 6, restant: 6 } } });
+  const archivee = brassinEmbouteille({ archive: true, bouteilles: { 33: { depart: 10, restant: 2 }, 66: { depart: 0, restant: 0 } } });
+  const enFermentation = brassin(); // pas encore de bouteilles
+  const aVenir = brassinEmbouteille({ dateEmbouteillage: '2026-11-20' }); // embouteillage noté à l'avance
+  assert.deepEqual(B.bouteillesPleines([prete, garde, archivee, enFermentation, aVenir], AUJ), {
+    33: { pleines: 62, pretes: 42 },
+    66: { pleines: 7, pretes: 1 },
+  });
+  assert.deepEqual(B.bouteillesPleines([], AUJ), { 33: { pleines: 0, pretes: 0 }, 66: { pleines: 0, pretes: 0 } });
+});
+
 test('impossible de prendre une bouteille d’un format épuisé', () => {
   const b = brassinEmbouteille({ bouteilles: { 33: { depart: 60, restant: 0 }, 66: { depart: 0, restant: 0 } } });
   assert.throws(() => B.retirerBouteille(b, { format: '33', date: AUJ }), /Plus de bouteille/);

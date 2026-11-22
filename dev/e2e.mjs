@@ -797,6 +797,36 @@ try {
     await attendreQuantite('Bouteilles vides 33 cl', '31');
   });
 
+  await etape('Stock : bouteilles vides, pleines et prêtes à boire, en 33 cl, 66 cl et au total', async () => {
+    // Lignes : vides, pleines, dont prêtes, dont en garde ; colonnes : 33 cl, 66 cl, total
+    const lire = () =>
+      page.$$eval('.e-tableau-bouteilles tbody tr', (lignes) => lignes.map((tr) => [...tr.querySelectorAll('td')].map((td) => Number(td.textContent))));
+    await page.goto(`${BASE}#/stock`);
+    await page.locator('.e-tableau-bouteilles').waitFor();
+    const avant = await lire();
+    assert.equal(avant.length, 4);
+    assert.equal(avant[0][0], 31); // vides 33 cl : celles du matériel
+    for (const ligne of avant) assert.equal(ligne[2], ligne[0] + ligne[1]); // total = 33 + 66
+    for (let c = 0; c < 3; c++) assert.equal(avant[1][c], avant[2][c] + avant[3][c]); // pleines = prêtes + en garde
+    assert.ok(avant[2][0] > 0); // des 33 cl prêtes à boire (dont celles de ${Bb.code})
+    await capture('52-stock-bouteilles');
+    // Une 33 cl de ${Bb.code} (prête) bue : une pleine et prête de moins, une vide de plus
+    await page.goto(`${BASE}#/brassin/${Bb.code}`);
+    await page.click('#barre-actions [data-action="prendre"]');
+    await page.click('#feuille [data-format="33"]');
+    await attendreToast(/Il reste/);
+    await page.goto(`${BASE}#/stock`);
+    await page.locator('.e-tableau-bouteilles').waitFor();
+    const apres = await lire();
+    assert.deepEqual([apres[0][0], apres[1][0], apres[2][0], apres[3][0]], [avant[0][0] + 1, avant[1][0] - 1, avant[2][0] - 1, avant[3][0]]);
+    // Annulée depuis la fiche : retour au point de départ
+    await page.goto(`${BASE}#/brassin/${Bb.code}`);
+    await page.locator('[data-action="annuler-mouvement"]').first().click();
+    await attendreToast(/remise en stock/);
+    await attendreQuantite('Bouteilles vides 33 cl', '31');
+    assert.deepEqual(await lire(), avant);
+  });
+
   await etape('Vérifier une recette avant brassage : manques ajoutés aux courses', async () => {
     await page.goto(`${BASE}#/stock`);
     const [selecteur] = await Promise.all([page.waitForEvent('filechooser'), page.click('[data-action="verifier-recette"]')]);

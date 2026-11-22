@@ -245,6 +245,25 @@ export function statut(b, auj) {
   return datePrete(b) <= auj ? 'prete' : 'garde';
 }
 
+/**
+ * Bouteilles pleines en cave, par format : { 33: { pleines, pretes }, 66: { … } }. Toutes les bières
+ * embouteillées comptent, archivées comprises (leurs bouteilles restantes sont toujours là) ;
+ * prêtes : garde terminée.
+ */
+export function bouteillesPleines(brassins, auj) {
+  const parFormat = Object.fromEntries(CODES_FORMATS.map((f) => [f, { pleines: 0, pretes: 0 }]));
+  for (const b of brassins) {
+    if (!estEmbouteille(b, auj)) continue;
+    const prete = datePrete(b) <= auj;
+    for (const f of CODES_FORMATS) {
+      const n = Math.max(0, b.bouteilles[f]?.restant ?? 0);
+      parFormat[f].pleines += n;
+      if (prete) parFormat[f].pretes += n;
+    }
+  }
+  return parFormat;
+}
+
 export function estStockBas(b, seuil, auj) {
   const total = stock(b).total;
   return !estArchive(b, auj) && estEmbouteille(b, auj) && total > 0 && total < seuil;

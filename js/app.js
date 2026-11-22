@@ -1845,6 +1845,7 @@ function vueStock() {
         ${signales ? html`<span class="e-compte" aria-hidden="true">${signales}</span>` : ''}
         ${SYMBOLES.suivant}
       </a>
+      ${blocBouteilles(auj)}
       ${lienRecuperer()}
       <section class="e-bloc e-menu" aria-label="Actions du stock">
         <button type="button" class="e-menu-action" data-action="ajouter-article">${SYMBOLES.plus}<span><b>Ajouter un article</b></span></button>
@@ -2228,6 +2229,37 @@ function ajouterManquesCourses() {
 }
 
 /* ---------- Liste de courses ---------- */
+
+/**
+ * Onglet Stock : bouteilles vides (stock de matériel), pleines (bières embouteillées en cave) et,
+ * parmi les pleines, prêtes à boire ou encore en garde ; par format et au total.
+ */
+function blocBouteilles(auj) {
+  const pleines = B.bouteillesPleines(etat.donnees.brassins, auj);
+  const vides = (f) => Math.max(0, etat.donnees.inventaire.articles.find((a) => a.role === `bouteilles${f}`)?.quantite ?? 0);
+  const formats = B.FORMATS.map((f) => f.code);
+  const lignes = [
+    { libelle: 'Vides', valeur: vides },
+    { libelle: 'Pleines', valeur: (f) => pleines[f].pleines },
+    { libelle: 'dont prêtes à boire', valeur: (f) => pleines[f].pretes, sous: true },
+    { libelle: 'dont en garde', valeur: (f) => pleines[f].pleines - pleines[f].pretes, sous: true },
+  ];
+  const cellule = (n, classe = '') => html`<td class="${[classe, n ? '' : 'e-zero'].filter(Boolean).join(' ')}">${n}</td>`;
+  return html`<section class="e-bloc e-bouteilles" aria-labelledby="titre-bouteilles">
+    <h2 class="e-titre-section" id="titre-bouteilles">Bouteilles</h2>
+    <table class="e-tableau-bouteilles">
+      <thead><tr><td></td>${formats.map((f) => html`<th scope="col">${B.nomFormat(f)}</th>`)}<th scope="col">Total</th></tr></thead>
+      <tbody>${lignes.map((l) => {
+        const valeurs = formats.map(l.valeur);
+        return html`<tr class="${l.sous ? 'e-sous-ligne' : ''}"><th scope="row">${l.libelle}</th>${valeurs.map((n) => cellule(n))}${cellule(
+          valeurs.reduce((s, n) => s + n, 0),
+          'e-total',
+        )}</tr>`;
+      })}</tbody>
+    </table>
+    <p class="e-aide">Vides : celles du matériel ci-dessous. Pleines : les bières embouteillées encore en cave.</p>
+  </section>`;
+}
 
 /* ---------- Bouteilles à récupérer : bouteilles offertes pas encore rendues, par ami ---------- */
 

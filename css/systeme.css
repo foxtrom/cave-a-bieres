@@ -578,6 +578,23 @@ form[data-form="casse"] > .aide { margin: 0 0 var(--e-4); }
 .retour-bouteille .e-message { margin: 0; }
 .retour-bouteille .e-message + .e-btn { margin-top: var(--e-2); }
 
+/* Stock : bouteilles vides, pleines et prêtes, par format */
+.e-tableau-bouteilles { width: 100%; margin-top: var(--e-1); border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.e-tableau-bouteilles th,
+.e-tableau-bouteilles td { padding: var(--e-2) 0 var(--e-2) var(--e-2); border-top: 1px solid var(--e-bordure); text-align: right; vertical-align: baseline; white-space: nowrap; }
+.e-tableau-bouteilles td,
+.e-tableau-bouteilles thead th { min-width: 2.5rem; padding-left: var(--e-4); }
+.e-tableau-bouteilles tbody th { white-space: normal; }
+.e-tableau-bouteilles thead th,
+.e-tableau-bouteilles thead td { padding-top: 0; border-top: 0; color: var(--e-texte-2); font: 600 0.8125rem/1.3 var(--e-police); }
+.e-tableau-bouteilles tbody th { width: 100%; padding-left: 0; text-align: left; color: var(--e-texte); font: 600 1rem/1.3 var(--e-police); }
+.e-tableau-bouteilles td { color: var(--e-texte); font: 700 1.125rem/1.3 var(--e-police-arrondie); }
+.e-tableau-bouteilles .e-sous-ligne > * { padding-top: 0; border-top: 0; }
+.e-tableau-bouteilles .e-sous-ligne th { padding-left: var(--e-3); color: var(--e-texte-2); font-weight: 400; font-size: 0.9375rem; }
+.e-tableau-bouteilles .e-sous-ligne td { color: var(--e-texte-2); font-weight: 600; font-size: 1rem; }
+.e-tableau-bouteilles td.e-zero { color: var(--e-texte-2); font-weight: 400; }
+.e-bouteilles .e-aide { margin: var(--e-2) 0 0; }
+
 /* Stock : bouteilles à récupérer, un bloc par ami */
 .e-ami-tete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--e-1) var(--e-3); margin-bottom: var(--e-1); }
 .e-ami-nom { margin: 0; color: var(--e-texte); font: 700 1.1875rem/1.3 var(--e-police); overflow-wrap: anywhere; }

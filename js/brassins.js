@@ -308,6 +308,35 @@ export function annulerRetour(b, idMouvement) {
   return { mouvement: m, date };
 }
 
+/**
+ * Bouteilles offertes pas encore rendues, regroupées par ami (« Pierre » et « pierre » ensemble) :
+ * [{ cle, a, dons: [{ brassin, mouvement }], formats: { 33, 66 }, total }], le plus de bouteilles
+ * d'abord ; dons du plus ancien au plus récent.
+ */
+export function bouteillesARecuperer(brassins) {
+  const amis = new Map();
+  for (const brassin of brassins) {
+    for (const mouvement of offertes(brassin)) {
+      if (mouvement.rendue) continue;
+      const a = String(mouvement.a ?? '').trim() || 'Quelqu’un';
+      const cle = cleRecherche(a) || a;
+      if (!amis.has(cle)) amis.set(cle, { cle, a, dons: [], formats: Object.fromEntries(CODES_FORMATS.map((f) => [f, 0])), total: 0 });
+      const ami = amis.get(cle);
+      ami.dons.push({ brassin, mouvement });
+      ami.formats[mouvement.format] += 1;
+      ami.total += 1;
+    }
+  }
+  const liste = [...amis.values()];
+  for (const ami of liste) {
+    ami.dons.sort((x, y) => x.mouvement.date.localeCompare(y.mouvement.date));
+    // Nom affiché : une écriture avec majuscule si l'ami en a une (« Pierre » plutôt que « pierre »)
+    const noms = ami.dons.map((d) => String(d.mouvement.a ?? '').trim()).filter(Boolean);
+    ami.a = noms.find((n) => n[0] !== n[0].toLocaleLowerCase('fr')) ?? noms[0] ?? ami.a;
+  }
+  return liste.sort((x, y) => y.total - x.total || x.a.localeCompare(y.a, 'fr'));
+}
+
 /* ------------------------------------------------------------------ */
 /* Recherche et tri                                                    */
 /* ------------------------------------------------------------------ */

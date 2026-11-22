@@ -720,6 +720,44 @@ try {
     await attendreQuantite('Bouteilles vides 33 cl', '31');
   });
 
+  await etape('Bouteilles à récupérer : par ami, « Rendue », « Les 2 sont rendues », puis annulé', async () => {
+    await attendreTexte('.e-lien-recuperer', '1 bouteille chez 1 ami');
+    // Une deuxième bouteille pour « pierre » (même ami, écrit en minuscules)
+    await page.goto(`${BASE}#/brassin/${Bb.code}`);
+    await page.click('#barre-actions [data-action="offrir"]');
+    await page.fill('#feuille input[name="a"]', 'pierre');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Offerte à pierre/);
+    await page.goto(`${BASE}#/stock`);
+    await attendreTexte('.e-lien-recuperer', '2 bouteilles chez 1 ami');
+    await page.click('.e-lien-recuperer');
+    await attendreTexte('.e-ami-nom', 'Pierre');
+    await attendreTexte('.e-ami-total', '2 × 33 cl');
+    await attendreNombre(page, '.e-don-a-rendre', 2);
+    await page.waitForTimeout(300);
+    await capture('49-bouteilles-a-recuperer');
+    // Une seule rendue, puis Annuler
+    await page.click('.e-don-a-rendre [data-action="bouteille-rendue"]');
+    await attendreToast(/Bouteille vide rendue par/);
+    await attendreNombre(page, '.e-don-a-rendre', 1);
+    await page.click('#toast button');
+    await attendreNombre(page, '.e-don-a-rendre', 2);
+    // Les deux d'un coup, puis Annuler
+    await page.click('[data-action="tout-rendu"]');
+    await attendreToast(/2 bouteilles vides rendues par Pierre : 2 de plus dans le stock/);
+    await attendreTexte('#vue', 'Aucune bouteille à récupérer');
+    await page.click('#toast button');
+    await attendreNombre(page, '.e-don-a-rendre', 2);
+    await attendreQuantite('Bouteilles vides 33 cl', '31');
+    // Le deuxième don est annulé : la bouteille revient en cave
+    await page.goto(`${BASE}#/brassin/${Bb.code}`);
+    await page.locator('[data-action="modifier-don"]').first().click();
+    assert.equal(await page.inputValue('#feuille input[name="a"]'), 'pierre');
+    await page.click('#feuille [data-action="supprimer-don"]');
+    await attendreToast(/remise en stock/);
+    await attendreNombre(page, '[data-action="modifier-don"]', 1);
+  });
+
   await etape('Vérifier une recette avant brassage : manques ajoutés aux courses', async () => {
     await page.goto(`${BASE}#/stock`);
     const [selecteur] = await Promise.all([page.waitForEvent('filechooser'), page.click('[data-action="verifier-recette"]')]);

@@ -169,6 +169,26 @@ test('bouteille offerte rendue vide : notée une fois, annulable, gardée dans l
   assert.equal(B.normaliserBrassin({ ...structuredClone(b), mouvements: [ancien] }).mouvements[0].rendue, null);
 });
 
+test('bouteilles à récupérer : par ami (majuscules et accents confondus), sans les bouteilles rendues', () => {
+  const ipa = brassinEmbouteille({ code: 'IPA-2611-1' });
+  const wht = brassinEmbouteille({ code: 'WHT-2607-1' });
+  const offrir = (b, format, date, a) => B.retirerBouteille(b, { type: 'offerte', format, date, a });
+  offrir(ipa, '33', '2026-11-17', 'Pierre');
+  offrir(wht, '66', '2026-11-16', 'pierre ');
+  offrir(ipa, '33', '2026-11-16', 'Hélène');
+  const rendue = offrir(wht, '33', '2026-11-15', 'Helene');
+  B.rendreBouteille(wht, rendue.id, AUJ);
+  B.retirerBouteille(ipa, { type: 'bue', format: '33', date: AUJ });
+  const amis = B.bouteillesARecuperer([ipa, wht]);
+  assert.deepEqual(amis.map((x) => [x.a, x.total, x.formats]), [
+    ['Pierre', 2, { 33: 1, 66: 1 }],
+    ['Hélène', 1, { 33: 1, 66: 0 }],
+  ]);
+  // Dons du plus ancien au plus récent, avec leur brassin
+  assert.deepEqual(amis[0].dons.map((d) => [d.brassin.code, d.mouvement.date]), [['WHT-2607-1', '2026-11-16'], ['IPA-2611-1', '2026-11-17']]);
+  assert.deepEqual(B.bouteillesARecuperer([]), []);
+});
+
 test('impossible de prendre une bouteille d’un format épuisé', () => {
   const b = brassinEmbouteille({ bouteilles: { 33: { depart: 60, restant: 0 }, 66: { depart: 0, restant: 0 } } });
   assert.throws(() => B.retirerBouteille(b, { format: '33', date: AUJ }), /Plus de bouteille/);

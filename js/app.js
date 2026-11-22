@@ -111,7 +111,7 @@ function construireVue() {
   if (!page) return vueAccueil();
   if (page === 'historique') return vueHistorique();
   if (page === 'reglages') return vueReglages();
-  if (page === 'stock') return code === 'courses' ? vueCourses() : vueStock();
+  if (page === 'stock') return code === 'courses' ? vueCourses() : code === 'recuperer' ? vueRecuperer() : vueStock();
   if (page === 'nouveau') return vueFormulaire(null);
   if (page === 'brassin' && code) {
     const b = B.trouverParCode(etat.donnees.brassins, code);
@@ -1836,6 +1836,7 @@ function vueStock() {
         ${signales ? html`<span class="e-compte" aria-hidden="true">${signales}</span>` : ''}
         ${SYMBOLES.suivant}
       </a>
+      ${lienRecuperer()}
       <section class="e-bloc e-menu" aria-label="Actions du stock">
         <button type="button" class="e-menu-action" data-action="ajouter-article">${SYMBOLES.plus}<span><b>Ajouter un article</b></span></button>
         <button type="button" class="e-menu-action" data-action="verifier-recette">${SYMBOLES.fichier}<span><b>Vérifier une recette</b>
@@ -2218,6 +2219,53 @@ function ajouterManquesCourses() {
 }
 
 /* ---------- Liste de courses ---------- */
+
+/* ---------- Bouteilles à récupérer : bouteilles offertes pas encore rendues, par ami ---------- */
+
+/** Lien de l'onglet Stock (dès qu'une bouteille a été offerte). */
+function lienRecuperer() {
+  if (!etat.donnees.brassins.some((b) => B.offertes(b).length)) return '';
+  const amis = B.bouteillesARecuperer(etat.donnees.brassins);
+  const dehors = amis.reduce((s, x) => s + x.total, 0);
+  return html`<a class="e-lien-courses e-lien-recuperer" href="#/stock/recuperer">
+    ${SYMBOLES.retour}
+    <span class="e-lien-courses-texte"><b>Bouteilles à récupérer</b>
+      <span>${dehors ? `${pluriel(dehors, 'bouteille')} chez ${pluriel(amis.length, 'ami')}` : 'Toutes les bouteilles offertes sont rendues'}</span></span>
+    ${SYMBOLES.suivant}
+  </a>`;
+}
+
+function vueRecuperer() {
+  const auj = aujourdhui();
+  const amis = B.bouteillesARecuperer(etat.donnees.brassins);
+  const total = amis.reduce((s, x) => s + x.total, 0);
+  const ligne = (ami, { brassin, mouvement: m }) => html`<li class="e-don-a-rendre">
+    <span class="e-don-texte"><b>${brassin.nom || brassin.code}</b>
+      <small>${brassin.code} · ${B.nomFormat(m.format)}${m.date ? html` · offerte le <span class="e-insecable">${formaterDateCourte(m.date, auj)}</span>` : ''}</small></span>
+    <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="bouteille-rendue" data-brassin="${brassin.id}" data-id="${m.id}"
+      aria-label="Bouteille de ${brassin.nom || brassin.code} rendue par ${ami.a}">Rendue</button>
+  </li>`;
+  return {
+    titre: 'Bouteilles à récupérer',
+    entete: enteteBarre({ retour: { href: '#/stock', texte: 'Stock' }, titre: 'À récupérer' }),
+    contenu: amis.length
+      ? html`<div class="e-page">
+          <p class="e-aide">${pluriel(total, 'bouteille')} chez ${pluriel(amis.length, 'ami')}. « Rendue » ajoute une bouteille vide du même format au stock.</p>
+          ${amis.map(
+            (ami) => html`<section class="e-bloc e-ami" aria-label="${ami.a}">
+              <div class="e-ami-tete"><h2 class="e-ami-nom">${ami.a}</h2><span class="e-ami-total">${repartition({ b33: ami.formats['33'], b66: ami.formats['66'] })}</span></div>
+              <ul class="e-liste">${ami.dons.map((don) => ligne(ami, don))}</ul>
+              ${ami.total > 1 ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="tout-rendu" data-ami="${ami.cle}">Les ${ami.total} sont rendues</button>` : ''}
+            </section>`,
+          )}
+        </div>`
+      : html`<div class="e-vide">
+          ${SYMBOLES.retour}
+          <p class="e-vide-titre">Aucune bouteille à récupérer.</p>
+          <p class="e-vide-texte">Les bouteilles offertes apparaissent ici jusqu’à ce que l’ami les rende.</p>
+        </div>`,
+  };
+}
 
 function vueCourses() {
   const inventaire = etat.donnees.inventaire;
@@ -2828,7 +2876,8 @@ function validerDon(form) {
 
 /** Bouteille offerte revenue vide : notée sur le don, une bouteille vide de plus dans le stock. */
 function rendreBouteilleVide(bouton) {
-  const b = brassinCourant();
+  // Depuis la fiche du don, ou depuis « Bouteilles à récupérer » (brassin indiqué sur le bouton)
+  const b = bouton.dataset.brassin ? etat.donnees.brassins.find((x) => x.id === bouton.dataset.brassin) : brassinCourant();
   const m = b && B.rendreBouteille(b, bouton.dataset.id, aujourdhui());
   if (!m) return;
   const credit = bouteilleVide(m, +1);
@@ -2839,6 +2888,34 @@ function rendreBouteilleVide(bouton) {
       bouteilleVide(m, -1);
       B.annulerRetour(b, m.id);
       modifie(b);
+    },
+  });
+}
+
+/** « Les 3 sont rendues » : toutes les bouteilles d'un ami rendues d'un coup (Bouteilles à récupérer). */
+function toutRendu(bouton) {
+  const ami = B.bouteillesARecuperer(etat.donnees.brassins).find((x) => x.cle === bouton.dataset.ami);
+  if (!ami) return;
+  const auj = aujourdhui();
+  const rendus = ami.dons.filter(({ brassin, mouvement }) => B.rendreBouteille(brassin, mouvement.id, auj));
+  const maintenant = new Date().toISOString();
+  let credit = 0;
+  for (const { brassin, mouvement } of rendus) {
+    credit += bouteilleVide(mouvement, +1);
+    brassin.modifieLe = maintenant;
+  }
+  sauver();
+  afficher();
+  const nombre = pluriel(rendus.length, 'bouteille vide rendue', 'bouteilles vides rendues');
+  toast(`${nombre} par ${ami.a}${credit ? ` : ${credit} de plus dans le stock` : ''}.`, {
+    action: () => {
+      for (const { brassin, mouvement } of rendus) {
+        bouteilleVide(mouvement, -1);
+        B.annulerRetour(brassin, mouvement.id);
+        brassin.modifieLe = new Date().toISOString();
+      }
+      sauver();
+      afficher();
     },
   });
 }
@@ -3489,6 +3566,7 @@ const ACTIONS = {
   'modifier-don': ouvrirDon,
   'supprimer-don': annulerSortie,
   'bouteille-rendue': rendreBouteilleVide,
+  'tout-rendu': toutRendu,
   'annuler-retour': annulerRetourBouteille,
   'annuler-mouvement': annulerSortie,
   noter,

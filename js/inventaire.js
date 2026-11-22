@@ -25,6 +25,24 @@ export function categoriesDe(inventaire) {
   return [...CATEGORIES.slice(0, -1), ...ajoutees, CATEGORIES.at(-1)];
 }
 export const estCategorieAjoutee = (code) => String(code).startsWith('perso-');
+
+/** Onglets de la page Stock : ingrédients de brassage, ou bouteilles (avec capsules et matériel). */
+export const ONGLETS_STOCK = ['ingredients', 'bouteilles'];
+const MOTS_BOUTEILLES = /capsule|bouteille|etiquette|materiel|emballage|nettoyage|carton|caisse|joint/;
+
+/**
+ * Onglet d'une catégorie : le matériel va avec les bouteilles, les ingrédients de l'appli avec les
+ * ingrédients. Une catégorie ajoutée suit le choix noté ; sinon son nom (« Capsules », « Étiquettes »…)
+ * ou ses articles (des capsules) la rangent avec les bouteilles, et les autres avec les ingrédients.
+ */
+export function ongletCategorie(categorie, articles = []) {
+  if (!categorie) return 'ingredients';
+  if (categorie.code === 'materiel') return 'bouteilles';
+  if (!estCategorieAjoutee(categorie.code)) return 'ingredients';
+  if (ONGLETS_STOCK.includes(categorie.onglet)) return categorie.onglet;
+  if (MOTS_BOUTEILLES.test(cleNom(categorie.nom))) return 'bouteilles';
+  return articles.some((a) => a.categorie === categorie.code && cleNom(a.nom).startsWith('capsule')) ? 'bouteilles' : 'ingredients';
+}
 export const nomCategorie = (code, categories = CATEGORIES) => categories.find((c) => c.code === code)?.nom ?? code;
 export const uniteParDefaut = (categorie, categories = CATEGORIES) => categories.find((c) => c.code === categorie)?.unite ?? 'g';
 
@@ -108,7 +126,12 @@ export const inventaireVide = () => ({ articles: [], courses: [], categories: []
 
 function normaliserCategorie(source) {
   if (!source || typeof source !== 'object' || !String(source.nom ?? '').trim() || !estCategorieAjoutee(source.code ?? '')) return null;
-  return { code: String(source.code), nom: String(source.nom).trim(), unite: UNITES.includes(source.unite) ? source.unite : 'g' };
+  return {
+    code: String(source.code),
+    nom: String(source.nom).trim(),
+    unite: UNITES.includes(source.unite) ? source.unite : 'g',
+    ...(ONGLETS_STOCK.includes(source.onglet) ? { onglet: source.onglet } : {}),
+  };
 }
 
 /** Inventaire lu (stockage, sauvegarde) remis en forme. */
@@ -137,14 +160,15 @@ export function trouverCategorie(inventaire, nom) {
   return categoriesDe(inventaire).find((c) => cle(c.nom) === cle(nom)) ?? null;
 }
 
-/** Ajoute une catégorie (ou renvoie celle qui porte déjà ce nom). */
-export function ajouterCategorie(inventaire, nom, unite = 'g') {
+/** Ajoute une catégorie (ou renvoie celle qui porte déjà ce nom), rangée dans l'onglet donné s'il y en a un. */
+export function ajouterCategorie(inventaire, nom, unite = 'g', onglet = null) {
   const propre = String(nom ?? '').trim();
   if (!propre) return null;
   const existante = trouverCategorie(inventaire, propre);
   if (existante) return existante;
   inventaire.categories ??= [];
   const categorie = { code: `perso-${nouvelId()}`, nom: propre, unite: UNITES.includes(unite) ? unite : 'g' };
+  if (ONGLETS_STOCK.includes(onglet)) categorie.onglet = onglet;
   inventaire.categories.push(categorie);
   return categorie;
 }
@@ -188,6 +212,12 @@ export function ajusterMateriel(inventaire, role, delta) {
   const avant = article.quantite;
   article.quantite = Math.max(0, avant + delta);
   return article.quantite - avant;
+}
+
+/** L'article porte-t-il une alerte dans le stock (périmé, bientôt périmé, stock bas, ingrédient épuisé) ? */
+export function articleSignale(a, auj) {
+  const e = etatArticle(a, auj);
+  return e.perime || e.bientot || e.bas || (e.epuise && a.categorie !== 'materiel');
 }
 
 /** Alertes d'un article : périmé, bientôt périmé (30 jours), épuisé, stock bas (seuil). */

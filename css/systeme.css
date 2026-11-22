@@ -578,6 +578,42 @@ form[data-form="casse"] > .aide { margin: 0 0 var(--e-4); }
 .retour-bouteille .e-message { margin: 0; }
 .retour-bouteille .e-message + .e-btn { margin-top: var(--e-2); }
 
+/* Stock : deux onglets (Ingrédients | Bouteilles), comme un sélecteur iOS, avec le nombre d'alertes de chacun */
+.e-segments { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: var(--e-r-champ); background: var(--e-surface-2); }
+.e-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  min-height: max(44px, 2.75rem);
+  padding: 0 var(--e-2);
+  border-radius: 12px;
+  color: var(--e-texte-2);
+  font: 650 0.9375rem/1.2 var(--e-police);
+  text-align: center;
+  text-decoration: none;
+}
+.e-segment[aria-current='page'] { background: var(--e-segment-actif); color: var(--e-segment-texte); box-shadow: 0 1px 3px rgb(48 37 30 / 0.15); }
+.e-segment:focus-visible { outline: 2px solid var(--e-cuivre); outline-offset: 2px; }
+.e-segment-alerte {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: var(--e-alerte-fond);
+  color: var(--e-alerte-texte);
+  font: 700 0.75rem/1 var(--e-police);
+}
+/* Texte lu par VoiceOver seulement */
+.e-lecteur { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Bouton « + » de l'en-tête (Ajouter un article) */
+.bouton-entete { justify-content: center; min-width: 44px; border: 0; background: none; cursor: pointer; font: inherit; }
+.bouton-entete .e-icone { width: 1.375rem; height: 1.375rem; }
+.bouton-entete:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; border-radius: 10px; }
+.e-outils-stock .e-titre-section { margin: var(--e-2) 0 var(--e-1); }
+
 /* Stock : bouteilles vides, pleines et prêtes, par format */
 .e-tableau-bouteilles { width: 100%; margin-top: var(--e-1); border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .e-tableau-bouteilles th,

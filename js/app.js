@@ -111,7 +111,11 @@ function construireVue() {
   if (!page) return vueAccueil();
   if (page === 'historique') return vueHistorique();
   if (page === 'reglages') return vueReglages();
-  if (page === 'stock') return code === 'courses' ? vueCourses() : code === 'recuperer' ? vueRecuperer() : vueStock();
+  if (page === 'stock') {
+    if (code === 'courses') return vueCourses();
+    if (code === 'recuperer') return vueRecuperer();
+    return vueStock(I.ONGLETS_STOCK.includes(code) ? code : ongletStockRetenu());
+  }
   if (page === 'nouveau') return vueFormulaire(null);
   if (page === 'brassin' && code) {
     const b = B.trouverParCode(etat.donnees.brassins, code);
@@ -1826,17 +1830,105 @@ function inventaireModifie() {
   afficher();
 }
 
-function vueStock() {
+/* ---------- Page Stock : deux onglets, Ingrédients (brassage) et Bouteilles (bouteilles, capsules, matériel) ---------- */
+
+const CLE_ONGLET_STOCK = 'ensen.ongletStock';
+
+/** Dernier onglet ouvert sur ce téléphone (Ingrédients au premier passage, ou sans mémoire du navigateur). */
+function ongletStockRetenu() {
+  try {
+    return localStorage.getItem(CLE_ONGLET_STOCK) === 'bouteilles' ? 'bouteilles' : 'ingredients';
+  } catch {
+    return 'ingredients';
+  }
+}
+
+function retenirOngletStock(onglet) {
+  try {
+    localStorage.setItem(CLE_ONGLET_STOCK, onglet);
+  } catch {
+    /* navigation privée : l'onglet n'est pas retenu */
+  }
+}
+
+/** Onglet d'une catégorie (par son code), d'après l'inventaire. */
+function ongletDeCategorie(code) {
+  const inventaire = etat.donnees.inventaire;
+  return I.ongletCategorie(I.categoriesDe(inventaire).find((c) => c.code === code), inventaire.articles);
+}
+
+/** Après un ajout rangé dans l'autre onglet : on y va, pour voir l'article ou la catégorie. */
+function montrerOngletStock(onglet) {
+  const [page, code] = segments();
+  if (page !== 'stock' || code === 'courses' || code === 'recuperer' || onglet === ongletStockRetenu()) return;
+  retenirOngletStock(onglet);
+  location.hash = `#/stock/${onglet}`;
+}
+
+function vueStock(onglet = ongletStockRetenu()) {
   const inventaire = etat.donnees.inventaire;
   if (I.initialiserMateriel(inventaire)) sauver(); // matériel de base, à la première visite
+  retenirOngletStock(onglet);
   const auj = aujourdhui();
   const courses = I.listeCourses(inventaire, auj);
   const achats = courses.length;
   const signales = I.nombrePastille(courses);
+  const groupes = I.articlesParCategorie(inventaire.articles, I.categoriesDe(inventaire));
+  const groupesDe = (o) => groupes.filter((g) => I.ongletCategorie(g, inventaire.articles) === o);
+  const alertes = (o) => groupesDe(o).reduce((s, g) => s + g.articles.filter((a) => I.articleSignale(a, auj)).length, 0);
+  const segment = (o, texte) => {
+    const n = alertes(o);
+    return html`<a href="#/stock/${o}" class="e-segment" aria-current="${o === onglet ? 'page' : 'false'}">${texte}${
+      n ? html`<span class="e-segment-alerte" aria-hidden="true">${n}</span><span class="e-lecteur">, ${pluriel(n, 'alerte')}</span>` : ''
+    }</a>`;
+  };
+  const categorie = (groupe) => html`<section class="e-bloc e-categorie">
+    <div class="e-categorie-titre">
+      <h2 class="e-titre-section">${groupe.nom} <span class="e-compteur">${groupe.articles.length}</span></h2>
+      ${
+        I.estCategorieAjoutee(groupe.code)
+          ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="modifier-categorie" data-code="${groupe.code}">Modifier</button>`
+          : ''
+      }
+    </div>
+    ${
+      groupe.articles.length
+        ? html`<ul class="e-articles">${groupe.articles.map((a) => ligneArticle(a, auj))}</ul>`
+        : html`<p class="e-aide">Aucun article pour l’instant.</p>`
+    }
+  </section>`;
+  // Outils, en bas de chaque onglet : ce qui ne sert pas tous les jours
+  const outil = (action, icone, titre, detail = '') =>
+    html`<button type="button" class="e-menu-action" data-action="${action}" data-onglet="${onglet}">${icone}<span><b>${titre}</b>${detail ? html`<small>${detail}</small>` : ''}</span></button>`;
+  const outils = html`<section class="e-bloc e-menu e-outils-stock" aria-labelledby="titre-outils-stock">
+    <h2 class="e-titre-section" id="titre-outils-stock">Outils</h2>
+    ${onglet === 'ingredients' ? outil('verifier-recette', SYMBOLES.fichier, 'Vérifier une recette', 'Avant de brasser : ce qui manque au stock pour une recette Grainfather (BeerXML).') : ''}
+    ${outil('importer-stock', SYMBOLES.tableau, 'Importer un tableau', 'Excel, Numbers ou CSV')}
+    ${outil('ajouter-categorie', SYMBOLES.plus, 'Ajouter une catégorie')}
+  </section>`;
+  const ingredients = groupesDe('ingredients');
+  const contenu =
+    onglet === 'bouteilles'
+      ? html`${blocBouteilles(auj)}
+          ${lienRecuperer()}
+          ${groupesDe('bouteilles').map(categorie)}
+          ${outils}
+          <p class="e-aide">Les bouteilles vides remontent quand une bière est bue ou qu’une bouteille offerte est rendue,
+            et baissent à l’embouteillage, avec les capsules.</p>`
+      : html`${
+          ingredients.length
+            ? ingredients.map(categorie)
+            : html`<section class="e-bloc"><p class="e-aide">Aucun ingrédient pour l’instant : « + » en haut pour en ajouter un, ou « Importer un tableau ».</p></section>`
+        }
+          ${outils}
+          <p class="e-aide">Un seuil d’alerte fait passer l’article dans la liste de courses quand il est atteint.</p>`;
   return {
     onglet: 'stock',
     titre: 'Stock',
-    entete: enteteBarre({ titre: 'Stock' }),
+    entete: enteteBarre({
+      titre: 'Stock',
+      droite: html`<button type="button" class="lien-entete bouton-entete" data-action="ajouter-article" data-onglet="${onglet}" aria-label="Ajouter un article">${SYMBOLES.plus}<span>Article</span></button>`,
+    }),
     contenu: html`<div class="e-page">
       <a class="e-lien-courses" href="#/stock/courses">
         ${SYMBOLES.panier}
@@ -1845,34 +1937,8 @@ function vueStock() {
         ${signales ? html`<span class="e-compte" aria-hidden="true">${signales}</span>` : ''}
         ${SYMBOLES.suivant}
       </a>
-      ${blocBouteilles(auj)}
-      ${lienRecuperer()}
-      <section class="e-bloc e-menu" aria-label="Actions du stock">
-        <button type="button" class="e-menu-action" data-action="ajouter-article">${SYMBOLES.plus}<span><b>Ajouter un article</b></span></button>
-        <button type="button" class="e-menu-action" data-action="verifier-recette">${SYMBOLES.fichier}<span><b>Vérifier une recette</b>
-          <small>Avant de brasser, compare une recette Grainfather (fichier BeerXML) au stock et ajoute ce qui manque à la liste de courses.</small></span></button>
-        <button type="button" class="e-menu-action" data-action="importer-stock">${SYMBOLES.tableau}<span><b>Importer un tableau</b><small>Excel, Numbers ou CSV</small></span></button>
-      </section>
-      ${I.articlesParCategorie(inventaire.articles, I.categoriesDe(inventaire)).map(
-        (groupe) => html`<section class="e-bloc e-categorie">
-          <div class="e-categorie-titre">
-            <h2 class="e-titre-section">${groupe.nom} <span class="e-compteur">${groupe.articles.length}</span></h2>
-            ${
-              I.estCategorieAjoutee(groupe.code)
-                ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="modifier-categorie" data-code="${groupe.code}">Modifier</button>`
-                : ''
-            }
-          </div>
-          ${
-            groupe.articles.length
-              ? html`<ul class="e-articles">${groupe.articles.map((a) => ligneArticle(a, auj))}</ul>`
-              : html`<p class="e-aide">Aucun article pour l’instant.</p>`
-          }
-        </section>`,
-      )}
-      <button type="button" class="e-btn e-btn--discret" data-action="ajouter-categorie">+ Ajouter une catégorie</button>
-      <p class="e-aide">Les bouteilles vides remontent quand une bière est bue ou qu’une bouteille offerte est rendue, et baissent à l’embouteillage, avec les capsules.
-        Un seuil d’alerte fait passer l’article dans la liste de courses quand il est atteint.</p>
+      <nav class="e-segments" aria-label="Parties du stock">${segment('ingredients', 'Ingrédients')}${segment('bouteilles', 'Bouteilles')}</nav>
+      ${contenu}
     </div>`,
   };
 }
@@ -1881,6 +1947,7 @@ function vueStock() {
 function ligneArticle(a, auj) {
   const e = I.etatArticle(a, auj);
   const peremption = a.peremption ? formaterDateCourte(a.peremption, auj) : '';
+  // Mêmes alertes que le compte de chaque onglet (I.articleSignale)
   const badges = [
     e.perime ? badge('perime', `Périmé le ${peremption}`) : '',
     e.bientot ? badge('bientot', `Périme le ${peremption}`) : '',
@@ -1902,8 +1969,9 @@ function ouvrirArticle(bouton) {
   const inventaire = etat.donnees.inventaire;
   const categories = I.categoriesDe(inventaire);
   const a = inventaire.articles.find((x) => x.id === bouton?.dataset.id) ?? null;
-  const v = a ?? I.nouvelArticle({ categorie: 'malt' }, '');
-  const feuille = ouvrirFeuille(html`<form class="feuille-contenu" data-form="article" data-id="${a?.id ?? ''}" novalidate>
+  const onglet = bouton?.dataset.onglet === 'bouteilles' ? 'bouteilles' : 'ingredients';
+  const v = a ?? I.nouvelArticle({ categorie: onglet === 'bouteilles' ? 'materiel' : 'malt' }, '');
+  const feuille = ouvrirFeuille(html`<form class="feuille-contenu" data-form="article" data-id="${a?.id ?? ''}" data-onglet="${onglet}" novalidate>
     <h2 tabindex="-1" ${a ? 'autofocus' : ''}>${a ? a.nom : 'Nouvel article'}</h2>
     <label class="champ"><span class="libelle">Catégorie</span>
       <select name="categorie">${categories.map((c) => html`<option value="${c.code}" ${c.code === v.categorie ? 'selected' : ''}>${c.nom}</option>`)}
@@ -1954,7 +2022,7 @@ function validerArticle(form) {
   if (categorie === NOUVELLE_CATEGORIE) {
     const nomCategorie = String(f.get('nouvelleCategorie') ?? '').trim();
     if (!nomCategorie) return erreurFeuille(form, 'Indiquer le nom de la nouvelle catégorie.');
-    categorie = I.ajouterCategorie(inventaire, nomCategorie, f.get('unite')).code;
+    categorie = I.ajouterCategorie(inventaire, nomCategorie, f.get('unite'), form.dataset.onglet).code;
   }
   const champs = {
     categorie,
@@ -1970,6 +2038,7 @@ function validerArticle(form) {
   if (existant) Object.assign(existant, I.normaliserArticle({ ...existant, ...champs }, categories));
   else inventaire.articles.push(I.normaliserArticle(I.nouvelArticle(champs), categories));
   inventaireModifie();
+  montrerOngletStock(ongletDeCategorie(categorie));
   toast(existant ? `${nom} : ${I.formaterQuantite(quantite, champs.unite) || '0'} en stock.` : `${nom} ajouté au stock.`);
 }
 
@@ -1994,6 +2063,7 @@ function ouvrirCategorie(bouton) {
   const inventaire = etat.donnees.inventaire;
   const c = (inventaire.categories ?? []).find((x) => x.code === bouton?.dataset.code) ?? null;
   const nombre = c ? inventaire.articles.filter((a) => a.categorie === c.code).length : 0;
+  const onglet = c ? I.ongletCategorie(c, inventaire.articles) : bouton?.dataset.onglet === 'bouteilles' ? 'bouteilles' : 'ingredients';
   ouvrirFeuille(html`<form class="feuille-contenu" data-form="categorie" data-code="${c?.code ?? ''}" novalidate>
     <h2 tabindex="-1" ${c ? 'autofocus' : ''}>${c ? c.nom : 'Nouvelle catégorie'}</h2>
     <label class="champ"><span class="libelle">Nom</span>
@@ -2001,6 +2071,10 @@ function ouvrirCategorie(bouton) {
     <label class="champ"><span class="libelle">Unité habituelle</span>
       <select name="unite">${I.UNITES.map((u) => html`<option value="${u}" ${u === (c?.unite ?? 'g') ? 'selected' : ''}>${u}</option>`)}</select></label>
     <p class="aide">Proposée pour un nouvel article de cette catégorie. Un tableau importé range ses lignes dans la catégorie qui porte le même nom.</p>
+    <div class="champ"><span class="libelle">Onglet du stock</span><div class="segments">${[
+      ['ingredients', 'Ingrédients'],
+      ['bouteilles', 'Bouteilles'],
+    ].map(([valeur, texte]) => html`<label><input type="radio" name="onglet" value="${valeur}" ${valeur === onglet ? 'checked' : ''}><span>${texte}</span></label>`)}</div></div>
     ${boutonsFeuille(c ? 'Enregistrer' : 'Ajouter')}
     ${
       c
@@ -2019,14 +2093,15 @@ function validerCategorie(form) {
   const inventaire = etat.donnees.inventaire;
   const nom = String(form.elements.nom.value).trim();
   const unite = form.elements.unite.value;
+  const onglet = form.elements.onglet.value === 'bouteilles' ? 'bouteilles' : 'ingredients';
   const code = form.dataset.code;
   if (!nom) return erreurFeuille(form, 'Indiquer le nom de la catégorie.');
   const homonyme = I.trouverCategorie(inventaire, nom);
   if (homonyme && homonyme.code !== code) return erreurFeuille(form, `La catégorie « ${homonyme.nom} » existe déjà.`);
   const categorie = code ? inventaire.categories.find((x) => x.code === code) : null;
-  if (categorie) Object.assign(categorie, { nom, unite });
-  else I.ajouterCategorie(inventaire, nom, unite);
+  const enregistree = categorie ? Object.assign(categorie, { nom, unite, onglet }) : I.ajouterCategorie(inventaire, nom, unite, onglet);
   inventaireModifie();
+  montrerOngletStock(I.ongletCategorie(enregistree, inventaire.articles));
   toast(categorie ? `Catégorie « ${nom} » enregistrée.` : `Catégorie « ${nom} » ajoutée.`);
 }
 
@@ -2262,8 +2337,7 @@ function blocBouteilles(auj) {
         )}</tr>`;
       })}</tbody>
     </table>
-    <p class="e-aide">Vides : celles du matériel ci-dessous. Pleines : les bières embouteillées encore en cave.
-      Chez des amis : offertes, ni rendues ni perdues. En tout : vides, pleines et chez des amis.</p>
+    <p class="e-aide">Pleines : en cave, archivées comprises. Chez des amis : offertes, pas encore rendues.</p>
   </section>`;
 }
 
@@ -2298,7 +2372,7 @@ function vueRecuperer() {
   </li>`;
   return {
     titre: 'Bouteilles à récupérer',
-    entete: enteteBarre({ retour: { href: '#/stock', texte: 'Stock' }, titre: 'À récupérer' }),
+    entete: enteteBarre({ retour: { href: '#/stock/bouteilles', texte: 'Stock' }, titre: 'À récupérer' }),
     contenu: amis.length
       ? html`<div class="e-page">
           <p class="e-aide">${pluriel(total, 'bouteille')} chez ${pluriel(amis.length, 'ami')}. « Rendue » ajoute une bouteille vide du même format au stock.

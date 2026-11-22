@@ -471,3 +471,42 @@ test('données : inventaire sauvegardé, anciennes données (version 1) accepté
   assert.equal(abimee.articles.length, 1);
   assert.deepEqual(abimee.courses, []);
 });
+
+test('page Stock : chaque catégorie dans son onglet (ingrédients, ou bouteilles et matériel)', () => {
+  const inventaire = I.inventaireVide();
+  const [malt, , , , materiel] = I.CATEGORIES;
+  assert.equal(I.ongletCategorie(malt), 'ingredients');
+  assert.equal(I.ongletCategorie(materiel), 'bouteilles');
+  // Catégories ajoutées : d'après leur nom, ou leurs articles (des capsules)
+  const capsules = I.ajouterCategorie(inventaire, 'Capsules');
+  const epices = I.ajouterCategorie(inventaire, 'Épices');
+  const couleurs = I.ajouterCategorie(inventaire, 'Couleurs');
+  const articles = [{ ...article({ nom: 'Capsules - Dorée', quantite: 30 }), categorie: couleurs.code }];
+  assert.equal(I.ongletCategorie(capsules, articles), 'bouteilles');
+  assert.equal(I.ongletCategorie(I.ajouterCategorie(inventaire, 'Étiquettes'), articles), 'bouteilles');
+  assert.equal(I.ongletCategorie(epices, articles), 'ingredients');
+  assert.equal(I.ongletCategorie(couleurs, articles), 'bouteilles');
+  // Choix noté : il l'emporte, et la sauvegarde le garde
+  const sucres = I.ajouterCategorie(inventaire, 'Sucres', 'g', 'bouteilles');
+  assert.equal(I.ongletCategorie(sucres), 'bouteilles');
+  epices.onglet = 'bouteilles';
+  const relu = I.normaliserInventaire(structuredClone({ ...inventaire, categories: [...inventaire.categories, { code: 'perso-x', nom: 'X', onglet: 'cave' }] }));
+  assert.deepEqual(relu.categories.map((c) => [c.nom, c.onglet ?? null]), [
+    ['Capsules', null],
+    ['Épices', 'bouteilles'],
+    ['Couleurs', null],
+    ['Étiquettes', null],
+    ['Sucres', 'bouteilles'],
+    ['X', null],
+  ]);
+});
+
+test('alerte d’un article dans le stock : périmé, bientôt, stock bas, ingrédient épuisé (pas le matériel à 0)', () => {
+  const auj = '2026-11-22';
+  assert.equal(I.articleSignale(article({ categorie: 'levure', nom: 'US-05', quantite: 2, peremption: '2026-11-01' }), auj), true);
+  assert.equal(I.articleSignale(article({ categorie: 'levure', nom: 'S-04', quantite: 2, peremption: '2026-12-10' }), auj), true);
+  assert.equal(I.articleSignale(article({ categorie: 'malt', nom: 'Pilsner', quantite: 0.3, seuil: 0.5 }), auj), true);
+  assert.equal(I.articleSignale(article({ categorie: 'autre', nom: 'Coques de riz', quantite: 0 }), auj), true);
+  assert.equal(I.articleSignale(article({ categorie: 'materiel', nom: 'Joints de clapets', quantite: 0 }), auj), false);
+  assert.equal(I.articleSignale(article({ categorie: 'malt', nom: 'Carapils', quantite: 2 }), auj), false);
+});

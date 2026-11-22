@@ -624,8 +624,16 @@ try {
   }
   const ligneArticle = (nom) => page.locator('.e-article', { has: page.locator('.e-article-nom', { hasText: new RegExp(`^${nom}$`) }) });
   const quantiteArticle = async (nom) => (await ligneArticle(nom).locator('.e-article-quantite').textContent()).replace(/\s+/g, ' ').trim();
+  /** Onglet du stock (Ingrédients, sinon Bouteilles) qui contient cet article. */
+  async function allerArticle(nom) {
+    for (const onglet of ['ingredients', 'bouteilles']) {
+      await page.goto(`${BASE}#/stock/${onglet}`);
+      await page.locator(`.e-segment[aria-current="page"][href$="${onglet}"]`).waitFor();
+      if (await page.evaluate((n) => [...document.querySelectorAll('.e-article-nom')].some((e) => e.textContent.trim() === n), nom)) return;
+    }
+  }
   async function attendreQuantite(nom, attendu) {
-    await page.goto(`${BASE}#/stock`);
+    await allerArticle(nom);
     await page.waitForFunction(
       ([n, a]) => {
         const ligne = [...document.querySelectorAll('.e-article')].find((b) => b.querySelector('.e-article-nom')?.textContent.trim() === n);
@@ -638,7 +646,7 @@ try {
     });
   }
   async function modifierQuantite(nom, quantite) {
-    await page.goto(`${BASE}#/stock`);
+    await allerArticle(nom);
     await ligneArticle(nom).click();
     await page.fill('#feuille input[name="quantite"]', quantite);
     await page.click('#feuille button[type="submit"]');
@@ -649,6 +657,9 @@ try {
     await page.goto(`${BASE}#/`);
     await page.click('#onglets a[data-onglet="stock"]');
     await page.waitForURL(/#\/stock$/);
+    await page.locator('.e-segment[aria-current="page"]', { hasText: 'Ingrédients' }).waitFor(); // premier passage
+    await page.click('.e-segment[href$="bouteilles"]');
+    await page.waitForURL(/#\/stock\/bouteilles$/);
     await attendreTexte('#vue', 'Matériel et consommables');
     for (const nom of ['Bouteilles vides 33 cl', 'Bouteilles vides 66 cl à clapet', 'Capsules', 'Joints de clapets']) {
       assert.equal(await quantiteArticle(nom), '0', nom);
@@ -662,7 +673,9 @@ try {
     await ajouterArticle({ categorie: 'houblon', nom: 'Sabro', quantite: '60' });
     await ajouterArticle({ categorie: 'houblon', nom: 'Magnum', quantite: '50' });
     await ajouterArticle({ categorie: 'levure', nom: 'Voss Kveik', quantite: '2', peremption: decaler(-30) });
+    await page.waitForURL(/#\/stock\/ingredients$/); // ajoutés depuis Bouteilles : l'appli passe à l'onglet Ingrédients
     assert.equal(await quantiteArticle('Pilsner'), '5 kg');
+    await attendreTexte('.e-segment[href$="ingredients"] .e-segment-alerte', '2');
     assert.equal(await quantiteArticle('Sabro'), '60 g');
     assert.equal(await quantiteArticle('Voss Kveik'), '2 sachets');
     await attendreTexte('.e-article', 'Stock bas');
@@ -721,6 +734,7 @@ try {
   });
 
   await etape('Bouteilles à récupérer : par ami, « Rendue », « Les 2 sont rendues », puis annulé', async () => {
+    await page.goto(`${BASE}#/stock/bouteilles`);
     await attendreTexte('.e-lien-recuperer', '1 bouteille chez 1 ami');
     // Une deuxième bouteille pour « pierre » (même ami, écrit en minuscules)
     await page.goto(`${BASE}#/brassin/${Bb.code}`);
@@ -728,7 +742,7 @@ try {
     await page.fill('#feuille input[name="a"]', 'pierre');
     await page.click('#feuille button[type="submit"]');
     await attendreToast(/Offerte à pierre/);
-    await page.goto(`${BASE}#/stock`);
+    await page.goto(`${BASE}#/stock/bouteilles`);
     await attendreTexte('.e-lien-recuperer', '2 bouteilles chez 1 ami');
     await page.click('.e-lien-recuperer');
     await attendreTexte('.e-ami-nom', 'Pierre');
@@ -801,7 +815,7 @@ try {
     // Lignes : vides, pleines, dont prêtes, dont en garde, chez des amis, en tout ; colonnes : 33 cl, 66 cl, total
     const lire = () =>
       page.$$eval('.e-tableau-bouteilles tbody tr', (lignes) => lignes.map((tr) => [...tr.querySelectorAll('td')].map((td) => Number(td.textContent))));
-    await page.goto(`${BASE}#/stock`);
+    await page.goto(`${BASE}#/stock/bouteilles`);
     await page.locator('.e-tableau-bouteilles').waitFor();
     const avant = await lire();
     assert.equal(avant.length, 6);
@@ -822,7 +836,7 @@ try {
     await page.click('#barre-actions [data-action="prendre"]');
     await page.click('#feuille [data-format="33"]');
     await attendreToast(/Il reste/);
-    await page.goto(`${BASE}#/stock`);
+    await page.goto(`${BASE}#/stock/bouteilles`);
     await page.locator('.e-tableau-bouteilles').waitFor();
     const apres = await lire();
     assert.deepEqual([apres[0][0], apres[1][0], apres[2][0], apres[3][0]], [avant[0][0] + 1, avant[1][0] - 1, avant[2][0] - 1, avant[3][0]]);
@@ -836,7 +850,7 @@ try {
   });
 
   await etape('Vérifier une recette avant brassage : manques ajoutés aux courses', async () => {
-    await page.goto(`${BASE}#/stock`);
+    await page.goto(`${BASE}#/stock/ingredients`);
     const [selecteur] = await Promise.all([page.waitForEvent('filechooser'), page.click('[data-action="verifier-recette"]')]);
     await selecteur.setFiles(RECETTE);
     await attendreTexte('#feuille', 'Il manque 4 ingrédients');
@@ -1002,7 +1016,7 @@ try {
   ].join('\n');
 
   const ouvrirImportStock = async () => {
-    await page.goto(`${BASE}#/stock`);
+    await page.goto(`${BASE}#/stock/ingredients`);
     await page.click('[data-action="importer-stock"]');
     await page.locator('#feuille[open] form[data-form="import-stock"]').waitFor();
   };
@@ -1116,7 +1130,7 @@ try {
   });
 
   await etape('Recette vérifiée avec le stock importé (noms français)', async () => {
-    await page.goto(`${BASE}#/stock`);
+    await page.goto(`${BASE}#/stock/ingredients`);
     const [selecteur] = await Promise.all([page.waitForEvent('filechooser'), page.click('[data-action="verifier-recette"]')]);
     await selecteur.setFiles(RECETTE);
     await attendreTexte('#feuille .statut-ok', 'flocons de maïs');
@@ -1127,7 +1141,7 @@ try {
   const section = (nom) => page.locator('#vue section.e-categorie', { has: page.locator('h2', { hasText: nom }) });
 
   await etape('Catégorie ajoutée depuis un article, renommée, remplie par un import, supprimée puis rétablie', async () => {
-    await page.goto(`${BASE}#/stock`);
+    await page.goto(`${BASE}#/stock/ingredients`);
     await page.click('[data-action="ajouter-article"]');
     await page.locator('#feuille form[data-form="article"]').waitFor();
     assert.ok(await page.isHidden('#feuille [data-champ-categorie]'));
@@ -1177,10 +1191,23 @@ try {
     await page.click('#toast button'); // Annuler
     await page.waitForFunction(() => [...document.querySelectorAll('#vue .e-categorie h2')].some((h) => h.textContent.includes('Épices et aromates')));
     assert.match(await section('Épices et aromates').textContent(), /Anis étoilé/);
+    // Rangée dans l'onglet Bouteilles : l'appli y passe ; puis ramenée dans Ingrédients
+    const ranger = async (onglet, texte) => {
+      await section('Épices et aromates').locator('[data-action="modifier-categorie"]').click();
+      await page.locator('#feuille form[data-form="categorie"]').waitFor();
+      await page.click(`#feuille .segments label:has(input[value="${onglet}"])`);
+      await page.click('#feuille button[type="submit"]');
+      await page.waitForURL(new RegExp(`#/stock/${onglet}$`));
+      await page.locator('.e-segment[aria-current="page"]', { hasText: texte }).waitFor();
+      assert.match(await section('Épices et aromates').textContent(), /Anis étoilé/);
+    };
+    assert.equal(await page.locator('#feuille').evaluate((d) => d.open), false);
+    await ranger('bouteilles', 'Bouteilles');
+    await ranger('ingredients', 'Ingrédients');
   });
 
   await etape('Feuille ouverte : la page derrière reste figée, puis retrouve sa position', async () => {
-    await page.goto(`${BASE}#/stock`);
+    await page.goto(`${BASE}#/stock/ingredients`);
     await page.evaluate(() => window.scrollTo(0, 400));
     await page.waitForFunction(() => window.scrollY === 400);
     await page.evaluate(() => document.querySelector('[data-action="ajouter-article"]').click()); // sans faire défiler jusqu'au bouton

@@ -758,6 +758,45 @@ try {
     await attendreNombre(page, '[data-action="modifier-don"]', 1);
   });
 
+  await etape('Bouteille offerte jamais rendue : déclarée perdue, stock inchangé, puis annulé', async () => {
+    await page.goto(`${BASE}#/stock/recuperer`);
+    await page.click('.e-don-a-rendre [data-action="bouteille-perdue"]');
+    await attendreToast(/Bouteille offerte à Pierre déclarée perdue/);
+    await attendreTexte('#vue', 'Aucune bouteille à récupérer');
+    await attendreQuantite('Bouteilles vides 33 cl', '31'); // une bouteille offerte n'y revient que rendue
+    await attendreTexte('.e-lien-recuperer', 'Aucune bouteille à récupérer');
+    await page.goto(`${BASE}#/brassin/${Bb.code}`);
+    await attendreTexte('.ligne-perdue', 'Bouteille perdue');
+    await attendreTexte('.bilan-retours', '1 perdue');
+    await page.click('[data-action="modifier-don"]');
+    await attendreTexte('#feuille .e-message--perdue', 'Déclarée perdue le');
+    await page.waitForTimeout(300);
+    await capture('50-don-perdu');
+    await page.click('#feuille [data-action="annuler-perte"]');
+    await attendreToast(/de nouveau à récupérer/);
+    assert.equal(await page.locator('.ligne-perdue').count(), 0);
+    await page.goto(`${BASE}#/stock/recuperer`);
+    await attendreNombre(page, '.e-don-a-rendre', 1);
+  });
+
+  await etape('Bouteille cassée en garde : retirée du stock du brassin, sans bouteille vide, puis annulé', async () => {
+    await page.goto(`${BASE}#/brassin/${Bb.code}`);
+    const avant = Number(await texte('.e-stock-total b'));
+    await page.click('.e-bloc-stock [data-action="bouteille-cassee"]');
+    await page.locator('#feuille[open] form[data-form="casse"]').waitFor();
+    await page.waitForTimeout(300);
+    await capture('51-bouteille-cassee');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(new RegExp(`Bouteille cassée retirée du stock\\. Il reste ${avant - 1} bouteilles`));
+    assert.equal(await texte('.e-stock-total b'), String(avant - 1));
+    await attendreTexte('.bloc-cassees', 'Bouteilles cassées');
+    await page.click('#toast button'); // Annuler
+    await attendreToast(/remise en stock/);
+    assert.equal(await texte('.e-stock-total b'), String(avant));
+    assert.equal(await page.locator('.bloc-cassees').count(), 0);
+    await attendreQuantite('Bouteilles vides 33 cl', '31');
+  });
+
   await etape('Vérifier une recette avant brassage : manques ajoutés aux courses', async () => {
     await page.goto(`${BASE}#/stock`);
     const [selecteur] = await Promise.all([page.waitForEvent('filechooser'), page.click('[data-action="verifier-recette"]')]);

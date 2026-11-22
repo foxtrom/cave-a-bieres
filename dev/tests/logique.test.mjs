@@ -189,6 +189,38 @@ test('bouteilles à récupérer : par ami (majuscules et accents confondus), san
   assert.deepEqual(B.bouteillesARecuperer([]), []);
 });
 
+test('bouteille offerte perdue : quitte les bouteilles à récupérer, annulable, exclusive avec « rendue »', () => {
+  const b = brassinEmbouteille();
+  const don = B.retirerBouteille(b, { type: 'offerte', format: '66', date: '2026-11-01', a: 'Paul' });
+  assert.equal(don.perdue, null);
+  assert.equal(B.declarerPerdue(b, don.id, AUJ), don);
+  assert.equal(B.declarerPerdue(b, don.id, AUJ), null); // déjà perdue
+  assert.equal(B.rendreBouteille(b, don.id, AUJ), null); // perdue : pas rendue en même temps
+  assert.deepEqual(B.bouteillesARecuperer([b]), []);
+  assert.equal(B.perdues(b).length, 1);
+  assert.equal(B.normaliserBrassin(structuredClone(b)).mouvements[0].perdue, AUJ);
+  assert.deepEqual(B.annulerPerte(b, don.id), { mouvement: don, date: AUJ });
+  assert.equal(B.bouteillesARecuperer([b])[0].total, 1);
+  // Rendue puis perdue : impossible ; une sauvegarde avec les deux garde « rendue »
+  B.rendreBouteille(b, don.id, AUJ);
+  assert.equal(B.declarerPerdue(b, don.id, AUJ), null);
+  const relu = B.normaliserBrassin({ ...structuredClone(b), mouvements: [{ ...don, perdue: AUJ }] });
+  assert.deepEqual([relu.mouvements[0].rendue, relu.mouvements[0].perdue], [AUJ, null]);
+});
+
+test('bouteille cassée : retirée du stock, ni bue ni offerte, annulable', () => {
+  const b = brassinEmbouteille();
+  const casse = B.retirerBouteille(b, { type: 'cassee', format: '33', date: AUJ });
+  assert.equal(b.bouteilles['33'].restant, 59);
+  assert.deepEqual([B.cassees(b).length, B.bues(b).length, B.offertes(b).length], [1, 0, 0]);
+  assert.equal(B.normaliserBrassin(structuredClone(b)).mouvements[0].type, 'cassee');
+  B.annulerMouvement(b, casse.id);
+  assert.equal(b.bouteilles['33'].restant, 60);
+  assert.throws(() => B.retirerBouteille(b, { type: 'volee', format: '33', date: AUJ }), /Sortie inconnue/);
+  // Type inconnu dans une sauvegarde : compté comme bue (comme avant)
+  assert.equal(B.normaliserBrassin({ ...structuredClone(b), mouvements: [{ id: 'x', type: '?', format: '33', date: AUJ }] }).mouvements[0].type, 'bue');
+});
+
 test('impossible de prendre une bouteille d’un format épuisé', () => {
   const b = brassinEmbouteille({ bouteilles: { 33: { depart: 60, restant: 0 }, 66: { depart: 0, restant: 0 } } });
   assert.throws(() => B.retirerBouteille(b, { format: '33', date: AUJ }), /Plus de bouteille/);

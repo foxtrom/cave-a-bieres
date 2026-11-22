@@ -46,6 +46,7 @@ export const SYMBOLES = {
   connexion: icone('<path d="M4.5 11a11 11 0 0 1 15 0M8 14.5a6 6 0 0 1 8 0"/><path d="M12 18.5h.01"/>'),
   panier: icone('<path d="M3 4h2.2l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L21 8H6.2"/><circle cx="9.5" cy="20" r="1.25"/><circle cx="17" cy="20" r="1.25"/>'),
   suivant: icone('<path d="m9 6 6 6-6 6"/>'),
+  perdue: icone('<circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/>'),
   retour: icone('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'),
   fichier: icone('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5"/>'),
   tableau: icone('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15"/>'),
@@ -118,6 +119,12 @@ export function capsulesCarte(b) {
     : '';
 }
 
+/** « 12 bues · 3 offertes · 1 cassée » (les cassées seulement s'il y en a). */
+function bilanSorties(b) {
+  const cassees = B.cassees(b).length;
+  return [pluriel(B.bues(b).length, 'bue'), pluriel(B.offertes(b).length, 'offerte'), cassees ? pluriel(cassees, 'cassée') : ''].filter(Boolean);
+}
+
 /* ---------- Carte de brassin ---------- */
 
 export function carteBrassin(b, { auj, seuil, href = '#' }) {
@@ -126,7 +133,7 @@ export function carteBrassin(b, { auj, seuil, href = '#' }) {
   const bas = B.estStockBas(b, seuil, auj);
   const termine = st === 'historique';
   const meta = [B.nomStyle(b.style), B.formaterDegre(b.abv), termine ? null : texteAge(b, auj)].filter(Boolean);
-  const bilan = termine ? [pluriel(B.bues(b).length, 'bue'), pluriel(B.offertes(b).length, 'offerte')] : null;
+  const bilan = termine ? bilanSorties(b) : null;
   const etatStock = st === 'fermentation' ? 'attente' : s.total === 0 ? 'vide' : bas ? 'bas' : '';
   // Badges toujours sur leur propre ligne, sous le code : le nom tombe à la même hauteur sur toutes les cartes à badge
   const badges = [badgeStatut(b, st, auj), bas ? badge('stockBas', 'Stock bas') : ''].filter(Boolean);
@@ -215,7 +222,7 @@ export function blocEtat(b, auj) {
     ]);
   }
   const reste = B.stock(b).total;
-  const bilan = `${pluriel(B.bues(b).length, 'bue')} · ${pluriel(B.offertes(b).length, 'offerte')}`;
+  const bilan = bilanSorties(b).join(' · ');
   return reste
     ? encadreEtat('termine', SYMBOLES.termine, 'Archivé', [`${pluriel(reste, 'bouteille')} encore en stock`, bilan])
     : encadreEtat('termine', SYMBOLES.termine, 'Terminé', [bilan]);
@@ -278,6 +285,7 @@ export function blocStock(b, { seuil, auj, capsules = false }) {
     ${capsules || b.capsules?.length ? ligneCapsules(b) : ''}
     ${ligneSucre(b)}
     ${bas ? html`<p class="e-message e-message--alerte">${SYMBOLES.alerte}<span>Stock bas : moins de ${pluriel(seuil, 'bouteille')}.</span></p>` : ''}
+    ${s.total ? html`<button type="button" class="e-btn e-btn--discret e-btn--petit e-stock-cassee" data-action="bouteille-cassee">Une bouteille cassée…</button>` : ''}
   </section>`;
 }
 

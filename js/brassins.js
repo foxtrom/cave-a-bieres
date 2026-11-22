@@ -168,14 +168,16 @@ export function normaliserBrassin(source) {
   }
   const mouvements = (Array.isArray(source.mouvements) ? source.mouvements : [])
     .filter((m) => m && CODES_FORMATS.includes(formatActuel(m.format)))
-    .map(({ rendue, ...m }) => ({
+    .map(({ rendue, perdue, ...m }) => ({
       ...m,
       id: String(m.id || nouvelId()),
-      type: m.type === 'offerte' ? 'offerte' : 'bue',
+      type: TYPES_SORTIE.includes(m.type) ? m.type : 'bue',
       format: formatActuel(m.format),
       date: estDateValide(m.date) ? m.date : '',
-      // Bouteille offerte : date à laquelle elle est revenue vide (null : pas encore rendue)
-      ...(m.type === 'offerte' ? { rendue: estDateValide(rendue) ? rendue : null } : {}),
+      // Bouteille offerte : date à laquelle elle est revenue vide, ou déclarée perdue (null : ni l'un ni l'autre)
+      ...(m.type === 'offerte'
+        ? { rendue: estDateValide(rendue) ? rendue : null, perdue: !estDateValide(rendue) && estDateValide(perdue) ? perdue : null }
+        : {}),
     }));
   // Les champs inconnus sont conservés (ajouts des étapes suivantes).
   return {
@@ -260,12 +262,16 @@ export function age(b, auj) {
 /* Sorties de bouteilles (bues ou offertes)                            */
 /* ------------------------------------------------------------------ */
 
+/** Sorties de bouteilles : bue (revient vide), offerte (revient vide si rendue), cassée (ne revient pas). */
+const TYPES_SORTIE = ['bue', 'offerte', 'cassee'];
+
 export function retirerBouteille(b, { type = 'bue', format, date, a = '', avis = '' }, id = nouvelId()) {
   const f = b.bouteilles[format];
   if (!f || f.restant <= 0) throw new Error(`Plus de bouteille de ${nomFormat(format)} pour ${b.code}.`);
+  if (!TYPES_SORTIE.includes(type)) throw new Error(`Sortie inconnue : ${type}.`);
   f.restant -= 1;
   const mouvement = { id, type, format, date };
-  if (type === 'offerte') Object.assign(mouvement, { a, avis, rendue: null });
+  if (type === 'offerte') Object.assign(mouvement, { a, avis, rendue: null, perdue: null });
   b.mouvements.unshift(mouvement);
   return mouvement;
 }
@@ -290,13 +296,32 @@ export function retablirMouvement(b, { mouvement, index }) {
 export const bues = (b) => b.mouvements.filter((m) => m.type === 'bue');
 export const offertes = (b) => b.mouvements.filter((m) => m.type === 'offerte');
 export const rendues = (b) => offertes(b).filter((m) => m.rendue);
+export const perdues = (b) => offertes(b).filter((m) => m.perdue);
+export const cassees = (b) => b.mouvements.filter((m) => m.type === 'cassee');
 
-/** Bouteille offerte rendue vide : notée à la date donnée. Renvoie la sortie, ou null (inconnue ou déjà rendue). */
+/** Bouteille offerte rendue vide : notée à la date donnée. Renvoie la sortie, ou null (inconnue, déjà rendue ou perdue). */
 export function rendreBouteille(b, idMouvement, date) {
   const m = b.mouvements.find((x) => x.id === idMouvement && x.type === 'offerte');
-  if (!m || m.rendue) return null;
+  if (!m || m.rendue || m.perdue) return null;
   m.rendue = date;
   return m;
+}
+
+/** Bouteille offerte qui ne sera jamais rendue : déclarée perdue. Renvoie la sortie, ou null (inconnue, rendue ou déjà perdue). */
+export function declarerPerdue(b, idMouvement, date) {
+  const m = b.mouvements.find((x) => x.id === idMouvement && x.type === 'offerte');
+  if (!m || m.rendue || m.perdue) return null;
+  m.perdue = date;
+  return m;
+}
+
+/** Perte annulée : la bouteille peut encore revenir. Renvoie la sortie et la date de la perte, ou null. */
+export function annulerPerte(b, idMouvement) {
+  const m = b.mouvements.find((x) => x.id === idMouvement && x.type === 'offerte');
+  if (!m?.perdue) return null;
+  const date = m.perdue;
+  m.perdue = null;
+  return { mouvement: m, date };
 }
 
 /** Retour annulé : la bouteille offerte n'est plus rendue. Renvoie la sortie et la date du retour, ou null. */
@@ -309,7 +334,7 @@ export function annulerRetour(b, idMouvement) {
 }
 
 /**
- * Bouteilles offertes pas encore rendues, regroupées par ami (« Pierre » et « pierre » ensemble) :
+ * Bouteilles offertes ni rendues ni perdues, regroupées par ami (« Pierre » et « pierre » ensemble) :
  * [{ cle, a, dons: [{ brassin, mouvement }], formats: { 33, 66 }, total }], le plus de bouteilles
  * d'abord ; dons du plus ancien au plus récent.
  */
@@ -317,7 +342,7 @@ export function bouteillesARecuperer(brassins) {
   const amis = new Map();
   for (const brassin of brassins) {
     for (const mouvement of offertes(brassin)) {
-      if (mouvement.rendue) continue;
+      if (mouvement.rendue || mouvement.perdue) continue; // revenue vide, ou qui ne reviendra pas
       const a = String(mouvement.a ?? '').trim() || 'Quelqu’un';
       const cle = cleRecherche(a) || a;
       if (!amis.has(cle)) amis.set(cle, { cle, a, dons: [], formats: Object.fromEntries(CODES_FORMATS.map((f) => [f, 0])), total: 0 });

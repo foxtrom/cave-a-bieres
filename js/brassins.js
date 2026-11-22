@@ -168,12 +168,14 @@ export function normaliserBrassin(source) {
   }
   const mouvements = (Array.isArray(source.mouvements) ? source.mouvements : [])
     .filter((m) => m && CODES_FORMATS.includes(formatActuel(m.format)))
-    .map((m) => ({
+    .map(({ rendue, ...m }) => ({
       ...m,
       id: String(m.id || nouvelId()),
       type: m.type === 'offerte' ? 'offerte' : 'bue',
       format: formatActuel(m.format),
       date: estDateValide(m.date) ? m.date : '',
+      // Bouteille offerte : date à laquelle elle est revenue vide (null : pas encore rendue)
+      ...(m.type === 'offerte' ? { rendue: estDateValide(rendue) ? rendue : null } : {}),
     }));
   // Les champs inconnus sont conservés (ajouts des étapes suivantes).
   return {
@@ -263,7 +265,7 @@ export function retirerBouteille(b, { type = 'bue', format, date, a = '', avis =
   if (!f || f.restant <= 0) throw new Error(`Plus de bouteille de ${nomFormat(format)} pour ${b.code}.`);
   f.restant -= 1;
   const mouvement = { id, type, format, date };
-  if (type === 'offerte') Object.assign(mouvement, { a, avis });
+  if (type === 'offerte') Object.assign(mouvement, { a, avis, rendue: null });
   b.mouvements.unshift(mouvement);
   return mouvement;
 }
@@ -287,6 +289,24 @@ export function retablirMouvement(b, { mouvement, index }) {
 
 export const bues = (b) => b.mouvements.filter((m) => m.type === 'bue');
 export const offertes = (b) => b.mouvements.filter((m) => m.type === 'offerte');
+export const rendues = (b) => offertes(b).filter((m) => m.rendue);
+
+/** Bouteille offerte rendue vide : notée à la date donnée. Renvoie la sortie, ou null (inconnue ou déjà rendue). */
+export function rendreBouteille(b, idMouvement, date) {
+  const m = b.mouvements.find((x) => x.id === idMouvement && x.type === 'offerte');
+  if (!m || m.rendue) return null;
+  m.rendue = date;
+  return m;
+}
+
+/** Retour annulé : la bouteille offerte n'est plus rendue. Renvoie la sortie et la date du retour, ou null. */
+export function annulerRetour(b, idMouvement) {
+  const m = b.mouvements.find((x) => x.id === idMouvement && x.type === 'offerte');
+  if (!m?.rendue) return null;
+  const date = m.rendue;
+  m.rendue = null;
+  return { mouvement: m, date };
+}
 
 /* ------------------------------------------------------------------ */
 /* Recherche et tri                                                    */

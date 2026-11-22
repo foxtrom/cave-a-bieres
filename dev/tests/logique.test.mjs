@@ -146,6 +146,29 @@ test('bouteille offerte : destinataire et avis', () => {
   assert.equal(B.bues(b).length, 0);
 });
 
+test('bouteille offerte rendue vide : notée une fois, annulable, gardée dans la sauvegarde', () => {
+  const b = brassinEmbouteille();
+  const don = B.retirerBouteille(b, { type: 'offerte', format: '33', date: '2026-11-01', a: 'Paul' });
+  assert.equal(don.rendue, null);
+  assert.equal(B.rendreBouteille(b, don.id, AUJ), don);
+  assert.equal(don.rendue, AUJ);
+  assert.equal(B.rendreBouteille(b, don.id, AUJ), null); // déjà rendue : pas deux bouteilles vides
+  assert.deepEqual(B.rendues(b).map((m) => m.a), ['Paul']);
+  assert.equal(B.normaliserBrassin(structuredClone(b)).mouvements[0].rendue, AUJ);
+  assert.deepEqual(B.annulerRetour(b, don.id), { mouvement: don, date: AUJ });
+  assert.equal(don.rendue, null);
+  assert.equal(B.annulerRetour(b, don.id), null);
+  // Une bouteille bue n'est jamais « rendue » ; une date invalide est ignorée
+  const bue = B.retirerBouteille(b, { type: 'bue', format: '33', date: AUJ });
+  assert.equal(B.rendreBouteille(b, bue.id, AUJ), null);
+  const relu = B.normaliserBrassin({ ...structuredClone(b), mouvements: [{ ...don, rendue: 'hier' }, { ...bue, rendue: AUJ }] });
+  assert.equal(relu.mouvements[0].rendue, null);
+  assert.equal('rendue' in relu.mouvements[1], false);
+  // Anciennes sauvegardes, sans le champ : pas encore rendue
+  const { rendue, ...ancien } = don;
+  assert.equal(B.normaliserBrassin({ ...structuredClone(b), mouvements: [ancien] }).mouvements[0].rendue, null);
+});
+
 test('impossible de prendre une bouteille d’un format épuisé', () => {
   const b = brassinEmbouteille({ bouteilles: { 33: { depart: 60, restant: 0 }, 66: { depart: 0, restant: 0 } } });
   assert.throws(() => B.retirerBouteille(b, { format: '33', date: AUJ }), /Plus de bouteille/);

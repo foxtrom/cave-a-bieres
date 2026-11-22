@@ -688,6 +688,38 @@ try {
     await attendreQuantite('Bouteilles vides 33 cl', '31');
   });
 
+  await etape('Bouteille offerte rendue vide → une bouteille vide de plus (annuler, rétablir, annuler le retour)', async () => {
+    const ouvrirDon = async () => {
+      await page.goto(`${BASE}#/brassin/${Bb.code}`); // don à Pierre
+      await page.click('[data-action="modifier-don"]');
+      await page.locator('#feuille[open] form[data-form="don"]').waitFor();
+    };
+    await ouvrirDon();
+    await attendreTexte('#feuille', 'Une bouteille vide de 33 cl de plus dans le stock');
+    await page.waitForTimeout(300);
+    await capture('47-don-bouteille-rendue');
+    await page.click('#feuille [data-action="bouteille-rendue"]');
+    await attendreToast(/Bouteille vide rendue par Pierre : une 33 cl de plus dans le stock/);
+    await attendreTexte('.ligne-rendue', 'Bouteille vide rendue le');
+    await attendreTexte('.bilan-retours', 'Bouteille vide rendue.');
+    await page.locator('.bilan-retours').evaluate((p) => p.scrollIntoView({ block: 'center' }));
+    await capture('48-don-rendu-fiche');
+    await page.click('#toast button'); // Annuler
+    await page.waitForFunction(() => !document.querySelector('.ligne-rendue'));
+    await attendreTexte('.bilan-retours', '1 encore chez des amis');
+    await attendreQuantite('Bouteilles vides 33 cl', '31');
+    await ouvrirDon();
+    await page.click('#feuille [data-action="bouteille-rendue"]');
+    await attendreToast(/Bouteille vide rendue/);
+    await attendreQuantite('Bouteilles vides 33 cl', '32');
+    // Retour noté par erreur : annulé depuis la feuille du don
+    await ouvrirDon();
+    await attendreTexte('#feuille .e-message--ok', 'Bouteille vide rendue le');
+    await page.click('#feuille [data-action="annuler-retour"]');
+    await attendreToast(/Retour annulé/);
+    await attendreQuantite('Bouteilles vides 33 cl', '31');
+  });
+
   await etape('Vérifier une recette avant brassage : manques ajoutés aux courses', async () => {
     await page.goto(`${BASE}#/stock`);
     const [selecteur] = await Promise.all([page.waitForEvent('filechooser'), page.click('[data-action="verifier-recette"]')]);

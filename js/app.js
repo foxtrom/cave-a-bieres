@@ -375,7 +375,7 @@ function vueFiche(b) {
 
       <section class="bloc">
         <h3>Bouteilles offertes <span class="compteur">${offertes.length}</span></h3>
-        ${offertes.length ? html`<ul class="liste">${offertes.map((m) => ligneDon(m, auj))}</ul>` : html`<p class="aide">Aucune pour l’instant.</p>`}
+        ${offertes.length ? html`<ul class="liste">${offertes.map((m) => ligneDon(m, auj))}</ul>${bilanRetours(offertes)}` : html`<p class="aide">Aucune pour l’instant.</p>`}
       </section>
 
       ${bues.length ? html`<section class="bloc"><h3>Bouteilles bues <span class="compteur">${bues.length}</span></h3>${listeBues(bues, auj)}</section>` : ''}
@@ -1167,10 +1167,20 @@ function barreFiche(b, st, s) {
     <button type="button" class="e-btn e-btn--secondaire" data-action="offrir">J’en offre une</button>`;
 }
 
+/** « 1 bouteille vide rendue, 2 encore chez des amis » : sous la liste des bouteilles offertes. */
+function bilanRetours(offertes) {
+  const rendues = offertes.filter((m) => m.rendue).length;
+  const dehors = offertes.length - rendues;
+  if (!dehors) return html`<p class="aide bilan-retours">${rendues >= 2 ? `Les ${rendues} bouteilles vides sont rendues.` : 'Bouteille vide rendue.'}</p>`;
+  const parties = [rendues ? pluriel(rendues, 'bouteille vide rendue', 'bouteilles vides rendues') : '', `${dehors} encore chez des amis`];
+  return html`<p class="aide bilan-retours">${parties.filter(Boolean).join(', ')}. Toucher un don pour noter la bouteille rendue.</p>`;
+}
+
 function ligneDon(m, auj) {
   return html`<li><button type="button" class="ligne-bouton" data-action="modifier-don" data-id="${m.id}">
     <span class="ligne-haut"><strong>${m.a || 'Quelqu’un'}</strong><span class="aide">${B.nomFormat(m.format)} · ${formaterDateCourte(m.date, auj)}</span></span>
     ${m.avis ? html`<span class="ligne-avis">« ${m.avis} »</span>` : html`<span class="ligne-ajout">+ Ajouter son avis</span>`}
+    ${m.rendue ? html`<span class="ligne-rendue">${SYMBOLES.retour}Bouteille vide rendue le ${formaterDateCourte(m.rendue, auj)}</span>` : ''}
   </button></li>`;
 }
 
@@ -1850,7 +1860,7 @@ function vueStock() {
         </section>`,
       )}
       <button type="button" class="e-btn e-btn--discret" data-action="ajouter-categorie">+ Ajouter une catégorie</button>
-      <p class="e-aide">Les bouteilles vides remontent quand une bière est bue et baissent à l’embouteillage, avec les capsules.
+      <p class="e-aide">Les bouteilles vides remontent quand une bière est bue ou qu’une bouteille offerte est rendue, et baissent à l’embouteillage, avec les capsules.
         Un seuil d’alerte fait passer l’article dans la liste de courses quand il est atteint.</p>
     </div>`,
   };
@@ -2678,9 +2688,10 @@ function vueIntrouvable(code) {
 /* Actions                                                             */
 /* ================================================================== */
 
-/** Une bouteille bue revient vide dans le stock de matériel (s'il est suivi). */
+/** Une bouteille bue, ou offerte puis rendue, revient vide dans le stock de matériel (s'il est suivi). */
 function bouteilleVide(mouvement, sens) {
-  if (mouvement.type === 'bue') I.ajusterMateriel(etat.donnees.inventaire, `bouteilles${mouvement.format}`, sens);
+  if (mouvement.type === 'bue' || mouvement.rendue) return I.ajusterMateriel(etat.donnees.inventaire, `bouteilles${mouvement.format}`, sens);
+  return 0;
 }
 
 function remettreEnStock(b, annulation, message = 'Bouteille remise en stock.') {
@@ -2789,6 +2800,13 @@ function ouvrirDon(bouton) {
     <label class="champ"><span class="libelle">À qui ?</span><input name="a" value="${m.a}" autocomplete="off" autocapitalize="words"></label>
     <label class="champ"><span class="libelle">Son avis</span><textarea name="avis" rows="3">${m.avis}</textarea></label>
     <label class="champ"><span class="libelle">Date</span><input type="date" name="date" value="${m.date}"></label>
+    <div class="retour-bouteille">${
+      m.rendue
+        ? html`<p class="e-message e-message--ok">${SYMBOLES.retour}<span>Bouteille vide rendue le ${formaterDateCourte(m.rendue, aujourdhui())} : comptée dans le stock.</span></p>
+          <button type="button" class="e-btn e-btn--discret e-btn--petit" data-action="annuler-retour" data-id="${m.id}">Annuler ce retour</button>`
+        : html`<button type="button" class="e-btn e-btn--secondaire e-btn--large" data-action="bouteille-rendue" data-id="${m.id}">${SYMBOLES.retour}Bouteille vide rendue</button>
+          <p class="aide">Une bouteille vide de ${B.nomFormat(m.format)} de plus dans le stock.</p>`
+    }</div>
     ${boutonsFeuille('Enregistrer')}
     <button type="button" class="e-btn e-btn--danger e-btn--large" data-action="supprimer-don" data-id="${m.id}">Annuler ce don (remettre en stock)</button>
   </form>`);
@@ -2806,6 +2824,41 @@ function validerDon(form) {
   if (estDateValide(f.get('date'))) m.date = f.get('date');
   modifie(b);
   toast('Bouteille offerte mise à jour.');
+}
+
+/** Bouteille offerte revenue vide : notée sur le don, une bouteille vide de plus dans le stock. */
+function rendreBouteilleVide(bouton) {
+  const b = brassinCourant();
+  const m = b && B.rendreBouteille(b, bouton.dataset.id, aujourdhui());
+  if (!m) return;
+  const credit = bouteilleVide(m, +1);
+  modifie(b);
+  const qui = m.a ? ` par ${m.a}` : '';
+  toast(credit ? `Bouteille vide rendue${qui} : une ${B.nomFormat(m.format)} de plus dans le stock.` : `Bouteille vide rendue${qui}.`, {
+    action: () => {
+      bouteilleVide(m, -1);
+      B.annulerRetour(b, m.id);
+      modifie(b);
+    },
+  });
+}
+
+/** Retour noté par erreur : la bouteille vide repart du stock. */
+function annulerRetourBouteille(bouton) {
+  const b = brassinCourant();
+  const m = b?.mouvements.find((x) => x.id === bouton.dataset.id);
+  if (!m?.rendue) return;
+  bouteilleVide(m, -1);
+  const retour = B.annulerRetour(b, m.id);
+  modifie(b);
+  toast('Retour annulé : bouteille vide retirée du stock.', {
+    libelle: 'Rétablir',
+    action: () => {
+      B.rendreBouteille(b, m.id, retour.date);
+      bouteilleVide(m, +1);
+      modifie(b);
+    },
+  });
 }
 
 function annulerSortie(bouton) {
@@ -3435,6 +3488,8 @@ const ACTIONS = {
   offrir: ouvrirOffrir,
   'modifier-don': ouvrirDon,
   'supprimer-don': annulerSortie,
+  'bouteille-rendue': rendreBouteilleVide,
+  'annuler-retour': annulerRetourBouteille,
   'annuler-mouvement': annulerSortie,
   noter,
   archiver,

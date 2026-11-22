@@ -593,6 +593,9 @@ form[data-form="casse"] > .aide { margin: 0 0 var(--e-4); }
 .e-tableau-bouteilles .e-sous-ligne th { padding-left: var(--e-3); color: var(--e-texte-2); font-weight: 400; font-size: 0.9375rem; }
 .e-tableau-bouteilles .e-sous-ligne td { color: var(--e-texte-2); font-weight: 600; font-size: 1rem; }
 .e-tableau-bouteilles td.e-zero { color: var(--e-texte-2); font-weight: 400; }
+.e-tableau-bouteilles .e-ligne-total > * { border-top: 2px solid var(--e-texte-2); }
+.e-tableau-bouteilles .e-ligne-total th { font-weight: 700; }
+.e-tableau-bouteilles .e-ligne-total td { color: var(--e-texte); font-weight: 800; }
 .e-bouteilles .e-aide { margin: var(--e-2) 0 0; }
 
 /* Stock : bouteilles à récupérer, un bloc par ami */

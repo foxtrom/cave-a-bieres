@@ -2238,11 +2238,16 @@ function blocBouteilles(auj) {
   const pleines = B.bouteillesPleines(etat.donnees.brassins, auj);
   const vides = (f) => Math.max(0, etat.donnees.inventaire.articles.find((a) => a.role === `bouteilles${f}`)?.quantite ?? 0);
   const formats = B.FORMATS.map((f) => f.code);
+  // Offertes, ni rendues ni perdues : elles reviendront vides
+  const amis = B.bouteillesARecuperer(etat.donnees.brassins);
+  const chezDesAmis = (f) => amis.reduce((s, ami) => s + ami.formats[f], 0);
   const lignes = [
     { libelle: 'Vides', valeur: vides },
     { libelle: 'Pleines', valeur: (f) => pleines[f].pleines },
-    { libelle: 'dont prêtes à boire', valeur: (f) => pleines[f].pretes, sous: true },
-    { libelle: 'dont en garde', valeur: (f) => pleines[f].pleines - pleines[f].pretes, sous: true },
+    { libelle: 'dont prêtes à boire', valeur: (f) => pleines[f].pretes, classe: 'e-sous-ligne' },
+    { libelle: 'dont en garde', valeur: (f) => pleines[f].pleines - pleines[f].pretes, classe: 'e-sous-ligne' },
+    { libelle: 'Chez des amis', valeur: chezDesAmis },
+    { libelle: 'En tout', valeur: (f) => vides(f) + pleines[f].pleines + chezDesAmis(f), classe: 'e-ligne-total' },
   ];
   const cellule = (n, classe = '') => html`<td class="${[classe, n ? '' : 'e-zero'].filter(Boolean).join(' ')}">${n}</td>`;
   return html`<section class="e-bloc e-bouteilles" aria-labelledby="titre-bouteilles">
@@ -2251,13 +2256,14 @@ function blocBouteilles(auj) {
       <thead><tr><td></td>${formats.map((f) => html`<th scope="col">${B.nomFormat(f)}</th>`)}<th scope="col">Total</th></tr></thead>
       <tbody>${lignes.map((l) => {
         const valeurs = formats.map(l.valeur);
-        return html`<tr class="${l.sous ? 'e-sous-ligne' : ''}"><th scope="row">${l.libelle}</th>${valeurs.map((n) => cellule(n))}${cellule(
+        return html`<tr class="${l.classe ?? ''}"><th scope="row">${l.libelle}</th>${valeurs.map((n) => cellule(n))}${cellule(
           valeurs.reduce((s, n) => s + n, 0),
           'e-total',
         )}</tr>`;
       })}</tbody>
     </table>
-    <p class="e-aide">Vides : celles du matériel ci-dessous. Pleines : les bières embouteillées encore en cave.</p>
+    <p class="e-aide">Vides : celles du matériel ci-dessous. Pleines : les bières embouteillées encore en cave.
+      Chez des amis : offertes, ni rendues ni perdues. En tout : vides, pleines et chez des amis.</p>
   </section>`;
 }
 

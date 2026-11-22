@@ -798,18 +798,25 @@ try {
   });
 
   await etape('Stock : bouteilles vides, pleines et prêtes à boire, en 33 cl, 66 cl et au total', async () => {
-    // Lignes : vides, pleines, dont prêtes, dont en garde ; colonnes : 33 cl, 66 cl, total
+    // Lignes : vides, pleines, dont prêtes, dont en garde, chez des amis, en tout ; colonnes : 33 cl, 66 cl, total
     const lire = () =>
       page.$$eval('.e-tableau-bouteilles tbody tr', (lignes) => lignes.map((tr) => [...tr.querySelectorAll('td')].map((td) => Number(td.textContent))));
     await page.goto(`${BASE}#/stock`);
     await page.locator('.e-tableau-bouteilles').waitFor();
     const avant = await lire();
-    assert.equal(avant.length, 4);
+    assert.equal(avant.length, 6);
     assert.equal(avant[0][0], 31); // vides 33 cl : celles du matériel
+    assert.deepEqual(avant[4], [1, 0, 1]); // la 33 cl offerte à Pierre, pas encore rendue
     for (const ligne of avant) assert.equal(ligne[2], ligne[0] + ligne[1]); // total = 33 + 66
-    for (let c = 0; c < 3; c++) assert.equal(avant[1][c], avant[2][c] + avant[3][c]); // pleines = prêtes + en garde
+    for (let c = 0; c < 3; c++) {
+      assert.equal(avant[1][c], avant[2][c] + avant[3][c]); // pleines = prêtes + en garde
+      assert.equal(avant[5][c], avant[0][c] + avant[1][c] + avant[4][c]); // en tout = vides + pleines + chez des amis
+    }
     assert.ok(avant[2][0] > 0); // des 33 cl prêtes à boire (dont celles de ${Bb.code})
     await capture('52-stock-bouteilles');
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await capture('52b-stock-bouteilles-sombre');
+    await page.emulateMedia({ colorScheme: 'light' });
     // Une 33 cl de ${Bb.code} (prête) bue : une pleine et prête de moins, une vide de plus
     await page.goto(`${BASE}#/brassin/${Bb.code}`);
     await page.click('#barre-actions [data-action="prendre"]');
@@ -819,6 +826,7 @@ try {
     await page.locator('.e-tableau-bouteilles').waitFor();
     const apres = await lire();
     assert.deepEqual([apres[0][0], apres[1][0], apres[2][0], apres[3][0]], [avant[0][0] + 1, avant[1][0] - 1, avant[2][0] - 1, avant[3][0]]);
+    assert.equal(apres[5][0], avant[5][0]); // en tout : la bouteille est toujours là, vide
     // Annulée depuis la fiche : retour au point de départ
     await page.goto(`${BASE}#/brassin/${Bb.code}`);
     await page.locator('[data-action="annuler-mouvement"]').first().click();
@@ -1199,9 +1207,12 @@ try {
   const G = { nom: 'Stout du Naouri', brassage: decaler(-5) };
   G.code = `STO-${aamm(G.brassage)}-1`;
   const debutG = new Date(`${G.brassage}T00:00:00`).getTime();
+  // La courbe part de 5,4 jours avant maintenant (densité plate avant), pas de minuit : le test donne
+  // le même résultat à toute heure (parti de minuit, la FG était déjà stable sur 3 jours après 21 h 30).
+  const origineG = Date.now() - 5.4 * 86400e3;
   const mesuresG = []; // toutes les 30 min depuis le brassage, densité en points comme chez RAPT
   for (let t = debutG + 2 * 3600e3; t <= Date.now() - 20 * 60e3; t += 30 * 60e3) {
-    const jours = (t - debutG) / 86400e3;
+    const jours = Math.max(0, (t - origineG) / 86400e3);
     mesuresG.push({ date: new Date(t).toISOString(), densite: 1010 + 42 * Math.exp(-jours / 0.8), temperature: 19.6 + 0.3 * Math.sin(jours * 6), batterie: 93 });
   }
   // Pill verte posée sur la table : elle envoie, mais sa densité est impossible (1,289)
@@ -1290,7 +1301,7 @@ try {
     assert.equal(appelsRelais.filter((a) => a.startsWith('/releves')).length, 1);
     assert.ok(appelsRelais.at(-1).includes(`pill=${PILLS[0].id}`));
     // FG stable après 3 jours (réglage par défaut) : la densité a encore perdu environ 3 points en 3 jours
-    // (vitesse et durées dépendent de l'heure du test : la fermentation simulée part de minuit)
+    // (courbe simulée calée sur l'heure du test : même phrase à toute heure)
     await page
       .waitForFunction(
         () => /La densité ne baisse presque plus \((0,\d point par jour|stable sur 24 h)\) : moins d’un point d’écart depuis \d j( \d+ h)?, sur les 3 jours demandés — encore \d+ h environ/.test(document.querySelector('.bloc-suivi')?.textContent ?? ''),

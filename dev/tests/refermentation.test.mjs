@@ -45,6 +45,13 @@ test('valeurs proposées : CO₂ selon le style, température d’après la Pill
   assert.equal(S.temperatureParDefaut({ recette, fermentation: { releves } }), 22.4);
 });
 
+test('doses prévues avant l’embouteillage : dosage noté, sinon CO₂ du style et température proposée', () => {
+  assert.equal(S.dosesPrevues({ style: 'WHT' })[33], 2.8); // blanche : 3 volumes, 20 °C → 8,55 g/L
+  assert.equal(S.dosesPrevues({ style: 'WHT', refermentation: { co2Vise: 2.4, temperature: 20 } })[33], 2);
+  const recette = { fermentation: [{ etape: 'Primaire', jours: 5, temperature: 35 }] };
+  assert.ok(S.dosesPrevues({ style: 'IPA', recette })[33] > S.dosesPrevues({ style: 'IPA' })[33]); // kveik : moins de CO₂ dissous
+});
+
 test('dosage noté sur le brassin : relu proprement', () => {
   assert.deepEqual(S.normaliserRefermentation({ co2Vise: '2.4', temperature: 20, g33: 2, g66: 4.1 }), { co2Vise: 2.4, temperature: 20, g33: 2, g66: 4.1 });
   assert.deepEqual(S.normaliserRefermentation({ co2Vise: 2.4, temperature: 20 }), { co2Vise: 2.4, temperature: 20, g33: 2, g66: 4.1 });

@@ -57,6 +57,14 @@ export function temperatureParDefaut(b) {
 }
 
 /**
+ * Doses prévues pour un brassin pas encore embouteillé : CO₂ visé et température notés sur le
+ * brassin, sinon proposés (style, RAPT Pill ou recette). → { parLitre, 33, 66 }
+ */
+export function dosesPrevues(b) {
+  return dosesSucre({ co2Vise: b.refermentation?.co2Vise ?? co2ParDefaut(b.style), temperature: b.refermentation?.temperature ?? temperatureParDefaut(b) });
+}
+
+/**
  * Dosage noté sur un brassin à l'embouteillage : { co2Vise, temperature, g33, g66 }, avec
  * retire : { articleId, quantite } quand du sucre a été retiré du stock (dans l'unité de
  * l'article, pour le rendre si l'embouteillage est refait) ; ou null.

@@ -16,11 +16,29 @@ const STOCK = [
   article('Capsules - Doré', 47),
   article('Pilsner', 7),
 ];
-const STOCK_19 = { stock33: 77, stock66: 4, capsules: 321 };
+const STOCK_19 = { stock33: 77, stock66: 4, capsules: 321, sucre: null }; // sucre pas encore suivi
 
 test('stock d’embouteillage : bouteilles vides suivies et toutes les capsules', () => {
   assert.deepEqual(E.stockEmbouteillage(STOCK), STOCK_19);
-  assert.deepEqual(E.stockEmbouteillage([]), { stock33: 0, stock66: 0, capsules: 0 });
+  assert.deepEqual(E.stockEmbouteillage([]), { stock33: 0, stock66: 0, capsules: 0, sucre: null });
+});
+
+test('sucre à prévoir : dose × bouteilles face au stock, en grammes, à part des bouteilles', () => {
+  const sucre = { id: 'sucre', nom: 'Sucre blanc', quantite: 0.85, unite: 'kg', categorie: 'autre', role: 'sucre' };
+  const stock = E.stockEmbouteillage([...STOCK, sucre]);
+  assert.equal(stock.sucre, 850); // stock en kg, compté en grammes
+  const doses = { 33: 2, 66: 4.1 }; // IPA à 2,4 volumes, bière restée à 20 °C
+  const ok = E.verifierRepartition(23, { b33: 70, b66: 0 }, stock, doses);
+  assert.deepEqual([ok.sucre, ok.manqueSucre, ok.suffisant], [140, 0, true]);
+  // 100 g seulement : 40 g manquent, mais les bouteilles suffisent toujours
+  const court = E.verifierRepartition(19.5, { b33: 51, b66: 4 }, { ...stock, sucre: 100 }, doses); // 102 g + 16,4 g
+  assert.deepEqual([court.sucre, court.manqueSucre, court.stockOk, court.suffisant], [118, 18, true, true]);
+  // Sucre non suivi (null), ou pas de doses : jamais d'alerte
+  assert.equal(E.verifierRepartition(23, { b33: 70, b66: 0 }, STOCK_19, doses).manqueSucre, 0);
+  assert.deepEqual(
+    (({ sucre: s, manqueSucre }) => ({ s, manqueSucre }))(E.verifierRepartition(23, { b33: 70, b66: 0 }, { ...stock, sucre: 0 })),
+    { s: 0, manqueSucre: 0 },
+  );
 });
 
 test('répartition proposée : les 33 cl d’abord, puis les 66 cl, puis le reste en 33 cl', () => {

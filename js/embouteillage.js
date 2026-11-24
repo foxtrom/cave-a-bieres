@@ -1,9 +1,11 @@
 // Embouteillage à venir : combien de bouteilles de 33 cl et de 66 cl, et le stock de bouteilles
-// vides et de capsules suffira-t-il ? Volume : celui noté sur le brassin, sinon celui de la recette
+// vides, de capsules et de sucre suffira-t-il ? Volume : celui noté sur le brassin, sinon celui de la recette
 // (BATCH_SIZE du fichier BeerXML, souvent 23 L). Répartition : celle choisie sur le brassin, sinon
 // celle proposée (les 33 cl d'abord). Aucun accès à la page : testable avec Node.
 
 import { capsulesDuStock } from './capsules.js';
+import { articleSucre, convertir } from './inventaire.js';
+import { sucreTotal } from './refermentation.js';
 
 /** Contenance des bouteilles, en litres. */
 export const LITRES = { 33: 0.33, 66: 0.66 };
@@ -17,11 +19,16 @@ const arrondi2 = (n) => Math.round(n * 100) / 100;
 /** Volume à embouteiller (L) : noté sur le brassin, sinon celui de la recette, sinon null. */
 export const volumeAEmbouteiller = (b) => b.volumeAEmbouteiller ?? b.recette?.volume ?? null;
 
-/** Bouteilles vides et capsules du stock : { stock33, stock66, capsules } (articles suivis par l'appli). */
+/**
+ * Bouteilles vides, capsules et sucre du stock : { stock33, stock66, capsules, sucre } (articles
+ * suivis par l'appli ; sucre en grammes, null s'il n'est pas suivi ou pas compté en masse).
+ */
 export function stockEmbouteillage(articles) {
   const role = (r) => Math.max(0, articles.find((a) => a.role === r)?.quantite ?? 0);
   const capsules = capsulesDuStock(articles).reduce((s, a) => s + Math.max(0, a.quantite), 0);
-  return { stock33: role('bouteilles33'), stock66: role('bouteilles66'), capsules };
+  const article = articleSucre(articles);
+  const sucre = article ? convertir(Math.max(0, article.quantite), article.unite, 'g') : null;
+  return { stock33: role('bouteilles33'), stock66: role('bouteilles66'), capsules, sucre: sucre == null ? null : arrondi2(sucre) };
 }
 
 /**
@@ -47,10 +54,12 @@ export function repartitionEmbouteillage(b, volume, stock) {
 /**
  * Vérifie une répartition : les bouteilles contiennent-elles tout le volume (une bouteille entamée
  * près, au plus un tiers de 33 cl), et le stock de bouteilles vides et de capsules (une par 33 cl)
- * suffit-il ? → { volume, b33, b66, contenance, manqueLitres, encore33, encore66, volumeOk,
- *   manque33, manque66, manqueCapsules, stockOk, suffisant, capsules }
+ * suffit-il ? Avec les doses de sucre par bouteille ({ 33, 66 }, en g), le sucre aussi (stock
+ * suivi seulement) : à part, il ne change ni stockOk ni suffisant (qui parlent des bouteilles).
+ * → { volume, b33, b66, contenance, manqueLitres, encore33, encore66, volumeOk,
+ *   manque33, manque66, manqueCapsules, stockOk, suffisant, capsules, sucre, manqueSucre }
  */
-export function verifierRepartition(volume, { b33, b66 }, { stock33, stock66, capsules }) {
+export function verifierRepartition(volume, { b33, b66 }, { stock33, stock66, capsules, sucre: stockSucre = null }, doses = null) {
   const contenance = arrondi2(b33 * LITRES[33] + b66 * LITRES[66]);
   const manqueLitres = arrondi2(Math.max(0, volume - contenance));
   const volumeOk = manqueLitres <= LITRES[33] / 3;
@@ -58,6 +67,8 @@ export function verifierRepartition(volume, { b33, b66 }, { stock33, stock66, ca
   const manque66 = Math.max(0, b66 - stock66);
   const manqueCapsules = Math.max(0, b33 - capsules);
   const stockOk = !manque33 && !manque66 && !manqueCapsules;
+  const sucre = doses ? sucreTotal(doses, { b33, b66 }) : 0;
+  const manqueSucre = stockSucre == null ? 0 : Math.max(0, Math.ceil(sucre - stockSucre - 1e-9));
   return {
     volume,
     b33,
@@ -73,6 +84,8 @@ export function verifierRepartition(volume, { b33, b66 }, { stock33, stock66, ca
     manqueCapsules,
     stockOk,
     suffisant: volumeOk && stockOk,
+    sucre,
+    manqueSucre,
   };
 }
 

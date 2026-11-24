@@ -1426,7 +1426,7 @@ try {
     await page.locator('.bloc-suivi [data-action="actualiser-pill"]').waitFor();
   });
 
-  await etape(`Embouteillage à venir de ${G.code} : volume, bouteilles suffisantes ou manquantes, courses`, async () => {
+  await etape(`Embouteillage à venir de ${G.code} : volume, bouteilles et sucre suffisants ou manquants, courses`, async () => {
     const volume = '.bloc-embouteillage [data-volume-embouteillage]';
     const saisir = async (valeur) => {
       await page.fill(volume, valeur);
@@ -1436,6 +1436,10 @@ try {
     await attendreTexte('.bloc-embouteillage', 'Indiquer le volume de bière dans le fermenteur'); // brassin sans recette
     await saisir('3,3');
     await attendreTexte('.bloc-embouteillage .e-message--ok', 'Assez de bouteilles');
+    // Sucre à prévoir pour ces bouteilles, face au stock : assez, pas d'alerte
+    await attendreTexte('.bloc-embouteillage .calcul-embouteillage', 'g de sucre (');
+    await attendreTexte('.bloc-embouteillage .calcul-embouteillage', 'g en stock)');
+    assert.equal(await page.locator('.bloc-embouteillage .e-message--alerte', { hasText: 'sucre' }).count(), 0);
     await attendreTexte('.bloc-embouteillage', 'Volume mesuré, noté sur ce brassin');
     await attendreTexte('.bloc-embouteillage', 'Proposée : les 33 cl du stock d’abord');
     // Répartition choisie : 5 × 33 cl ne suffisent pas pour 3,3 L → alerte, puis compléter, puis revenir
@@ -1459,12 +1463,14 @@ try {
     await saisir('200');
     await attendreTexte('.bloc-embouteillage .e-message--alerte', 'Pour 200 L');
     await attendreTexte('.bloc-embouteillage .e-message--alerte', 'il manque');
+    await attendreTexte('.bloc-embouteillage .e-message--alerte', 'g de sucre dans le stock');
     await page.locator('.bloc-embouteillage').evaluate((s) => s.scrollIntoView({ block: 'center' }));
     await capture('45-embouteillage-a-venir');
     await page.click('[data-action="courses-embouteillage"]');
     await attendreToast(/liste de courses/);
     await page.goto(`${BASE}#/stock/courses`);
     await attendreTexte('#vue', 'Bouteilles vides 33 cl');
+    await attendreTexte('#vue', 'Sucre blanc');
     // Volume effacé : celui de la recette (aucune ici)
     await page.goto(`${BASE}#/brassin/${G.code}`);
     await saisir('');

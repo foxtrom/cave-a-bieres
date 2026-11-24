@@ -520,7 +520,7 @@ function majReperesStabilite(brassins = etat.donnees.brassins) {
   return change;
 }
 
-/* ---------- Embouteillage à venir : bouteilles vides et capsules suffisent-elles ? ---------- */
+/* ---------- Embouteillage à venir : bouteilles vides, capsules et sucre suffisent-ils ? ---------- */
 
 const enLitres = (n) => `${n.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} L`;
 
@@ -532,7 +532,8 @@ function repartition(r) {
 
 /**
  * Embouteillage prévu d'un brassin : volume, stock, répartition (choisie, sinon les 33 cl d'abord)
- * et sa vérification ; null sans volume ou sans bouteilles vides suivies dans le stock.
+ * et sa vérification, sucre compris (dose prévue : CO₂ du style, température de la Pill ou de la
+ * recette) ; null sans volume ou sans bouteilles vides suivies dans le stock.
  */
 function embouteillagePrevu(b) {
   const articles = etat.donnees.inventaire.articles;
@@ -541,7 +542,7 @@ function embouteillagePrevu(b) {
   if (!volume) return { volume: null };
   const stock = EM.stockEmbouteillage(articles);
   const rep = EM.repartitionEmbouteillage(b, volume, stock);
-  return { volume, stock, rep, v: EM.verifierRepartition(volume, rep, stock) };
+  return { volume, stock, rep, v: EM.verifierRepartition(volume, rep, stock, S.dosesPrevues(b)) };
 }
 
 /** « 70 × 0,33 L + 4 × 0,66 L = 25,74 L » : le calcul de la contenance. */
@@ -561,11 +562,12 @@ function verdictsEmbouteillage(v) {
     messages.push(html`<p class="e-message e-message--alerte">${SYMBOLES.alerte}<span>${texte}</span></p>
       <button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="completer-embouteillage">Compléter avec ${pluriel(v.encore33, 'bouteille')} de 33 cl</button>`);
   }
-  if (!v.stockOk) {
+  if (!v.stockOk || v.manqueSucre) {
     const manques = [
       v.manque33 ? pluriel(v.manque33, 'bouteille vide de 33 cl', 'bouteilles vides de 33 cl') : '',
       v.manque66 ? pluriel(v.manque66, 'bouteille vide de 66 cl', 'bouteilles vides de 66 cl') : '',
       v.manqueCapsules ? pluriel(v.manqueCapsules, 'capsule') : '',
+      v.manqueSucre ? `${enGrammes(v.manqueSucre)} de sucre` : '',
     ].filter(Boolean);
     const liste = manques.length > 1 ? `${manques.slice(0, -1).join(', ')} et ${manques.at(-1)}` : manques[0];
     messages.push(html`<p class="e-message e-message--alerte">${SYMBOLES.alerte}<span>Pour ${enLitres(v.volume)} (${repartition(v)}), il manque ${liste} dans le stock.</span></p>
@@ -582,7 +584,7 @@ function verdictsEmbouteillage(v) {
 /**
  * Fiche d'un brassin en fermentation : volume à embouteiller (recette, ou mesuré et noté sur le
  * brassin), répartition 33 / 66 cl (proposée : les 33 cl du stock d'abord ; ou choisie), calcul
- * de la contenance, bouteilles et capsules qui manqueront.
+ * de la contenance, sucre à prévoir, bouteilles, capsules et sucre qui manqueront.
  */
 function blocEmbouteillage(b) {
   const prevu = embouteillagePrevu(b);
@@ -616,7 +618,7 @@ function blocEmbouteillage(b) {
           </fieldset>
           <p class="calcul-embouteillage">${calculContenance(v)} <small>pour ${enLitres(volume)} de bière${
             v.b33 ? ` · ${pluriel(v.capsules, 'capsule')} pour les 33 cl (${stock.capsules} en stock)` : ''
-          }</small></p>
+          }${stock.sucre != null && v.sucre ? ` · ≈ ${enGrammes(v.sucre)} de sucre (${enGrammes(stock.sucre)} en stock)` : ''}</small></p>
           ${verdictsEmbouteillage(v)}`
         : ''
     }
@@ -681,7 +683,7 @@ function completerEmbouteillage() {
   modifie(b);
 }
 
-/** Bouteilles vides et capsules qui manqueront : ajoutées à la liste de courses (sans doublon). */
+/** Bouteilles vides, capsules et sucre qui manqueront : ajoutés à la liste de courses (sans doublon). */
 function coursesEmbouteillage() {
   const b = brassinCourant();
   const prevu = b && embouteillagePrevu(b);
@@ -696,6 +698,12 @@ function coursesEmbouteillage() {
     v.manque66 ? manque(role('bouteilles66'), 'Bouteilles vides 66 cl', v.manque66) : null,
     v.manqueCapsules ? manque(capsules, 'Capsules', v.manqueCapsules) : null,
   ].filter(Boolean);
+  // Sucre : dans l'unité de son article (g ou kg)
+  const sucre = I.articleSucre(inventaire.articles);
+  const sucreManquant = v.manqueSucre && sucre ? I.convertir(v.manqueSucre, 'g', sucre.unite) : null;
+  if (sucreManquant != null) {
+    lignes.push({ statut: 'insuffisant', article: sucre, besoin: { nom: sucre.nom, categorie: sucre.categorie }, manque: Math.round(sucreManquant * 1000) / 1000, uniteManque: sucre.unite });
+  }
   if (!lignes.length) return;
   const ajouts = I.ajouterManques(inventaire, lignes, `Embouteillage ${b.code}`);
   sauver();

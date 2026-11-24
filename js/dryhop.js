@@ -1,7 +1,7 @@
 // Dry hop : houblons ajoutés dans le fermenteur pendant la fermentation, notés sur le brassin
 // (houblon, quantité, date d'ajout) et retirés du stock. Aucun accès à la page : testable avec Node.
 
-import { estDateValide, joursEntre } from './dates.js';
+import { dateLocale, estDateValide, joursEntre } from './dates.js';
 import { nouvelId } from './outils.js';
 
 /** Quantité maximale d'un ajout, en grammes. */
@@ -53,6 +53,22 @@ export function verifierSaisie({ nom, g, le }, { dateBrassage = '', dateEmboutei
   if (dateBrassage && le < dateBrassage) return { erreur: 'Le dry hop ne peut pas précéder le brassage.' };
   if (dateEmbouteillage && dateEmbouteillage <= auj && le > dateEmbouteillage) return { erreur: 'Le dry hop ne peut pas suivre l’embouteillage.' };
   return { nom: propre, g, le };
+}
+
+/**
+ * Repères du dry hop sur la courbe de la Pill (mesures de tMin à tMax, en ms) : un par jour
+ * d'ajout, à midi, ramené au premier ou au dernier relevé s'il tombe le même jour mais en dehors ;
+ * un jour sans mesure de la Pill n'a pas de repère. → [{ le, t, noms }], par date.
+ */
+export function reperesDryHop(dryHops, tMin, tMax) {
+  const parJour = new Map();
+  for (const d of dryHops) parJour.set(d.le, [...(parJour.get(d.le) ?? []), d.nom]);
+  const premier = dateLocale(new Date(tMin));
+  const dernier = dateLocale(new Date(tMax));
+  return [...parJour]
+    .filter(([le]) => le >= premier && le <= dernier)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([le, noms]) => ({ le, noms, t: Math.min(tMax, Math.max(tMin, new Date(`${le}T12:00:00`).getTime())) }));
 }
 
 const jours = (n) => `${n} ${n >= 2 ? 'jours' : 'jour'}`;

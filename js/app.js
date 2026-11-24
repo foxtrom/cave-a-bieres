@@ -947,7 +947,7 @@ function blocSuivi(b, auj) {
     ${actif && d && ecartee ? html`<p class="alerte">Dernière mesure écartée : ${ecartee}. La Pill <span class="insecable">flotte-t-elle encore ?</span></p>` : ''}
     ${actif && a.silencieuse ? html`<p class="alerte">La Pill n’a rien envoyé depuis plus de ${F.SILENCE_HEURES} heures : pile, wifi ou portée ?</p>` : ''}
     ${erreur && actif ? html`<p class="alerte">${erreur}</p>` : ''}
-    ${courbeSuivi(f, a)}
+    ${courbeSuivi(f, a, b.dryHops)}
     ${tableauSuivi(f)}
     <div class="actions-suivi">
       ${degreDifferent && (a.stable || !enFermentation) ? html`<button type="button" class="e-btn e-btn--secondaire e-btn--petit" data-action="utiliser-degre">Noter ${fr1(a.abv)} % comme degré du brassin</button>` : ''}
@@ -979,11 +979,32 @@ const formatJour = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-
 const texteLecture = (r) =>
   `${formatLecture.format(new Date(r.t))} : ${R.formaterDensite(r.d)}${r.c !== null ? ` · ${R.formaterTemperature(r.c)}` : ''}`;
 
-function courbeSuivi(f, a) {
+/**
+ * Repères du dry hop sur le panneau de densité : trait vertical pointillé au jour de l'ajout,
+ * « dry hop » écrit à côté (sauf s'il chevaucherait le précédent).
+ */
+function reperesDryHopCourbe(dryHops, gd) {
+  const { x1, y0, y1 } = COURBE.densite;
+  let dernierLibelle = -Infinity;
+  return DH.reperesDryHop(dryHops, gd.tMin, gd.tMax).map((r) => {
+    const x = gd.x(r.t);
+    const libelle = x - dernierLibelle >= 48;
+    if (libelle) dernierLibelle = x;
+    const aGauche = x > x1 - 46; // trop près du bord droit : le mot passe à gauche du trait
+    return brut(`<line class="repere-dry-hop" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${y0}" y2="${y1}"/>${
+      libelle
+        ? `<text class="etiquette-dry-hop" x="${(x + (aGauche ? -3 : 3)).toFixed(1)}" y="${y0 + 9}" text-anchor="${aGauche ? 'end' : 'start'}">dry hop</text>`
+        : ''
+    }`);
+  });
+}
+
+function courbeSuivi(f, a, dryHops = []) {
   const g = geometriesCourbe(f, a);
   if (!g) return '';
   const { densite: gd, temperature: gt } = g;
   const { x0, x1 } = COURBE.densite;
+  const reperes = reperesDryHopCourbe(dryHops, gd);
   const graduationsD = F.graduations(gd.vMin, gd.vMax, 3).filter((v) => v >= gd.vMin && v <= gd.vMax);
   const graduationsT = gt ? F.graduations(gt.vMin, gt.vMax, 2).filter((v) => v >= gt.vMin && v <= gt.vMax) : [];
   const jours = (gd.tMax - gd.tMin) / 86_400_000;
@@ -993,7 +1014,9 @@ function courbeSuivi(f, a) {
   const pt = gt?.positions.at(-1);
   return html`<figure class="courbe" data-courbe>
     <p class="courbe-lecture" aria-live="polite">${texteLecture(derniere)}</p>
-    <svg viewBox="0 0 ${COURBE.largeur} ${COURBE.hauteur}" role="img" aria-label="Courbes de densité et de température depuis le début du suivi">
+    <svg viewBox="0 0 ${COURBE.largeur} ${COURBE.hauteur}" role="img" aria-label="Courbes de densité et de température depuis le début du suivi${
+      reperes.length ? `, avec ${reperes.length >= 2 ? `${reperes.length} repères` : 'le repère'} du dry hop` : ''
+    }">
       <text class="titre-panneau" x="${x0}" y="12">Densité</text>
       ${graduationsD.map(
         (v) => brut(`<line class="grille" x1="${x0}" x2="${x1}" y1="${gd.y(v).toFixed(1)}" y2="${gd.y(v).toFixed(1)}"/>
@@ -1005,6 +1028,7 @@ function courbeSuivi(f, a) {
             <text class="etiquette-axe" x="${x1}" y="${(gd.y(a.dfVisee) - 4).toFixed(1)}" text-anchor="end">visée ${R.formaterDensite(a.dfVisee)}</text>`)
           : ''
       }
+      ${reperes}
       <path class="ligne-densite" d="${gd.chemin}"/>
       ${
         gt
@@ -1242,7 +1266,9 @@ function blocRecette(r, b) {
     <span class="quantite">${quantite}${part ? html`<small>${part}</small>` : ''}</span>
   </li>`;
   const totalMalts = r.malts.reduce((total, m) => total + (m.kg ?? 0), 0);
-  const totalHoublons = r.houblons.reduce((total, h) => total + (h.g ?? 0), 0);
+  // Houblons : ceux de la recette, puis ceux ajoutés en dry hop pendant la fermentation (bloc Dry hop).
+  const dryHops = b.dryHops ?? [];
+  const totalHoublons = r.houblons.reduce((total, h) => total + (h.g ?? 0), 0) + DH.totalDryHop(dryHops);
   const cadre = [
     R.formaterLitres(r.volume),
     r.di ? `DI ${R.formaterDensite(r.di)}` : '',
@@ -1265,11 +1291,11 @@ function blocRecette(r, b) {
         : ''
     }
     ${
-      r.houblons.length
+      r.houblons.length || dryHops.length
         ? html`<h4>Houblons<span>${R.formaterGrammes(totalHoublons)}</span></h4>
           <ul class="ingredients">${r.houblons.map((h) =>
             ligne(h.nom, [h.alpha != null ? `${R.formaterPourcent(h.alpha)} alpha` : '', R.usageHoublon(h)].filter(Boolean).join(' · '), R.formaterGrammes(h.g)),
-          )}</ul>`
+          )}${dryHops.map((d) => ligne(d.nom, `Dry hop · ajouté le ${formaterDateCourte(d.le)}`, R.formaterGrammes(d.g)))}</ul>`
         : ''
     }
     ${

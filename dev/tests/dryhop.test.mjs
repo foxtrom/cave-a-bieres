@@ -55,6 +55,32 @@ test('durée : depuis combien de jours, puis combien de jours avant l’emboutei
   assert.equal(DH.texteDuree({ le: '2026-11-22' }, '2026-11-22', AUJ), 'le jour de l’embouteillage');
 });
 
+test('repères sur la courbe de la Pill : un par jour d’ajout, dans la période des mesures', () => {
+  // Heures locales, comme celles de la courbe
+  const tMin = new Date('2026-11-19T08:00:00').getTime();
+  const tMax = new Date('2026-11-24T10:00:00').getTime();
+  const reperes = DH.reperesDryHop(
+    [
+      { nom: 'Galaxy', le: '2026-11-24' }, // aujourd'hui, dernière mesure avant midi : ramené à cette mesure
+      { nom: 'Mosaic', le: '2026-11-22' },
+      { nom: 'Citra', le: '2026-11-22' }, // même jour : un seul repère
+      { nom: 'Trop tôt', le: '2026-11-18' }, // avant la première mesure : pas de repère
+    ],
+    tMin,
+    tMax,
+  );
+  assert.deepEqual(
+    reperes.map((r) => [r.le, r.noms.join(' + ')]),
+    [
+      ['2026-11-22', 'Mosaic + Citra'],
+      ['2026-11-24', 'Galaxy'],
+    ],
+  );
+  assert.equal(reperes[0].t, new Date('2026-11-22T12:00:00').getTime());
+  assert.equal(reperes[1].t, tMax);
+  assert.deepEqual(DH.reperesDryHop([], tMin, tMax), []);
+});
+
 test('houblon retiré du stock en grammes, converti dans l’unité de l’article', () => {
   const inv = I.inventaireVide();
   inv.articles.push(

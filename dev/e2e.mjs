@@ -492,6 +492,26 @@ try {
     await page.emulateMedia({ colorScheme: 'light' });
   });
 
+  await etape(`Dry hop dans la composition de la recette (${D.code}), puis supprimé`, async () => {
+    // Stock pas encore ouvert : aucun houblon suivi, « Autre houblon » est proposé d'office
+    await page.click('.bloc-dry-hop [data-action="ajouter-dry-hop"]');
+    await page.locator('#feuille form[data-form="dry-hop"]').waitFor();
+    assert.equal(await page.inputValue('#feuille select[name="article"]'), '-autre');
+    await page.fill('#feuille input[name="nom"]', 'Citra');
+    await page.fill('#feuille input[name="g"]', '80');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Dry hop noté : Citra, 80\sg\. Pas dans le stock/);
+    await attendreTexte('.bloc-recette', 'Houblons193 g'); // 113 g de la recette + 80 g de dry hop
+    await attendreTexte('.bloc-recette', 'CitraDry hop · ajouté le');
+    await page.locator('.bloc-recette h4', { hasText: 'Houblons' }).evaluate((h) => h.scrollIntoView({ block: 'start' }));
+    await capture('53-dry-hop-recette');
+    await page.click('.bloc-dry-hop [data-action="modifier-dry-hop"]');
+    await page.click('#feuille [data-action="supprimer-dry-hop"]');
+    await attendreToast(/Dry hop supprimé : Citra, 80\sg\.$/);
+    await attendreTexte('.bloc-recette', 'Houblons113 g');
+    await attendreNombre(page, '.bloc-dry-hop .ligne-bouton', 0);
+  });
+
   const DEUX_RECETTES = join(sortie, 'deux-recettes.xml');
   await writeFile(
     DEUX_RECETTES,
@@ -1544,6 +1564,13 @@ try {
     await page.click('#toast button'); // Annuler
     await attendreNombre(page, '.bloc-dry-hop .ligne-bouton', 2);
     await attendreQuantite('Mosaic', `${mosaic - 120} g`);
+    // Repères sur la courbe de la Pill : il y a 2 jours (Mosaic) et aujourd'hui (Galaxy)
+    await page.goto(`${BASE}#/brassin/${G.code}`);
+    await attendreNombre(page, '.bloc-suivi .repere-dry-hop', 2);
+    await attendreNombre(page, '.bloc-suivi .etiquette-dry-hop', 2);
+    assert.match(await page.locator('.bloc-suivi .courbe svg').getAttribute('aria-label'), /avec 2 repères du dry hop/);
+    await page.locator('.bloc-suivi .courbe').evaluate((s) => s.scrollIntoView({ block: 'center' }));
+    await capture('52-dry-hop-courbe');
   });
 
   await etape(`Embouteillage de ${G.code} : le suivi devient un résumé`, async () => {

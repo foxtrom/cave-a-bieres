@@ -2,7 +2,7 @@
 // Navigation par ancre (#/…), vues produites en HTML, actions déléguées
 // via les attributs data-action (clic), data-form (envoi) et data-reglage (changement).
 
-import { brut, html } from './outils.js';
+import { brut, html, nouvelId } from './outils.js';
 import { aujourdhui, dateLocale, ajouterJours, estDateValide, formaterDate, formaterDateCourte, joursEntre, relatif } from './dates.js';
 import * as B from './brassins.js';
 import { decoderOctets, lireBeerXml } from './beerxml.js';
@@ -12,6 +12,7 @@ import * as I from './inventaire.js';
 import * as C from './capsules.js';
 import * as EM from './embouteillage.js';
 import * as S from './refermentation.js';
+import * as DH from './dryhop.js';
 import * as F from './fermentation.js';
 import { POLICES } from './polices.js';
 import { copieRelaisDue, creerSauvegarde, donneesVides, empreinteDonnees, lireSauvegarde, nomFichierSauvegarde, normaliserDonnees, rappelSauvegarde } from './donnees.js';
@@ -356,13 +357,13 @@ function vueFiche(b) {
 
       ${blocEtat(b, auj)}
 
-      ${st === 'fermentation' ? html`${blocSuivi(b, auj)}${blocEmbouteillage(b)}` : blocStock(b, { seuil: etat.donnees.reglages.seuilStockBas, auj, capsules: C.capsulesDuStock(etat.donnees.inventaire.articles).length > 0 })}
+      ${st === 'fermentation' ? html`${blocSuivi(b, auj)}${blocDryHop(b, auj, true)}${blocEmbouteillage(b)}` : blocStock(b, { seuil: etat.donnees.reglages.seuilStockBas, auj, capsules: C.capsulesDuStock(etat.donnees.inventaire.articles).length > 0 })}
 
       ${frise(b, auj)}
 
       ${metriques(b, { codeEtiquette: true })}
 
-      ${st === 'fermentation' ? '' : blocSuivi(b, auj)}
+      ${st === 'fermentation' ? '' : html`${blocSuivi(b, auj)}${blocDryHop(b, auj, false)}`}
 
       <a class="bloc lien-etiquettes" href="${lienBrassin(b, '/etiquettes')}">
         ${brut(E.etiquetteSvg(E.donneesEtiquette(b, etat.donnees.inventaire.articles), '33 cl', { classe: 'etiquette etiquette-vignette' }))}
@@ -709,6 +710,169 @@ function coursesEmbouteillage() {
   sauver();
   afficher();
   toast(ajouts ? `${pluriel(ajouts, 'achat')} ajouté${ajouts >= 2 ? 's' : ''} à la liste de courses.` : 'Déjà dans la liste de courses : quantité mise à jour.');
+}
+
+/* ---------- Dry hop : houblons ajoutés pendant la fermentation, retirés du stock ---------- */
+
+const AUTRE_HOUBLON = '-autre'; // houblon qui n'est pas dans le stock : nom saisi, rien n'est retiré
+
+/** Houblons du stock, par ordre alphabétique. */
+const houblonsDuStock = () =>
+  etat.donnees.inventaire.articles.filter((a) => a.categorie === 'houblon').sort((x, y) => x.nom.localeCompare(y.nom, 'fr'));
+
+/**
+ * Bloc « Dry hop » de la fiche : chaque ajout (houblon, quantité, date, durée), à toucher pour le
+ * modifier ; « Ajouter un dry hop » pendant la fermentation. Après l'embouteillage, seulement s'il y en a eu.
+ */
+function blocDryHop(b, auj, enFermentation) {
+  const liste = b.dryHops ?? [];
+  if (!enFermentation && !liste.length) return '';
+  const ligne = (d) => html`<li><button type="button" class="ligne-bouton" data-action="modifier-dry-hop" data-id="${d.id}">
+      <span class="ligne-haut"><strong>${d.nom} · ${enGrammes(d.g)}</strong><span class="aide">${formaterDateCourte(d.le, auj)}</span></span>
+      <span class="aide">${DH.texteDuree(d, b.dateEmbouteillage, auj)}${d.articleId ? '' : ' · pas dans le stock'}</span>
+    </button></li>`;
+  return html`<section class="e-bloc bloc-dry-hop" aria-label="Dry hop">
+    <h2 class="e-titre-section">Dry hop</h2>
+    ${
+      liste.length
+        ? html`<ul class="liste">${liste.map(ligne)}</ul>${liste.length > 1 ? html`<p class="e-aide">${enGrammes(DH.totalDryHop(liste))} de houblon en tout.</p>` : ''}`
+        : html`<p class="e-aide">Houblon ajouté dans le fermenteur : à noter ici, il est retiré du stock.</p>`
+    }
+    ${enFermentation ? html`<button type="button" class="e-btn e-btn--secondaire" data-action="ajouter-dry-hop">${SYMBOLES.plus}Ajouter un dry hop</button>` : ''}
+  </section>`;
+}
+
+/** Fenêtre « Ajouter un dry hop », ou d'un dry hop déjà noté (bouton de la ligne) : houblon, quantité, date. */
+function ouvrirDryHop(bouton) {
+  const b = brassinCourant();
+  if (!b) return;
+  const d = bouton?.dataset.id ? b.dryHops.find((x) => x.id === bouton.dataset.id) : null;
+  if (bouton?.dataset.id && !d) return;
+  const auj = aujourdhui();
+  const houblons = houblonsDuStock();
+  const autre = d ? !d.articleId : !houblons.length;
+  // Stock affiché : ce que ce dry hop avait retiré y est compté (il est rendu avant de retirer la nouvelle quantité).
+  const enStock = (a) => R.arrondi(a.quantite + (d?.articleId === a.id ? d.retire : 0), 3);
+  const feuille = ouvrirFeuille(html`<form class="feuille-contenu" data-form="dry-hop"${d ? brut(` data-id="${d.id}"`) : ''} novalidate>
+    <h2 tabindex="-1" autofocus>${d ? `Dry hop de ${b.code}` : 'Ajouter un dry hop'}</h2>
+    <label class="champ"><span class="libelle">Houblon</span>
+      <select name="article">
+        ${houblons.length ? html`<option value="" ${d || autre ? '' : 'selected'}>Choisir un houblon…</option>` : ''}
+        ${houblons.map((a) => html`<option value="${a.id}" ${d?.articleId === a.id ? 'selected' : ''}>${a.nom} (${I.formaterQuantite(enStock(a), a.unite) || '0'})</option>`)}
+        <option value="${AUTRE_HOUBLON}" ${autre ? 'selected' : ''}>Autre houblon (pas dans le stock)</option>
+      </select></label>
+    <label class="champ" data-nom-autre ${autre ? '' : 'hidden'}><span class="libelle">Nom du houblon</span>
+      <input name="nom" value="${autre && d ? d.nom : ''}" autocomplete="off" autocapitalize="words"></label>
+    <label class="champ"><span class="libelle">Quantité</span>
+      <span class="champ-unite"><input name="g" inputmode="decimal" value="${enChamp(d?.g ?? null)}" placeholder="100" autocomplete="off"><span>g</span></span></label>
+    <p class="aide stock-dry-hop" data-stock-dry-hop aria-live="polite"></p>
+    <label class="champ"><span class="libelle">Ajouté le</span>
+      <input type="date" name="le" value="${d?.le ?? auj}" max="${auj}"></label>
+    ${boutonsFeuille(d ? 'Enregistrer' : 'Ajouter')}
+    ${d ? html`<button type="button" class="e-btn e-btn--danger e-btn--large" data-action="supprimer-dry-hop" data-id="${d.id}">Supprimer ce dry hop${d.retire ? ' (rendu au stock)' : ''}</button>` : ''}
+  </form>`);
+  const form = feuille.querySelector('form');
+  form.addEventListener('input', () => majStockDryHop(form));
+  form.addEventListener('change', () => majStockDryHop(form));
+  majStockDryHop(form);
+}
+
+/** Fenêtre Dry hop : le stock du houblon choisi, ce qu'il en restera ou ce qui manque. */
+function majStockDryHop(form) {
+  const zone = form.querySelector('[data-stock-dry-hop]');
+  const choix = form.elements.article.value;
+  form.querySelector('[data-nom-autre]').hidden = choix !== AUTRE_HOUBLON;
+  zone.classList.remove('manque');
+  if (choix === AUTRE_HOUBLON) {
+    zone.textContent = 'Pas dans le stock : rien n’en sera retiré.';
+    return;
+  }
+  const article = etat.donnees.inventaire.articles.find((a) => a.id === choix);
+  if (!article) {
+    zone.textContent = '';
+    return;
+  }
+  if (I.convertir(1, 'g', article.unite) == null) {
+    zone.textContent = `« ${article.nom} » est compté en ${article.unite} : rien n’en sera retiré du stock.`;
+    return;
+  }
+  const d = form.dataset.id ? brassinCourant()?.dryHops.find((x) => x.id === form.dataset.id) : null;
+  const enStock = article.quantite + (d?.articleId === article.id ? d.retire : 0);
+  const g = B.lireNombre(form.elements.g.value);
+  const voulu = g > 0 ? I.convertir(g, 'g', article.unite) : null;
+  const q = (n) => I.formaterQuantite(Math.round(n * 1000) / 1000, article.unite);
+  if (voulu == null) zone.textContent = `${q(enStock)} en stock.`;
+  else if (voulu <= enStock + 1e-9) zone.textContent = `${q(enStock)} en stock, il en restera ${q(enStock - voulu)}.`;
+  else {
+    zone.textContent = `${q(enStock)} en stock : il en manque ${q(voulu - enStock)}.`;
+    zone.classList.add('manque');
+  }
+}
+
+/** Dry hop ajouté ou modifié : noté sur le brassin, houblon retiré du stock (l'ancienne quantité rendue d'abord). */
+function validerDryHop(form) {
+  const b = brassinCourant();
+  if (!b) return;
+  const ancien = form.dataset.id ? b.dryHops.find((x) => x.id === form.dataset.id) : null;
+  if (form.dataset.id && !ancien) return;
+  const inventaire = etat.donnees.inventaire;
+  const f = new FormData(form);
+  const choix = String(f.get('article') ?? '');
+  const article = choix && choix !== AUTRE_HOUBLON ? inventaire.articles.find((a) => a.id === choix) : null;
+  if (!article && choix !== AUTRE_HOUBLON) return erreurFeuille(form, 'Choisir le houblon.');
+  const saisie = DH.verifierSaisie(
+    { nom: article ? article.nom : f.get('nom'), g: B.lireNombre(f.get('g')), le: String(f.get('le') ?? '') },
+    { dateBrassage: b.dateBrassage, dateEmbouteillage: b.dateEmbouteillage, auj: aujourdhui() },
+  );
+  if (saisie.erreur) return erreurFeuille(form, saisie.erreur);
+
+  const avant = structuredClone(b.dryHops);
+  const rendu = ancien?.retire ? { articleId: ancien.articleId, quantite: ancien.retire } : null;
+  if (rendu) I.remettre(inventaire, [rendu]);
+  const retire = article ? I.retirerGrammes(inventaire, article.id, saisie.g) : null;
+  const dryHop = { id: ancien?.id ?? nouvelId(), ...saisie, articleId: article?.id ?? '', retire: retire?.quantite ?? 0 };
+  b.dryHops = DH.normaliserDryHops([...b.dryHops.filter((x) => x !== ancien), dryHop]);
+  modifie(b);
+  const q = (n) => I.formaterQuantite(n, retire.unite);
+  const stock = !retire
+    ? article
+      ? ''
+      : ' Pas dans le stock : rien n’en est retiré.'
+    : retire.manque > 0
+      ? ` ${retire.nom} : ${q(retire.manque)} de plus que le stock, mis à zéro.`
+      : ` ${q(retire.quantite)} retiré${retire.quantite >= 2 ? 's' : ''} du stock.`;
+  toast(`Dry hop ${ancien ? 'modifié' : 'noté'} : ${saisie.nom}, ${enGrammes(saisie.g)}.${stock}`, {
+    duree: 8000,
+    action: () => {
+      if (retire) I.remettre(inventaire, [retire]);
+      if (rendu) I.deduire(inventaire, [rendu]);
+      b.dryHops = avant;
+      modifie(b);
+    },
+  });
+}
+
+/** Dry hop supprimé : le houblon retiré est rendu au stock. */
+function supprimerDryHop(bouton) {
+  const b = brassinCourant();
+  const d = b?.dryHops.find((x) => x.id === bouton.dataset.id);
+  if (!d) return;
+  const inventaire = etat.donnees.inventaire;
+  const avant = structuredClone(b.dryHops);
+  const rendu = d.retire ? { articleId: d.articleId, quantite: d.retire } : null;
+  const article = rendu && inventaire.articles.find((a) => a.id === d.articleId);
+  if (rendu) I.remettre(inventaire, [rendu]);
+  b.dryHops = b.dryHops.filter((x) => x !== d);
+  modifie(b);
+  const stock = article ? ` ${I.formaterQuantite(d.retire, article.unite)} rendu${d.retire >= 2 ? 's' : ''} au stock.` : '';
+  toast(`Dry hop supprimé : ${d.nom}, ${enGrammes(d.g)}.${stock}`, {
+    duree: 8000,
+    action: () => {
+      if (rendu) I.deduire(inventaire, [rendu]);
+      b.dryHops = avant;
+      modifie(b);
+    },
+  });
 }
 
 /** Bloc « RAPT Pill » de la fiche : pendant la fermentation, puis en résumé une fois le brassin embouteillé. */
@@ -3823,6 +3987,9 @@ const ACTIONS = {
   'ajouter-ligne-capsule': ajouterLigneCapsule,
   'retirer-ligne-capsule': (bouton) => bouton.closest('.ligne-capsule')?.remove(),
   'modifier-capsules': ouvrirCapsules,
+  'ajouter-dry-hop': ouvrirDryHop,
+  'modifier-dry-hop': ouvrirDryHop,
+  'supprimer-dry-hop': supprimerDryHop,
   exporter,
   importer,
   'importer-recette': importerRecette,
@@ -3879,6 +4046,7 @@ const FORMULAIRES = {
   casse: validerCasse,
   embouteiller: validerEmbouteillage,
   capsules: validerCapsules,
+  'dry-hop': validerDryHop,
   etiquettes: creerPdfEtiquettes,
   article: validerArticle,
   'import-stock': validerImportStock,

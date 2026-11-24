@@ -70,16 +70,18 @@ function deduits(b, categorie, articles) {
 
 /**
  * Textes proposés : malts et houblons vraiment retirés du stock pour ce brassin (recette
- * changée en cours de brassage, houblon ajouté…), sinon ceux de la recette importée.
+ * changée en cours de brassage, houblon ajouté…), sinon ceux de la recette importée ; puis
+ * les houblons du dry hop.
  */
 export function textesParDefaut(b, articles = []) {
   const r = b.recette;
   const malts = deduits(b, 'malt', articles);
   const houblons = deduits(b, 'houblon', articles);
+  const brassage = houblons.length ? houblons : r ? r.houblons.map((h) => h.nom.trim()) : [];
   return {
     style: nomStyle(b.style),
     malts: malts.length ? uniques(malts) : r ? uniques(r.malts.filter((m) => !AUXILIAIRES.test(m.nom)).map((m) => nomIngredient(m.nom))) : '',
-    houblons: houblons.length ? uniques(houblons) : r ? uniques(r.houblons.map((h) => h.nom.trim())) : '',
+    houblons: uniques([...brassage, ...(b.dryHops ?? []).map((d) => d.nom)]),
   };
 }
 

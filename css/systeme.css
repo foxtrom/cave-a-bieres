@@ -1023,6 +1023,12 @@ form[data-form="casse"] > .aide { margin: 0 0 var(--e-4); }
 #feuille .resultat-sucre small { display: block; margin-top: 2px; color: var(--e-texte-2); font-size: 0.8125rem; }
 #feuille .zone-sucre .aide { margin: 0; }
 #feuille .resultat-sucre small.manque-sucre { color: var(--e-alerte-texte); font-weight: 650; }
+
+/* Dry hop : bloc de la fiche, stock du houblon dans la fenêtre */
+.bloc-dry-hop .liste { margin: 0 0 var(--e-3); }
+.bloc-dry-hop .e-aide { margin: 0 0 var(--e-3); }
+#feuille .stock-dry-hop { margin: calc(-1 * var(--e-2)) 0 var(--e-4); }
+#feuille .stock-dry-hop.manque { color: var(--e-alerte-texte); font-weight: 650; }
 .e-sucre-fiche { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: var(--e-2) 0 0; padding-top: var(--e-2); border-top: 1px solid var(--e-bordure); }
 .e-sucre-doses { display: grid; gap: 1px; color: var(--e-texte); font: 650 0.9375rem/1.35 var(--e-police); }
 .e-sucre-doses small { color: var(--e-texte-2); font: 400 0.8125rem/1.35 var(--e-police); }

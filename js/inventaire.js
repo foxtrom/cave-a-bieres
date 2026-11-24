@@ -241,18 +241,21 @@ export function initialiserSucre(inventaire) {
 }
 
 /**
- * Sucre retiré du stock à l'embouteillage (en grammes, converti dans l'unité de l'article),
- * jamais sous zéro. → { articleId, nom, unite, voulu, quantite, manque } (dans l'unité de
- * l'article : voulu, vraiment retiré, et ce qui manquait au stock), ou null : sucre non suivi,
- * unité qui n'est pas une masse, rien à retirer.
+ * Retire du stock une masse en grammes (sucre à l'embouteillage, houblon d'un dry hop), convertie
+ * dans l'unité de l'article, jamais sous zéro. → { articleId, nom, unite, voulu, quantite, manque }
+ * (dans l'unité de l'article : voulu, vraiment retiré, et ce qui manquait au stock), ou null :
+ * article absent, unité qui n'est pas une masse, rien à retirer.
  */
-export function retirerSucre(inventaire, grammes) {
-  const article = articleSucre(inventaire.articles);
+export function retirerGrammes(inventaire, articleId, grammes) {
+  const article = inventaire.articles.find((a) => a.id === articleId);
   const voulu = article ? convertir(grammes, 'g', article.unite) : null;
   if (!(voulu > 0)) return null;
   const quantite = deduire(inventaire, [{ articleId: article.id, quantite: voulu }])[0]?.quantite ?? 0;
   return { articleId: article.id, nom: article.nom, unite: article.unite, voulu: arrondi(voulu, 3), quantite, manque: arrondi(voulu - quantite, 3) };
 }
+
+/** Sucre retiré du stock à l'embouteillage (voir retirerGrammes) ; null si le sucre n'est pas suivi. */
+export const retirerSucre = (inventaire, grammes) => retirerGrammes(inventaire, articleSucre(inventaire.articles)?.id, grammes);
 
 /** L'article porte-t-il une alerte dans le stock (périmé, bientôt périmé, stock bas, ingrédient épuisé) ? */
 export function articleSignale(a, auj) {

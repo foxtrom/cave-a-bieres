@@ -1477,6 +1477,75 @@ try {
     await attendreTexte('.bloc-embouteillage', 'Indiquer le volume de bière dans le fermenteur');
   });
 
+  await etape(`Dry hop de ${G.code} : houblon retiré du stock, modifié, autre houblon, supprimé puis rétabli`, async () => {
+    const grammes = (t) => Number(t.replace(/\s/g, '').replace(',', '.').replace(/g$/, ''));
+    await allerArticle('Mosaic');
+    const mosaic = grammes(await quantiteArticle('Mosaic'));
+    const ouvrir = async (action) => {
+      await page.goto(`${BASE}#/brassin/${G.code}`);
+      await page.locator(`.bloc-dry-hop [data-action="${action}"]`).first().click();
+      await page.locator('#feuille form[data-form="dry-hop"]').waitFor();
+    };
+    await page.goto(`${BASE}#/brassin/${G.code}`);
+    await attendreTexte('.bloc-dry-hop', 'Houblon ajouté dans le fermenteur');
+    // Ajout : Mosaic du stock, 100 g, aujourd'hui ; la fenêtre dit ce qu'il en restera
+    await ouvrir('ajouter-dry-hop');
+    const valeur = await page.locator('#feuille select[name="article"] option', { hasText: /^Mosaic \(/ }).getAttribute('value');
+    await page.selectOption('#feuille select[name="article"]', valeur);
+    await page.fill('#feuille input[name="g"]', '100');
+    await attendreTexte('#feuille [data-stock-dry-hop]', `${mosaic} g en stock, il en restera ${mosaic - 100} g.`);
+    await page.fill('#feuille input[name="g"]', '900');
+    await attendreTexte('#feuille .stock-dry-hop.manque', `il en manque ${900 - mosaic} g`);
+    await page.fill('#feuille input[name="g"]', '100');
+    await page.waitForTimeout(300);
+    await capture('50-dry-hop-ajout');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Dry hop noté : Mosaic, 100\sg\. 100\sg retirés du stock\./);
+    await attendreTexte('.bloc-dry-hop', 'Mosaic · 100 g');
+    await attendreTexte('.bloc-dry-hop', 'ajouté aujourd’hui');
+    await attendreTexte('.lien-etiquettes', 'Mosaic'); // l'étiquette reprend le houblon du dry hop
+    await attendreQuantite('Mosaic', `${mosaic - 100} g`);
+    // Modifié : 120 g, il y a 2 jours ; les 100 g sont rendus avant de retirer les 120 g
+    await ouvrir('modifier-dry-hop');
+    await attendreTexte('#feuille [data-stock-dry-hop]', `${mosaic} g en stock, il en restera ${mosaic - 100} g.`);
+    await page.fill('#feuille input[name="g"]', '120');
+    await page.fill('#feuille input[name="le"]', decaler(-2));
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Dry hop modifié : Mosaic, 120\sg\./);
+    await attendreTexte('.bloc-dry-hop', 'depuis 2 jours');
+    await attendreQuantite('Mosaic', `${mosaic - 120} g`);
+    // Houblon qui n'est pas dans le stock : nom saisi, rien de retiré
+    await ouvrir('ajouter-dry-hop');
+    await page.selectOption('#feuille select[name="article"]', '-autre');
+    await attendreTexte('#feuille [data-stock-dry-hop]', 'Pas dans le stock');
+    await page.fill('#feuille input[name="nom"]', 'Galaxy');
+    await page.fill('#feuille input[name="g"]', '50');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Dry hop noté : Galaxy, 50\sg\. Pas dans le stock/);
+    await attendreNombre(page, '.bloc-dry-hop .ligne-bouton', 2);
+    await attendreTexte('.bloc-dry-hop', '170 g de houblon en tout');
+    await attendreTexte('.bloc-dry-hop', 'pas dans le stock');
+    await page.waitForFunction(() => !document.querySelector('#toast.visible'), null, { timeout: 10000 });
+    await page.locator('.bloc-dry-hop').evaluate((s) => s.scrollIntoView({ block: 'center' }));
+    await capture('51-dry-hop-fiche');
+    // Saisie refusée : date après aujourd'hui
+    await ouvrir('ajouter-dry-hop');
+    await page.selectOption('#feuille select[name="article"]', valeur);
+    await page.fill('#feuille input[name="g"]', '10');
+    await page.fill('#feuille input[name="le"]', decaler(1));
+    await page.click('#feuille button[type="submit"]');
+    await attendreTexte('#feuille [data-erreur]', 'pas après aujourd’hui');
+    await page.click('#feuille [data-action="fermer-feuille"]');
+    // Supprimé (Mosaic, le plus ancien) : rendu au stock ; puis Annuler
+    await ouvrir('modifier-dry-hop');
+    await page.click('#feuille [data-action="supprimer-dry-hop"]');
+    await attendreToast(/Dry hop supprimé : Mosaic, 120\sg\. 120\sg rendus au stock\./);
+    await attendreNombre(page, '.bloc-dry-hop .ligne-bouton', 1);
+    await page.click('#toast button'); // Annuler
+    await attendreNombre(page, '.bloc-dry-hop .ligne-bouton', 2);
+    await attendreQuantite('Mosaic', `${mosaic - 120} g`);
+  });
+
   await etape(`Embouteillage de ${G.code} : le suivi devient un résumé`, async () => {
     await page.goto(`${BASE}#/brassin/${G.code}`);
     await page.click('#barre-actions [data-action="embouteiller"]');
@@ -1484,6 +1553,10 @@ try {
     await page.click('#feuille button[type="submit"]');
     await attendreToast(/embouteillée/);
     await attendreTexte('.bloc-suivi', 'Fermentation suivie');
+    // Dry hop : sa durée jusqu'à l'embouteillage, plus d'ajout possible
+    await attendreTexte('.bloc-dry-hop', '2 jours avant l’embouteillage');
+    await attendreTexte('.bloc-dry-hop', 'le jour de l’embouteillage');
+    assert.equal(await page.locator('[data-action="ajouter-dry-hop"]').count(), 0);
     assert.equal(await page.locator('.bloc-suivi [data-action="actualiser-pill"]').count(), 0);
     assert.equal(await page.locator('.bloc-suivi [data-action="arreter-suivi"]').count(), 0);
   });

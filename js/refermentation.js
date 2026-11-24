@@ -34,6 +34,9 @@ export function dosesSucre({ co2Vise, temperature }) {
   return { parLitre: arrondi(parLitre, 2), 33: arrondi(parLitre * LITRES[33], 1), 66: arrondi(parLitre * LITRES[66], 1) };
 }
 
+/** Sucre blanc d'un embouteillage, au gramme : dose de chaque format (doses[33], doses[66]) × ses bouteilles. */
+export const sucreTotal = (doses, { b33, b66 }) => Math.round(b33 * doses[33] + b66 * doses[66]);
+
 /** CO₂ visé proposé pour un style (code IPA, BLD…). */
 export const co2ParDefaut = (style) => CO2_PAR_STYLE[style] ?? CO2_AUTRE;
 
@@ -53,7 +56,11 @@ export function temperatureParDefaut(b) {
   return 20;
 }
 
-/** Dosage noté sur un brassin à l'embouteillage : { co2Vise, temperature, g33, g66 }, ou null. */
+/**
+ * Dosage noté sur un brassin à l'embouteillage : { co2Vise, temperature, g33, g66 }, avec
+ * retire : { articleId, quantite } quand du sucre a été retiré du stock (dans l'unité de
+ * l'article, pour le rendre si l'embouteillage est refait) ; ou null.
+ */
 export function normaliserRefermentation(source) {
   if (!source || typeof source !== 'object') return null;
   const nombre = (v) => (v === null || v === undefined || v === '' ? NaN : Number(v));
@@ -61,10 +68,13 @@ export function normaliserRefermentation(source) {
   const temperature = nombre(source.temperature);
   if (!Number.isFinite(co2Vise) || !Number.isFinite(temperature)) return null;
   const doses = dosesSucre({ co2Vise, temperature });
+  const r = source.retire;
+  const retire = r && typeof r.articleId === 'string' && r.articleId && nombre(r.quantite) > 0 ? { articleId: r.articleId, quantite: nombre(r.quantite) } : null;
   return {
     co2Vise,
     temperature,
     g33: Number.isFinite(nombre(source.g33)) ? nombre(source.g33) : doses[33],
     g66: Number.isFinite(nombre(source.g66)) ? nombre(source.g66) : doses[66],
+    ...(retire ? { retire } : {}),
   };
 }

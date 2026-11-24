@@ -653,7 +653,7 @@ try {
     await page.waitForFunction(() => !document.getElementById('feuille').open);
   }
 
-  await etape('Stock : matériel de base créé à la première visite', async () => {
+  await etape('Stock : matériel de base et sucre blanc créés à la première visite', async () => {
     await page.goto(`${BASE}#/`);
     await page.click('#onglets a[data-onglet="stock"]');
     await page.waitForURL(/#\/stock$/);
@@ -664,6 +664,14 @@ try {
     for (const nom of ['Bouteilles vides 33 cl', 'Bouteilles vides 66 cl à clapet', 'Capsules', 'Joints de clapets']) {
       assert.equal(await quantiteArticle(nom), '0', nom);
     }
+    // Sucre de refermentation : dans les ingrédients, épuisé tant que sa quantité n'est pas saisie
+    await attendreQuantite('Sucre blanc', '0 g');
+    await attendreTexte('#vue', 'Autres ingrédients');
+    await attendreTexte('#pastille-stock', '1');
+    await modifierQuantite('Sucre blanc', '200');
+    await attendreQuantite('Sucre blanc', '200 g');
+    await page.goto(`${BASE}#/stock/bouteilles`);
+    await page.waitForURL(/#\/stock\/bouteilles$/);
     await attendreTexte('.e-lien-courses', 'Rien à acheter');
   });
 
@@ -978,12 +986,17 @@ try {
     await page.goto(`${BASE}#/brassin/${F.code}`);
     await page.click('#barre-actions [data-action="embouteiller"]');
     await page.fill('#feuille input[name="b33"]', '20');
+    // Sucre : le total de l'embouteillage, et ce qu'il restera au stock
+    await attendreTexte('#feuille .resultat-sucre', 'Stock « Sucre blanc » : 200 g, il en restera');
+    const sucre = Number((await texte('#feuille .resultat-sucre')).match(/soit (\d+)\sg pour 20 bouteilles/)[1]);
+    assert.ok(sucre > 20 && sucre < 100, `${sucre} g de sucre pour 20 × 33 cl`);
     await page.click('#feuille button[type="submit"]');
-    await attendreToast(/Bouteilles vides et capsules déduites du stock/);
+    await attendreToast(new RegExp(`Bouteilles vides et capsules déduites du stock\\. ${sucre}\\sg de sucre retirés du stock`));
     await page.click('#toast button'); // Annuler
     await attendreTexte('.e-etat', 'En fermentation');
     await attendreQuantite('Bouteilles vides 33 cl', '31');
     assert.equal(await quantiteArticle('Capsules'), '100');
+    await attendreQuantite('Sucre blanc', '200 g');
     await page.goto(`${BASE}#/brassin/${F.code}`);
     await page.click('#barre-actions [data-action="embouteiller"]');
     await page.fill('#feuille input[name="b33"]', '20');
@@ -991,6 +1004,7 @@ try {
     await attendreToast(/embouteillée/);
     await attendreQuantite('Bouteilles vides 33 cl', '11');
     assert.equal(await quantiteArticle('Capsules'), '80');
+    await attendreQuantite('Sucre blanc', `${200 - sucre} g`);
     await page.evaluate(() => document.fonts.ready);
     await capture('31-stock-apres');
     await page.emulateMedia({ colorScheme: 'dark' });
@@ -1486,6 +1500,7 @@ try {
     await page.goto(`${BASE}#/stock`);
     await ajouterArticle({ categorie: 'materiel', nom: 'Capsules - Argent', quantite: '8' });
     await ajouterArticle({ categorie: 'materiel', nom: 'Capsules - Dorée', quantite: '30' });
+    await modifierQuantite('Sucre blanc', '10'); // pas assez de sucre pour cet embouteillage
     const lignes = '#feuille .ligne-capsule';
     const choisir = async (ligne, couleur) => {
       const valeur = await ligne.locator('option', { hasText: new RegExp(`^${couleur} \\(`) }).getAttribute('value');
@@ -1509,16 +1524,18 @@ try {
     await page.fill('#feuille input[name="co2"]', '9');
     await attendreTexte('#feuille .resultat-sucre', 'CO₂ visé : entre 1 et 4,5 volumes.');
     await page.fill('#feuille input[name="co2"]', '2,8');
+    await attendreTexte('#feuille .resultat-sucre .manque-sucre', 'Stock « Sucre blanc » : 10 g, il en manque');
     await page.waitForTimeout(300);
     await capture('40-embouteillage-capsules');
     await page.click('#feuille button[type="submit"]');
-    await attendreToast(/embouteillée/);
+    await attendreToast(/embouteillée.*Sucre blanc\s: \d+\sg pour ces bouteilles, \d+\sg de plus que le stock, mis à zéro\./);
     await attendreTexte('.e-capsules-fiche', 'Argent');
     await attendreTexte('.e-capsules-fiche', 'Dorée');
     await attendreTexte('.e-sucre-fiche', 'par 33 cl');
     await attendreTexte('.e-sucre-fiche', 'CO₂ 2,8');
     await attendreQuantite('Capsules - Argent', '0');
     await attendreQuantite('Capsules - Dorée', '18');
+    await attendreQuantite('Sucre blanc', '0 g');
     // Dans la Cave : pastilles à côté du code ; « dorée » retrouve le brassin
     await page.goto(BASE);
     const carte = page.locator('.e-carte', { hasText: H.code });

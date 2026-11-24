@@ -24,6 +24,12 @@ test('dose de sucre blanc par bouteille : 33 cl et 66 cl, au dixième de gramme'
   assert.deepEqual(S.dosesSucre({ co2Vise: 1, temperature: 2 }), { parLitre: 0, 33: 0, 66: 0 });
 });
 
+test('sucre de tout un embouteillage : doses × bouteilles, au gramme', () => {
+  const d = S.dosesSucre({ co2Vise: 2.4, temperature: 20 }); // 2 g par 33 cl, 4,1 g par 66 cl
+  assert.equal(S.sucreTotal(d, { b33: 51, b66: 6 }), 127); // 102 g + 24,6 g
+  assert.equal(S.sucreTotal({ 33: 2.3, 66: 4.6 }, { b33: 0, b66: 0 }), 0);
+});
+
 test('valeurs proposées : CO₂ selon le style, température d’après la Pill, sinon la recette', () => {
   assert.equal(S.co2ParDefaut('WHT'), 3);
   assert.equal(S.co2ParDefaut('STO'), 2);
@@ -44,4 +50,8 @@ test('dosage noté sur le brassin : relu proprement', () => {
   assert.deepEqual(S.normaliserRefermentation({ co2Vise: 2.4, temperature: 20 }), { co2Vise: 2.4, temperature: 20, g33: 2, g66: 4.1 });
   assert.equal(S.normaliserRefermentation({ co2Vise: '', temperature: 20 }), null);
   assert.equal(S.normaliserRefermentation(null), null);
+  // Sucre retiré du stock, gardé pour le rendre si l'embouteillage est refait
+  const retire = { articleId: 'sucre', quantite: '127' };
+  assert.deepEqual(S.normaliserRefermentation({ co2Vise: 2.4, temperature: 20, retire }).retire, { articleId: 'sucre', quantite: 127 });
+  assert.equal('retire' in S.normaliserRefermentation({ co2Vise: 2.4, temperature: 20, retire: { articleId: '', quantite: 5 } }), false);
 });

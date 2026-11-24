@@ -26,6 +26,7 @@ function stockDeTest() {
     courses: [],
     categories: [],
     initialise: true,
+    sucreSuivi: false,
   };
 }
 
@@ -262,6 +263,46 @@ test('matériel de base ajouté une seule fois', () => {
   inv.articles.splice(0, 1); // supprimé par l'utilisateur : ne revient pas
   assert.ok(!I.initialiserMateriel(inv));
   assert.equal(inv.articles.length, 5);
+});
+
+test('sucre de refermentation : « Sucre blanc » ajouté une seule fois, ou le sucre du stock relié', () => {
+  const inv = I.inventaireVide();
+  assert.ok(I.initialiserSucre(inv));
+  const sucre = I.articleSucre(inv.articles);
+  assert.deepEqual([sucre.nom, sucre.categorie, sucre.unite, sucre.quantite], ['Sucre blanc', 'autre', 'g', 0]);
+  inv.articles.splice(0, 1); // supprimé par l'utilisateur : ne revient pas
+  assert.ok(!I.initialiserSucre(inv));
+  assert.equal(inv.articles.length, 0);
+  // Sucre déjà saisi : relié, sans doublon ; le sucre candi n'est pas du sucre blanc
+  const stock = stockDeTest();
+  stock.articles.push(
+    article({ categorie: 'autre', nom: 'Sucre candi', quantite: 500, unite: 'g' }),
+    article({ categorie: 'autre', nom: 'Sucre en poudre', quantite: 1, unite: 'kg' }),
+  );
+  assert.ok(I.initialiserSucre(stock));
+  assert.equal(I.articleSucre(stock.articles).nom, 'Sucre en poudre');
+  assert.equal(stock.articles.length, 8);
+  assert.equal(I.normaliserInventaire(stock).sucreSuivi, true); // relu : pas relié une seconde fois
+  assert.equal(I.normaliserInventaire({ articles: [] }).sucreSuivi, false); // sauvegarde d'avant
+});
+
+test('sucre retiré à l’embouteillage : converti dans l’unité de l’article, jamais sous zéro', () => {
+  const stock = stockDeTest();
+  stock.articles.push(article({ categorie: 'autre', nom: 'Sucre blanc', quantite: 1, unite: 'kg', role: 'sucre' }));
+  const sucre = I.articleSucre(stock.articles);
+  const r = I.retirerSucre(stock, 141);
+  assert.deepEqual([r.articleId, r.unite, r.voulu, r.quantite, r.manque], [sucre.id, 'kg', 0.141, 0.141, 0]);
+  assert.equal(sucre.quantite, 0.859);
+  // Pas assez : le stock passe à zéro et le manque est dit ; « Annuler » le rend
+  const court = I.retirerSucre(stock, 900);
+  assert.deepEqual([court.voulu, court.quantite, court.manque], [0.9, 0.859, 0.041]);
+  assert.equal(sucre.quantite, 0);
+  I.remettre(stock, [court]);
+  assert.equal(sucre.quantite, 0.859);
+  assert.equal(I.retirerSucre(stock, 0), null); // pas de sucre dans les bouteilles
+  sucre.unite = 'sachet';
+  assert.equal(I.retirerSucre(stock, 141), null); // compté autrement qu'en masse : rien
+  assert.equal(I.retirerSucre(stockDeTest(), 141), null); // sucre non suivi
 });
 
 test('alertes : périmé, bientôt périmé, stock bas', () => {

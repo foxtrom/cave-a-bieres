@@ -122,7 +122,7 @@ function normaliserAchat(source, categories) {
   };
 }
 
-export const inventaireVide = () => ({ articles: [], courses: [], categories: [], initialise: false });
+export const inventaireVide = () => ({ articles: [], courses: [], categories: [], initialise: false, sucreSuivi: false });
 
 function normaliserCategorie(source) {
   if (!source || typeof source !== 'object' || !String(source.nom ?? '').trim() || !estCategorieAjoutee(source.code ?? '')) return null;
@@ -147,6 +147,7 @@ export function normaliserInventaire(source) {
     courses: liste(source.courses, (c) => normaliserAchat(c, toutes)),
     categories,
     initialise: Boolean(source.initialise),
+    sucreSuivi: Boolean(source.sucreSuivi),
   };
 }
 
@@ -212,6 +213,45 @@ export function ajusterMateriel(inventaire, role, delta) {
   const avant = article.quantite;
   article.quantite = Math.max(0, avant + delta);
   return article.quantite - avant;
+}
+
+/* ------------------------------------------------------------------ */
+/* Sucre de refermentation                                             */
+/* ------------------------------------------------------------------ */
+
+// Noms d'un sucre blanc (clé cleNom) : « Sucre », « Sucre blanc 1 kg », « Sucre en poudre »… mais pas « Sucre candi ».
+const NOM_SUCRE_BLANC = /^(sucre$|sucreblanc|sucresemoule|sucreenpoudre|sucrecristal|saccharose)/;
+
+/** Article du sucre de refermentation (rôle « sucre »), ou null. */
+export const articleSucre = (articles) => articles.find((a) => a.role === 'sucre') ?? null;
+
+/**
+ * Relie une seule fois le sucre de refermentation au stock : un ingrédient déjà nommé « Sucre »,
+ * « Sucre blanc »… le devient ; sinon « Sucre blanc » est ajouté (0 g) dans Autres ingrédients.
+ * Renvoie true si l'inventaire a changé.
+ */
+export function initialiserSucre(inventaire) {
+  if (inventaire.sucreSuivi) return false;
+  inventaire.sucreSuivi = true;
+  if (articleSucre(inventaire.articles)) return true;
+  const existant = inventaire.articles.find((a) => a.categorie !== 'materiel' && !a.role && NOM_SUCRE_BLANC.test(cleNom(a.nom)));
+  if (existant) existant.role = 'sucre';
+  else inventaire.articles.push(nouvelArticle({ categorie: 'autre', nom: 'Sucre blanc', unite: 'g', role: 'sucre' }));
+  return true;
+}
+
+/**
+ * Sucre retiré du stock à l'embouteillage (en grammes, converti dans l'unité de l'article),
+ * jamais sous zéro. → { articleId, nom, unite, voulu, quantite, manque } (dans l'unité de
+ * l'article : voulu, vraiment retiré, et ce qui manquait au stock), ou null : sucre non suivi,
+ * unité qui n'est pas une masse, rien à retirer.
+ */
+export function retirerSucre(inventaire, grammes) {
+  const article = articleSucre(inventaire.articles);
+  const voulu = article ? convertir(grammes, 'g', article.unite) : null;
+  if (!(voulu > 0)) return null;
+  const quantite = deduire(inventaire, [{ articleId: article.id, quantite: voulu }])[0]?.quantite ?? 0;
+  return { articleId: article.id, nom: article.nom, unite: article.unite, voulu: arrondi(voulu, 3), quantite, manque: arrondi(voulu - quantite, 3) };
 }
 
 /** L'article porte-t-il une alerte dans le stock (périmé, bientôt périmé, stock bas, ingrédient épuisé) ? */

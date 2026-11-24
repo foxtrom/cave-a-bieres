@@ -1867,7 +1867,8 @@ function montrerOngletStock(onglet) {
 
 function vueStock(onglet = ongletStockRetenu()) {
   const inventaire = etat.donnees.inventaire;
-  if (I.initialiserMateriel(inventaire)) sauver(); // matériel de base, à la première visite
+  // Matériel de base, à la première visite ; sucre de refermentation, une fois.
+  if (I.initialiserMateriel(inventaire) | I.initialiserSucre(inventaire)) sauver();
   retenirOngletStock(onglet);
   const auj = aujourdhui();
   const courses = I.listeCourses(inventaire, auj);
@@ -1921,7 +1922,8 @@ function vueStock(onglet = ongletStockRetenu()) {
             : html`<section class="e-bloc"><p class="e-aide">Aucun ingrédient pour l’instant : « + » en haut pour en ajouter un, ou « Importer un tableau ».</p></section>`
         }
           ${outils}
-          <p class="e-aide">Un seuil d’alerte fait passer l’article dans la liste de courses quand il est atteint.</p>`;
+          <p class="e-aide">Un seuil d’alerte fait passer l’article dans la liste de courses quand il est atteint.
+            Le sucre blanc baisse à chaque embouteillage, du sucre de refermentation mis dans les bouteilles.</p>`;
   return {
     onglet: 'stock',
     titre: 'Stock',
@@ -3272,7 +3274,7 @@ function zoneSucre(b) {
       <label class="champ"><span class="libelle">Température max <small>°C</small></span>
         <input name="tempMax" inputmode="decimal" value="${enChamp(avant?.temperature ?? S.temperatureParDefaut(b))}" autocomplete="off"></label>
     </div>
-    <p class="aide">Sucre blanc, dans chaque bouteille. Température : la plus haute depuis la fin de la fermentation (${origine}) ; le CO₂ encore dissous en dépend.</p>
+    <p class="aide">Sucre blanc, dans chaque bouteille ; le total est retiré du stock. Température : la plus haute depuis la fin de la fermentation (${origine}) ; le CO₂ encore dissous en dépend.</p>
   </div>`;
 }
 
@@ -3305,10 +3307,24 @@ function majSucre(form) {
   const n33 = B.lireNombre(form.elements.b33.value) ?? 0;
   const n66 = B.lireNombre(form.elements.b66.value) ?? 0;
   const formats = [n33 || !n66 ? html`<b>${enGrammes(doses[33])}</b> par bouteille de 33 cl` : '', n66 ? html`<b>${enGrammes(doses[66])}</b> par 66 cl` : ''].filter(Boolean);
-  const total = n33 * doses[33] + n66 * doses[66];
+  const total = S.sucreTotal(doses, { b33: n33, b66: n66 });
   zone.innerHTML = String(html`${formats.map((f, i) => html`${i ? ' · ' : ''}${f}`)}${
-    total ? html`<small>soit ${enGrammes(Math.round(total))} pour ${pluriel(n33 + n66, 'bouteille')}</small>` : ''
+    total ? html`<small>soit ${enGrammes(total)} pour ${pluriel(n33 + n66, 'bouteille')}</small>${stockSucre(total)}` : ''
   }`);
+}
+
+/** Stock de sucre face au total de l'embouteillage : ce qu'il en restera, ou ce qui manque. */
+function stockSucre(grammes) {
+  const article = I.articleSucre(etat.donnees.inventaire.articles);
+  const voulu = article ? I.convertir(grammes, 'g', article.unite) : null;
+  if (voulu == null) return ''; // sucre non suivi, ou compté autrement qu'en masse
+  // Embouteillage refait : le sucre retiré la première fois sera d'abord rendu au stock.
+  const retire = brassinCourant()?.refermentation?.retire;
+  const enStock = article.quantite + (retire?.articleId === article.id ? retire.quantite : 0);
+  const q = (n) => I.formaterQuantite(Math.round(n * 1000) / 1000, article.unite);
+  return voulu <= enStock + 1e-9
+    ? html`<small>Stock « ${article.nom} » : ${q(enStock)}, il en restera ${q(enStock - voulu)}.</small>`
+    : html`<small class="manque-sucre">Stock « ${article.nom} » : ${q(enStock)}, il en manque ${q(voulu - enStock)}.</small>`;
 }
 
 function ouvrirEmbouteillage() {
@@ -3401,9 +3417,18 @@ function validerEmbouteillage(form) {
   if (garde !== null) b.gardeSemaines = garde;
   b.preteVue = B.datePrete(b) <= aujourdhui();
   if (lignes.length) b.capsules = capsules;
+  // Sucre : celui d'un embouteillage déjà validé est d'abord rendu au stock, puis le nouveau total est retiré.
+  const sucreRendu = b.refermentation?.retire ?? null;
+  if (sucreRendu) I.remettre(inventaire, [sucreRendu]);
+  let sucreRetire = null;
   if (sucre) {
     const doses = S.dosesSucre(sucre);
-    b.refermentation = { ...sucre, g33: doses[33], g66: doses[66] };
+    sucreRetire = I.retirerSucre(inventaire, S.sucreTotal(doses, { b33: n33, b66: n66 }));
+    const retire = sucreRetire?.quantite > 0 ? { articleId: sucreRetire.articleId, quantite: sucreRetire.quantite } : null;
+    b.refermentation = { ...sucre, g33: doses[33], g66: doses[66], ...(retire ? { retire } : {}) };
+  } else if (sucreRendu) {
+    const { retire, ...dosage } = b.refermentation;
+    b.refermentation = dosage;
   }
   const variations = [
     ['bouteilles33', I.ajusterMateriel(inventaire, 'bouteilles33', -n33)],
@@ -3419,12 +3444,21 @@ function validerEmbouteillage(form) {
     .filter(([, manque]) => manque > 0)
     .map(([couleur, manque]) => ` ${couleur} : ${manque} de plus que le stock, mis à zéro.`)
     .join('');
-  toast(`${b.code} embouteillée : ${pluriel(n33 + n66, 'bouteille')}.${stock}${manques}`, {
+  // Sucre : « 141 g de sucre retirés du stock. », ou ce qui manquait (le stock passe alors à zéro).
+  const q = (n) => I.formaterQuantite(n, sucreRetire.unite);
+  const texteSucre = !sucreRetire
+    ? ''
+    : sucreRetire.manque > 0
+      ? ` ${sucreRetire.nom} : ${q(sucreRetire.voulu)} pour ces bouteilles, ${q(sucreRetire.manque)} de plus que le stock, mis à zéro.`
+      : ` ${q(sucreRetire.quantite)} de sucre retiré${sucreRetire.quantite >= 2 && sucreRetire.unite === 'g' ? 's' : ''} du stock.`;
+  toast(`${b.code} embouteillée : ${pluriel(n33 + n66, 'bouteille')}.${stock}${manques}${texteSucre}`, {
     duree: 8000,
     action: () => {
       Object.assign(b, avant);
       for (const [role, v] of variations) I.ajusterMateriel(inventaire, role, -v);
       C.rendreCapsules(inventaire, capsulesRetirees);
+      if (sucreRetire) I.remettre(inventaire, [sucreRetire]);
+      if (sucreRendu) I.deduire(inventaire, [sucreRendu]);
       modifie(b);
     },
   });
@@ -3967,7 +4001,9 @@ async function demarrer() {
   }
   appliquerTheme(etat.donnees.reglages.theme);
   // Repères « FG stable » d'après les mesures déjà reçues (règle ou réglage changés depuis la dernière ouverture).
-  if (!etat.lectureImpossible && majReperesStabilite()) sauver();
+  // Sucre de refermentation relié au stock, une fois (stock déjà ouvert : il est suivi comme le matériel).
+  const sucre = etat.donnees.inventaire.initialise && I.initialiserSucre(etat.donnees.inventaire);
+  if (!etat.lectureImpossible && (majReperesStabilite() || sucre)) sauver();
   afficher();
   if (etat.lectureImpossible) {
     toast('Les données enregistrées n’ont pas pu être lues. Rien ne sera écrasé : importer une sauvegarde pour repartir.', { duree: 0 });

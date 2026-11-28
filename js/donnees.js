@@ -27,6 +27,7 @@ export const REGLAGES_DEFAUT = {
   joursStabilite: 3, // jours sans variation de densité (moins d'un point) pour juger la FG stable
   tri: 'recent',
   triHistorique: 'note',
+  raptActive: false, // RAPT Pill utilisée : suivi, notifications et copies passent par le relais
   raptRelais: '', // adresse du relais Cloudflare vers l'API RAPT (voir relais-rapt/)
   raptCle: '', // clé d'accès du relais
 };
@@ -69,6 +70,9 @@ function normaliserReglages(source) {
   const reglages = { ...REGLAGES_DEFAUT, ...anciens, ...lus };
   reglages.nomBrasserie = String(reglages.nomBrasserie ?? '').trim() || REGLAGES_DEFAUT.nomBrasserie;
   reglages.devise = String(reglages.devise ?? '').trim();
+  // RAPT Pill : cochée d'office pour les données d'avant la 2.0 dont le relais était déjà réglé.
+  if (source && !('raptActive' in lus)) reglages.raptActive = Boolean(lus.raptRelais || lus.raptCle);
+  reglages.raptActive = reglages.raptActive === true;
   return reglages;
 }
 
@@ -147,8 +151,8 @@ export function empreinteDonnees(donnees) {
  * Renvoie { due, raison, empreinte, attente } (attente : ms avant de pouvoir recopier).
  */
 export function copieRelaisDue(donnees, maintenant = new Date()) {
-  const { raptRelais, raptCle } = donnees.reglages;
-  if (!raptRelais || !raptCle) return { due: false, raison: 'relais' };
+  const { raptActive, raptRelais, raptCle } = donnees.reglages;
+  if (!raptActive || !raptRelais || !raptCle) return { due: false, raison: 'relais' };
   if (!donnees.brassins.length && !donnees.inventaire.articles.length) return { due: false, raison: 'vide' };
   const empreinte = empreinteDonnees(donnees);
   const derniere = donnees.meta.copieRelais;

@@ -986,6 +986,10 @@ form[data-form="casse"] > .aide { margin: 0 0 var(--e-4); }
 #feuille .liste-copies small,
 #feuille .ligne-verification small { font-size: 0.8125rem; }
 #feuille .colonnes-import { font-size: 0.875rem; }
+/* Réglages : case à cocher (RAPT Pill) */
+.e-reglages .case-a-cocher { display: flex; align-items: center; gap: var(--e-3); min-height: max(44px, 2.75rem); margin: 0 0 var(--e-2); color: var(--e-texte); font: 650 1rem/1.3 var(--e-police); cursor: pointer; }
+.e-reglages .case-a-cocher input { flex: none; width: 1.5rem; height: 1.5rem; margin: 0; accent-color: var(--e-cuivre); }
+#rapt-options { margin-top: var(--e-3); }
 /* J'en prends / J'en offre : un compteur − nombre + par format */
 #feuille .compteurs-bouteilles { display: grid; gap: var(--e-3); margin: 0 0 var(--e-4); padding: 0; border: 0; min-width: 0; }
 #feuille .compteurs-bouteilles legend { margin-bottom: var(--e-2); padding: 0; }

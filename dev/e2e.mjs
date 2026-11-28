@@ -1406,6 +1406,18 @@ try {
       await page.fill(`input[data-reglage="${cle}"]`, valeur);
       await page.dispatchEvent(`input[data-reglage="${cle}"]`, 'change');
     };
+    // RAPT Pill décochée au premier lancement : ni relais, ni notifications, ni suivi proposé sur la fiche
+    assert.equal(await page.isChecked('input[data-reglage="raptActive"]'), false);
+    assert.equal(await page.locator('#rapt-options').isVisible(), false);
+    assert.equal(await page.locator('#bloc-notifications').isVisible(), false);
+    await page.goto(`${BASE}#/brassin/${D.code}`); // en fermentation
+    await page.locator('.bloc-dry-hop').waitFor();
+    assert.equal(await page.locator('.bloc-suivi').count(), 0);
+    await page.goto(`${BASE}#/reglages`);
+    await page.check('input[data-reglage="raptActive"]');
+    await attendreToast(/Réglage enregistré/);
+    assert.equal(await page.locator('#rapt-options').isVisible(), true);
+    assert.equal(await page.locator('#bloc-notifications').isVisible(), true);
     await reglage('raptRelais', 'relais.test');
     await attendreToast(/Adresse du relais invalide/);
     assert.equal(await page.inputValue('input[data-reglage="raptRelais"]'), '');

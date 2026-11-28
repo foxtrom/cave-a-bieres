@@ -36,6 +36,15 @@ test('marque : « Ma brasserie » au premier lancement, Brasserie Ensen pour les
   assert.equal(normaliserDonnees({ version: 4, brassins: [] }).reglages.nomBrasserie, 'Ma brasserie');
 });
 
+test('RAPT Pill en option : décochée au premier lancement, cochée pour un relais déjà réglé', () => {
+  assert.equal(donneesVides().reglages.raptActive, false);
+  const lire = (reglages) => normaliserDonnees({ version: 4, brassins: [], reglages }).reglages.raptActive;
+  assert.equal(lire({ raptRelais: 'https://relais.test', raptCle: 'cle' }), true); // données d'avant la 2.0
+  assert.equal(lire({ theme: 'auto', raptRelais: '', raptCle: '' }), false);
+  assert.equal(lire({ raptActive: false, raptRelais: 'https://relais.test', raptCle: 'cle' }), false); // décochée : le reste
+  assert.equal(lire({ raptActive: 'oui' }), false);
+});
+
 /* ---------- Dates ---------- */
 
 test('dates : calculs sans décalage horaire', () => {
@@ -390,6 +399,10 @@ test('copie automatique sur le relais : quand la déposer', () => {
   assert.equal(copieRelaisDue(d, t0).raison, 'relais'); // relais non réglé
   d.reglages.raptRelais = 'https://relais.test';
   d.reglages.raptCle = 'cle';
+  d.brassins.push(brassin());
+  assert.equal(copieRelaisDue(d, t0).raison, 'relais'); // RAPT Pill non cochée : pas de relais, pas de copie
+  d.brassins.pop();
+  d.reglages.raptActive = true;
   assert.equal(copieRelaisDue(d, t0).raison, 'vide'); // appli vide (réinstallée) : jamais de copie
   d.brassins.push(brassin());
   const premiere = copieRelaisDue(d, t0);
@@ -408,7 +421,7 @@ test('copie automatique sur le relais : quand la déposer', () => {
   assert.equal(copieRelaisDue(d, new Date('2026-11-13T15:00:00Z')).raison, 'a-jour');
   // Stock seul, sans brassin : la copie se fait
   const stock = donneesVides();
-  Object.assign(stock.reglages, { raptRelais: 'https://relais.test', raptCle: 'cle' });
+  Object.assign(stock.reglages, { raptActive: true, raptRelais: 'https://relais.test', raptCle: 'cle' });
   stock.inventaire.articles.push({ id: 'malt' });
   assert.equal(copieRelaisDue(stock, t0).due, true);
 });

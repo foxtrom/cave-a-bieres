@@ -430,7 +430,9 @@ function vueFiche(b) {
 
 /* ---------- Suivi de fermentation (RAPT Pill) ---------- */
 
-const relaisConfigure = () => Boolean(etat.donnees.reglages.raptRelais && etat.donnees.reglages.raptCle);
+/** RAPT Pill cochée dans les Réglages : suivi, notifications et copies passent par le relais. */
+const raptActive = () => etat.donnees.reglages.raptActive === true;
+const relaisConfigure = () => Boolean(raptActive() && etat.donnees.reglages.raptRelais && etat.donnees.reglages.raptCle);
 const AUCUNE_PILL = 'Le relais n’a encore reçu aucune mesure de Pill : vérifier le flux de données (Data Stream) dans RAPT Brew.';
 
 /**
@@ -894,7 +896,7 @@ function blocSuivi(b, auj) {
   const enFermentation = B.statut(b, auj) === 'fermentation';
   const f = b.fermentation;
   if (!f) {
-    if (!enFermentation) return '';
+    if (!enFermentation || !raptActive()) return ''; // RAPT Pill non cochée : rien à proposer
     return html`<section class="bloc bloc-suivi" data-suivi="${b.id}">
       <h3>RAPT Pill</h3>
       ${
@@ -933,7 +935,7 @@ function blocSuivi(b, auj) {
   return html`<section class="bloc bloc-suivi" data-suivi="${b.id}">
     <h3>RAPT Pill · ${f.pillNom || 'Pill'}
       ${
-        actif
+        actif && relaisConfigure() // RAPT Pill décochée : les mesures déjà reçues restent, sans relecture
           ? html`<button type="button" class="e-btn e-btn--secondaire e-btn--petit btn-modifier" data-action="actualiser-pill" ${enCours ? 'disabled' : ''}>${enCours ? 'Lecture…' : 'Actualiser'}</button>`
           : ''
       }</h3>
@@ -2915,7 +2917,7 @@ async function afficherNotifications() {
   } else if (!notificationsPossibles()) {
     contenu = html`<p class="aide">Sur iPhone, ouvrir l’appli depuis son icône de l’écran d’accueil (iOS 16.4 ou plus) pour recevoir des notifications.</p>`;
   } else if (Notification.permission === 'denied') {
-    contenu = html`<p class="e-message e-message--alerte">${SYMBOLES.alerte}<span>Notifications refusées : les autoriser dans Réglages de l’iPhone › Notifications › Brasserie Ensen.</span></p>`;
+    contenu = html`<p class="e-message e-message--alerte">${SYMBOLES.alerte}<span>Notifications refusées : les autoriser dans Réglages de l’iPhone › Notifications › ${marque().nom}.</span></p>`;
   } else if (await abonnementActuel().catch(() => null)) {
     contenu = html`<p class="notifications-actives">${SYMBOLES.prete}Activées sur cet appareil.</p>
       <div class="e-actions">
@@ -3018,7 +3020,10 @@ function vueReglages() {
 
       <section class="bloc">
         <h3>RAPT Pill</h3>
-        <p class="aide">Les mesures de la Pill passent par un petit relais Cloudflare à installer une fois (mode d’emploi dans le README du dépôt GitHub). Indiquer ici son adresse et sa clé d’accès.</p>
+        <label class="case-a-cocher"><input type="checkbox" data-reglage="raptActive" ${r.raptActive ? 'checked' : ''}><span>J’utilise une RAPT Pill</span></label>
+        <p class="aide">Densité suivie pendant la fermentation, notifications et copies automatiques de sauvegarde, par un petit relais Cloudflare.</p>
+        <div id="rapt-options" ${r.raptActive ? '' : 'hidden'}>
+        <p class="aide">Le relais s’installe une fois (mode d’emploi dans le README du dépôt GitHub). Indiquer ici son adresse et sa clé d’accès.</p>
         <label class="champ"><span class="libelle">Adresse du relais</span>
           <input type="url" data-reglage="raptRelais" value="${r.raptRelais}" placeholder="https://….workers.dev" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
         <label class="champ"><span class="libelle">Clé d’accès</span>
@@ -3028,9 +3033,10 @@ function vueReglages() {
         <p class="aide">La densité finale (FG) est jugée stable quand elle varie de moins d’un point (0,001) pendant ce nombre de jours : le brassin reçoit le repère « FG stable » et, si elles sont activées, la notification « Fermentation terminée ? ».</p>
         <button type="button" class="e-btn e-btn--secondaire" data-action="tester-rapt">${SYMBOLES.connexion}Tester la connexion</button>
         <p class="aide" id="rapt-etat" aria-live="polite"></p>
+        </div>
       </section>
 
-      <section class="bloc">
+      <section class="bloc" id="bloc-notifications" ${r.raptActive ? '' : 'hidden'}>
         <h3>Notifications</h3>
         <p class="aide">Le relais prévient cet appareil : fermentation terminée (densité stable depuis 48 h), Pill qui ne flotte plus, bière prête à boire. Jamais entre 22 h et 8 h.</p>
         <div id="notifications-etat" aria-live="polite"></div>
@@ -3967,6 +3973,7 @@ function momentLisible(iso, auj = aujourdhui()) {
 }
 
 function texteEtatCopie() {
+  if (!raptActive()) return ''; // pas de RAPT Pill, pas de relais : rien à dire des copies
   if (!relaisConfigure()) return 'Copie automatique sur le relais : à activer en réglant le relais RAPT ci-dessus.';
   const { copieRelais } = etat.donnees.meta;
   const vide = !etat.donnees.brassins.length && !etat.donnees.inventaire.articles.length;
@@ -4052,7 +4059,7 @@ async function restaurerCopie(bouton) {
 function changerReglage(element) {
   const cle = element.dataset.reglage;
   const reglages = etat.donnees.reglages;
-  let valeur = element.value;
+  let valeur = element.type === 'checkbox' ? element.checked : element.value;
   if (cle === 'seuilStockBas' || cle === 'gardeSemaines') {
     const n = B.lireNombre(valeur);
     const max = cle === 'gardeSemaines' ? 52 : 99;
@@ -4091,6 +4098,17 @@ function changerReglage(element) {
   reglages[cle] = valeur;
   if (cle === 'joursStabilite') majReperesStabilite(); // repères « FG stable » revus avec le nouveau nombre de jours
   if (cle === 'theme') appliquerTheme(valeur);
+  if (cle === 'raptActive') {
+    // Configuration du relais, notifications et copies : montrées ou cachées sur place.
+    for (const id of ['rapt-options', 'bloc-notifications']) {
+      const zone = document.getElementById(id);
+      if (zone) zone.hidden = !valeur;
+    }
+    erreurCopie = null;
+    afficherEtatCopie();
+    afficherNotifications();
+    if (valeur) planifierCopie(DELAI_COPIE_OUVERTURE);
+  }
   if (cle === 'raptRelais' || cle === 'raptCle') {
     erreurCopie = null;
     afficherEtatCopie();

@@ -280,7 +280,7 @@ Dans ce qui suit, `<relais>` est le nom du Worker, `<sous-domaine>` le sous-doma
 
 ### c) Dans l'appli
 
-**Réglages** → **RAPT Pill** : coller l'adresse du relais et la clé d'accès, puis **Tester la connexion**. La Pill apparaît dès que le relais a reçu sa première mesure. Sur la fiche d'un brassin en fermentation : **Suivre avec une RAPT Pill** (voir « Suivi de fermentation » plus haut).
+**Réglages** → **RAPT Pill** : cocher **J'utilise une RAPT Pill** (la Pill est facultative : décochée, l'appli ne montre ni relais, ni notifications, ni copies sur le relais, ni « Suivre avec une RAPT Pill » sur les fiches ; l'adresse et la clé restent gardées). Coller l'adresse du relais et la clé d'accès, puis **Tester la connexion**. Les données d'avant la version 2.0 dont le relais était réglé ont la case cochée d'office. La Pill apparaît dès que le relais a reçu sa première mesure. Sur la fiche d'un brassin en fermentation : **Suivre avec une RAPT Pill** (voir « Suivi de fermentation » plus haut).
 
 ### d) Mettre à jour le relais
 

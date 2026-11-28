@@ -100,6 +100,20 @@ async function attendreToast(motif) {
     });
 }
 const toastTexte = async () => { await page.locator('#toast.visible').waitFor(); return texte('#toast p'); };
+/** Fenêtre « J'en prends » ou « J'en offre » ouverte : nombre de bouteilles de chaque format (format absent : ignoré). */
+async function regler({ b33 = 0, b66 = 0 } = {}) {
+  for (const [f, n] of [['33', b33], ['66', b66]]) {
+    const champ = page.locator(`#feuille input[name="n${f}"]`);
+    if (await champ.count()) await champ.fill(String(n));
+  }
+}
+/** « J'en prends » : fenêtre, compteurs réglés, validée. */
+async function prendreBouteilles(nombres) {
+  await page.click('#barre-actions [data-action="prendre"]');
+  await page.locator('#feuille[open] form[data-form="prendre"]').waitFor();
+  await regler(nombres);
+  await page.click('#feuille button[type="submit"]');
+}
 
 async function creerBrassin({ style, nom, brassage, embouteillage, abv, b33, b66, codeAttendu }) {
   await page.goto(`${BASE}#/nouveau`);
@@ -204,30 +218,52 @@ try {
     assert.ok((await premiere()).includes(C.code), 'le plus récent en premier');
   });
 
-  await etape('« J’en prends une » : choix du format, puis Annuler', async () => {
+  await etape('« J’en prends » : compteurs 33 et 66 cl, plusieurs d’un coup, puis Annuler', async () => {
     await page.goto(`${BASE}#/brassin/${Bb.code}`);
     await page.click('#barre-actions [data-action="prendre"]');
-    await page.locator('#feuille[open]').waitFor();
+    await page.locator('#feuille[open] form[data-form="prendre"]').waitFor();
+    // 1 × 33 cl préréglé ; chaque compteur reste entre 0 et les bouteilles restantes
+    assert.equal(await page.inputValue('#feuille input[name="n33"]'), '1');
+    assert.equal(await page.inputValue('#feuille input[name="n66"]'), '0');
+    await attendreTexte('#feuille button[type="submit"]', 'Prendre 1 bouteille');
+    await page.click('#feuille [aria-label="Une bouteille de 66 cl de moins"]');
+    assert.equal(await page.inputValue('#feuille input[name="n66"]'), '0');
+    for (let i = 0; i < 6; i++) await page.click('#feuille [aria-label="Une bouteille de 66 cl de plus"]');
+    assert.equal(await page.inputValue('#feuille input[name="n66"]'), '4'); // 4 restantes
+    await page.click('#feuille [aria-label="Une bouteille de 33 cl de plus"]');
+    await attendreTexte('#feuille button[type="submit"]', 'Prendre 6 bouteilles');
     await page.waitForTimeout(400);
     await capture('05-choix-format');
-    await page.click('#feuille [data-format="33"]');
-    await attendreToast(/Il reste 61 bouteilles/);
-    assert.equal(await texte('.e-stock-total b'), '61');
+    // Aucune bouteille : refusé
+    await regler({ b33: 0, b66: 0 });
+    await attendreTexte('#feuille button[type="submit"]', 'Prendre');
+    await page.click('#feuille button[type="submit"]');
+    await attendreTexte('#feuille [data-erreur]', 'Choisir au moins une bouteille.');
+    // 2 × 33 cl et 1 × 66 cl d'un coup, puis Annuler : les trois reviennent en stock
+    await regler({ b33: 2, b66: 1 });
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/Santé\s! 3 bouteilles prises, il en reste 59\./);
+    assert.equal(await texte('.e-stock-total b'), '59');
+    await attendreTexte('.e-formats', '3 / 4');
     await capture('04-fiche-apres-prise');
+    await page.click('#toast button'); // Annuler
+    await attendreToast(/3 bouteilles remises en stock/);
+    await page.waitForFunction(() => document.querySelector('.e-stock-total b').textContent === '62');
+    // Une seule : le message habituel
+    await prendreBouteilles({ b33: 1 });
+    await attendreToast(/Il reste 61 bouteilles/);
     await page.click('#toast button'); // Annuler
     await page.waitForFunction(() => document.querySelector('.e-stock-total b').textContent === '62');
     await attendreToast(/remise en stock/);
   });
 
   await etape('Prise d’une 66 cl, puis annulation depuis la liste', async () => {
-    await page.click('#barre-actions [data-action="prendre"]');
-    await page.click('#feuille [data-format="66"]');
+    await prendreBouteilles({ b66: 1 });
     await attendreTexte('.e-formats', '3 / 4');
     await attendreTexte('.bloc', 'Bouteilles bues');
     await page.click('[data-action="annuler-mouvement"]');
     await attendreTexte('.e-formats', '4 / 4');
-    await page.click('#barre-actions [data-action="prendre"]');
-    await page.click('#feuille [data-format="66"]');
+    await prendreBouteilles({ b66: 1 });
     await attendreTexte('.e-formats', '3 / 4');
   });
 
@@ -244,6 +280,23 @@ try {
     await page.fill('#feuille textarea[name="avis"]', 'Belle amertume, à refaire');
     await page.click('#feuille button[type="submit"]');
     await attendreTexte('.ligne-avis', 'Belle amertume, à refaire');
+    // Plusieurs d'un coup : 2 × 33 cl et 1 × 66 cl à Marie (trois dons), son avis noté une fois ; puis Annuler
+    await page.click('#barre-actions [data-action="offrir"]');
+    await page.locator('#feuille[open] form[data-form="offrir"]').waitFor();
+    await regler({ b33: 2, b66: 1 });
+    await attendreTexte('#feuille button[type="submit"]', 'Offrir 3 bouteilles');
+    await page.fill('#feuille input[name="a"]', 'Marie');
+    await page.fill('#feuille textarea[name="avis"]', 'Très fruitée');
+    await page.waitForTimeout(300);
+    await capture('54-offrir-plusieurs');
+    await page.click('#feuille button[type="submit"]');
+    await attendreToast(/3 bouteilles offertes à Marie\. Il en reste 57\./);
+    assert.equal(await page.locator('[data-action="modifier-don"]', { hasText: 'Marie' }).count(), 3);
+    assert.equal(await page.locator('.ligne-avis', { hasText: 'Très fruitée' }).count(), 1);
+    await page.click('#toast button'); // Annuler
+    await attendreToast(/3 bouteilles remises en stock/);
+    assert.equal(await page.locator('[data-action="modifier-don"]', { hasText: 'Marie' }).count(), 0);
+    assert.equal(await texte('.e-stock-total b'), '60');
   });
 
   await etape('Note sur 5 et notes de dégustation enregistrées', async () => {
@@ -274,13 +327,15 @@ try {
   });
 
   await etape('Dernière bouteille → le brassin passe dans l’historique', async () => {
-    for (let i = 0; i < 5; i++) await page.click('#barre-actions [data-action="prendre"]');
+    await prendreBouteilles({ b33: 4 });
+    await attendreToast(/Santé\s! 4 bouteilles prises, il en reste 1\./);
+    await prendreBouteilles({ b33: 1 });
     await attendreToast(/Dernière bouteille/);
     await attendreTexte('.e-etat', 'Terminé');
     await attendreNombre(page, '#barre-actions button', 0);
     await page.click('#toast button'); // Annuler la dernière
     await attendreTexte('.e-bloc-stock', 'Stock bas');
-    await page.click('#barre-actions [data-action="prendre"]');
+    await prendreBouteilles({ b33: 1 });
     await page.goto(`${BASE}#/historique`);
     await attendreTexte('.e-carte', C.code);
     await attendreTexte('.e-carte--terminee', '5 bues');
@@ -716,15 +771,13 @@ try {
 
   await etape('Bouteille bue → une bouteille vide de plus (et annulation)', async () => {
     await page.goto(`${BASE}#/brassin/${Bb.code}`);
-    await page.click('#barre-actions [data-action="prendre"]');
-    await page.click('#feuille [data-format="33"]');
+    await prendreBouteilles({ b33: 1 });
     await attendreToast(/Il reste/);
     await page.click('#toast button'); // Annuler
     await attendreToast(/remise en stock/);
     await attendreQuantite('Bouteilles vides 33 cl', '30');
     await page.goto(`${BASE}#/brassin/${Bb.code}`);
-    await page.click('#barre-actions [data-action="prendre"]');
-    await page.click('#feuille [data-format="33"]');
+    await prendreBouteilles({ b33: 1 });
     await attendreToast(/Il reste/);
     await attendreQuantite('Bouteilles vides 33 cl', '31');
   });
@@ -861,8 +914,7 @@ try {
     await page.emulateMedia({ colorScheme: 'light' });
     // Une 33 cl de ${Bb.code} (prête) bue : une pleine et prête de moins, une vide de plus
     await page.goto(`${BASE}#/brassin/${Bb.code}`);
-    await page.click('#barre-actions [data-action="prendre"]');
-    await page.click('#feuille [data-format="33"]');
+    await prendreBouteilles({ b33: 1 });
     await attendreToast(/Il reste/);
     await page.goto(`${BASE}#/stock/bouteilles`);
     await page.locator('.e-tableau-bouteilles').waitFor();

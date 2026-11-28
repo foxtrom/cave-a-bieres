@@ -298,6 +298,39 @@ export function retirerBouteille(b, { type = 'bue', format, date, a = '', avis =
   return mouvement;
 }
 
+/**
+ * Nombres de bouteilles à sortir d'un coup ({ 33, 66 }) vérifiés : entiers, pas plus que le stock
+ * de chaque format, au moins une bouteille. → { nombres, total } ou { erreur }.
+ */
+export function verifierNombres(b, nombres) {
+  const lus = {};
+  for (const f of CODES_FORMATS) {
+    const n = nombres[f] ?? 0;
+    if (!Number.isInteger(n) || n < 0) return { erreur: `Nombre de bouteilles de ${nomFormat(f)} invalide.` };
+    if (n > b.bouteilles[f].restant) {
+      const reste = b.bouteilles[f].restant;
+      return { erreur: reste ? `Il ne reste que ${reste} ${reste >= 2 ? 'bouteilles' : 'bouteille'} de ${nomFormat(f)}.` : `Plus de bouteille de ${nomFormat(f)}.` };
+    }
+    lus[f] = n;
+  }
+  const total = Object.values(lus).reduce((s, n) => s + n, 0);
+  return total ? { nombres: lus, total } : { erreur: 'Choisir au moins une bouteille.' };
+}
+
+/**
+ * Plusieurs bouteilles sorties d'un coup (nombres vérifiés par verifierNombres) : une sortie par
+ * bouteille, les 33 cl puis les 66 cl. L'avis d'un don n'est noté qu'une fois, sur la sortie qui
+ * s'affiche en premier. Renvoie les sorties créées.
+ */
+export function retirerBouteilles(b, { type = 'bue', nombres, date, a = '', avis = '' }) {
+  const sorties = [];
+  for (const f of CODES_FORMATS) {
+    for (let i = 0; i < (nombres[f] ?? 0); i++) sorties.push(retirerBouteille(b, { type, format: f, date, a }));
+  }
+  if (type === 'offerte' && avis && sorties.length) sorties.at(-1).avis = avis;
+  return sorties;
+}
+
 /** Annule une sortie : la bouteille revient en stock. Renvoie de quoi la rétablir. */
 export function annulerMouvement(b, idMouvement) {
   const index = b.mouvements.findIndex((m) => m.id === idMouvement);

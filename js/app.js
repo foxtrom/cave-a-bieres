@@ -3082,35 +3082,109 @@ function remettreEnStock(b, annulation, message = 'Bouteille remise en stock.') 
   });
 }
 
-function prendre(bouton) {
-  const b = brassinCourant();
-  if (!b) return;
-  const disponibles = B.formatsDisponibles(b);
-  const format = bouton.dataset.format ?? (disponibles.length === 1 ? disponibles[0] : null);
-  if (!format) {
-    if (disponibles.length > 1) ouvrirChoixFormat(b, disponibles);
-    return;
-  }
-  const mouvement = B.retirerBouteille(b, { type: 'bue', format, date: aujourdhui() });
-  bouteilleVide(mouvement, +1);
+/** Plusieurs sorties annulées d'un coup (« Annuler » après en avoir pris ou offert plusieurs), avec « Rétablir ». */
+function remettreSorties(b, sorties) {
+  const annulations = sorties.map((m) => B.annulerMouvement(b, m.id)).filter(Boolean);
+  if (annulations.length <= 1) return remettreEnStock(b, annulations[0]);
+  for (const a of annulations) bouteilleVide(a.mouvement, -1);
   modifie(b);
-  const reste = B.stock(b).total;
-  toast(reste ? `Santé ! Il reste ${pluriel(reste, 'bouteille')}.` : `Dernière bouteille de ${b.code} ! Le brassin passe dans l’historique.`, {
-    action: () => remettreEnStock(b, B.annulerMouvement(b, mouvement.id)),
+  toast(`${annulations.length} bouteilles remises en stock.`, {
+    libelle: 'Rétablir',
+    action: () => {
+      // Dans l'ordre inverse des annulations : chaque sortie retrouve sa place dans la liste.
+      for (const a of [...annulations].reverse()) {
+        B.retablirMouvement(b, a);
+        bouteilleVide(a.mouvement, +1);
+      }
+      modifie(b);
+    },
   });
 }
 
-function ouvrirChoixFormat(b, disponibles) {
-  ouvrirFeuille(html`<div class="feuille-contenu">
-    <h2 tabindex="-1" autofocus>J’en prends une</h2>
-    <div class="pile-boutons">
-      ${disponibles.map(
-        (f) => html`<button type="button" class="e-btn e-btn--principal e-btn--geant" data-action="prendre" data-format="${f}">
-          ${B.nomFormat(f)}<small>${pluriel(b.bouteilles[f].restant, 'restante')}</small></button>`,
-      )}
-      <button type="button" class="e-btn e-btn--secondaire e-btn--large" data-action="fermer-feuille">Annuler</button>
-    </div>
-  </div>`);
+/* ---------- « J'en prends » et « J'en offre » : une ou plusieurs bouteilles de 33 et de 66 cl ---------- */
+
+/** Compteurs − / + des bouteilles à sortir : un par format restant, 1 × 33 cl préréglé (sinon 1 du seul format). */
+function compteursBouteilles(b) {
+  const disponibles = B.formatsDisponibles(b);
+  const defaut = disponibles.includes('33') ? '33' : disponibles[0];
+  return html`<fieldset class="compteurs-bouteilles">
+    <legend class="libelle">Bouteilles</legend>
+    ${disponibles.map((f) => {
+      const restant = b.bouteilles[f].restant;
+      const nom = B.nomFormat(f);
+      return html`<div class="compteur-bouteilles">
+        <span class="compteur-format"><b>${nom}</b><small>${pluriel(restant, 'restante')}</small></span>
+        <button type="button" class="e-btn e-btn--secondaire compteur-pas" data-action="compteur" data-pas="-1" aria-label="Une bouteille de ${nom} de moins">−</button>
+        <input name="n${f}" inputmode="numeric" pattern="[0-9]*" value="${f === defaut ? 1 : 0}" data-max="${restant}" aria-label="Bouteilles de ${nom}" autocomplete="off">
+        <button type="button" class="e-btn e-btn--secondaire compteur-pas" data-action="compteur" data-pas="1" aria-label="Une bouteille de ${nom} de plus">+</button>
+      </div>`;
+    })}
+  </fieldset>`;
+}
+
+/** Nombres des compteurs : { 33, 66 } (vide = 0, illisible = NaN). */
+function lireNombres(form) {
+  const nombres = {};
+  for (const champ of form.querySelectorAll('.compteur-bouteilles input')) {
+    const valeur = champ.value.trim();
+    nombres[champ.name.slice(1)] = valeur === '' ? 0 : (B.lireNombre(valeur) ?? NaN);
+  }
+  return nombres;
+}
+
+/** Bouton de la fenêtre : « Prendre 3 bouteilles », « Offrir 1 bouteille ». */
+function majBoutonSortie(form) {
+  const total = Object.values(lireNombres(form)).reduce((s, n) => s + (Number.isInteger(n) && n > 0 ? n : 0), 0);
+  const verbe = form.dataset.form === 'offrir' ? 'Offrir' : 'Prendre';
+  form.querySelector('button[type="submit"]').textContent = total ? `${verbe} ${pluriel(total, 'bouteille')}` : verbe;
+}
+
+/** − / + d'un compteur, entre 0 et les bouteilles restantes de ce format. */
+function changerCompteur(bouton) {
+  const champ = bouton.parentElement.querySelector('input');
+  const n = B.lireNombre(champ.value);
+  const actuel = Number.isInteger(n) ? n : 0;
+  champ.value = Math.min(Number(champ.dataset.max), Math.max(0, actuel + Number(bouton.dataset.pas)));
+  majBoutonSortie(champ.form);
+}
+
+/** Fenêtre « J'en prends » ou « J'en offre » ouverte : le bouton suit les compteurs, même tapés au clavier. */
+function brancherCompteurs(feuille) {
+  const form = feuille.querySelector('form');
+  form.addEventListener('input', () => majBoutonSortie(form));
+  majBoutonSortie(form);
+}
+
+function ouvrirPrendre() {
+  const b = brassinCourant();
+  if (!b || !B.stock(b).total) return;
+  const feuille = ouvrirFeuille(html`<form class="feuille-contenu" data-form="prendre" novalidate>
+    <h2 tabindex="-1" autofocus>J’en prends</h2>
+    ${compteursBouteilles(b)}
+    ${boutonsFeuille('Prendre')}
+  </form>`);
+  brancherCompteurs(feuille);
+}
+
+/** Bouteilles bues : une sortie par bouteille, chacune revient vide dans le stock de matériel. */
+function validerPrendre(form) {
+  const b = brassinCourant();
+  if (!b) return;
+  const lu = B.verifierNombres(b, lireNombres(form));
+  if (lu.erreur) return erreurFeuille(form, lu.erreur);
+  const sorties = B.retirerBouteilles(b, { type: 'bue', nombres: lu.nombres, date: aujourdhui() });
+  for (const m of sorties) bouteilleVide(m, +1);
+  modifie(b);
+  const reste = B.stock(b).total;
+  const n = sorties.length;
+  const message = reste
+    ? n === 1
+      ? `Santé ! Il reste ${pluriel(reste, 'bouteille')}.`
+      : `Santé ! ${n} bouteilles prises, il en reste ${reste}.`
+    : n === 1
+      ? `Dernière bouteille de ${b.code} ! Le brassin passe dans l’historique.`
+      : `Les ${n} dernières bouteilles de ${b.code} ! Le brassin passe dans l’historique.`;
+  toast(message, { duree: n === 1 ? 6000 : 8000, action: () => remettreSorties(b, sorties) });
 }
 
 function erreurFeuille(form, message) {
@@ -3132,15 +3206,9 @@ function ouvrirOffrir() {
   const connus = [...new Set(etat.donnees.brassins.flatMap((x) => B.offertes(x).map((m) => m.a)).filter(Boolean))].sort((x, y) =>
     x.localeCompare(y, 'fr'),
   );
-  ouvrirFeuille(html`<form class="feuille-contenu" data-form="offrir" novalidate>
-    <h2>J’en offre une</h2>
-    ${
-      disponibles.length > 1
-        ? html`<div class="champ"><span class="libelle">Format</span><div class="segments">${disponibles.map(
-            (f, i) => html`<label><input type="radio" name="format" value="${f}" ${i === 0 ? 'checked' : ''}><span>${B.nomFormat(f)}</span></label>`,
-          )}</div></div>`
-        : html`<input type="hidden" name="format" value="${disponibles[0]}">`
-    }
+  const feuille = ouvrirFeuille(html`<form class="feuille-contenu" data-form="offrir" novalidate>
+    <h2>J’en offre</h2>
+    ${compteursBouteilles(b)}
     <label class="champ"><span class="libelle">À qui ?</span>
       <input name="a" list="destinataires" placeholder="Prénom" autocomplete="off" autocapitalize="words" autofocus></label>
     <datalist id="destinataires">${connus.map((nom) => html`<option value="${nom}"></option>`)}</datalist>
@@ -3149,19 +3217,26 @@ function ouvrirOffrir() {
     <label class="champ"><span class="libelle">Date</span><input type="date" name="date" value="${aujourdhui()}"></label>
     ${boutonsFeuille('Offrir')}
   </form>`);
+  brancherCompteurs(feuille);
 }
 
+/** Bouteilles offertes : une sortie (un don) par bouteille, l'avis noté une seule fois. */
 function validerOffre(form) {
   const b = brassinCourant();
   if (!b) return;
   const f = new FormData(form);
+  const lu = B.verifierNombres(b, lireNombres(form));
+  if (lu.erreur) return erreurFeuille(form, lu.erreur);
   const a = String(f.get('a') ?? '').trim();
-  if (!a) return erreurFeuille(form, 'Indiquer à qui la bouteille est offerte.');
+  if (!a) return erreurFeuille(form, lu.total === 1 ? 'Indiquer à qui la bouteille est offerte.' : 'Indiquer à qui les bouteilles sont offertes.');
   const date = estDateValide(f.get('date')) ? f.get('date') : aujourdhui();
-  const mouvement = B.retirerBouteille(b, { type: 'offerte', format: f.get('format'), date, a, avis: String(f.get('avis') ?? '').trim() });
+  const sorties = B.retirerBouteilles(b, { type: 'offerte', nombres: lu.nombres, date, a, avis: String(f.get('avis') ?? '').trim() });
   modifie(b);
-  toast(`Offerte à ${a}. Il reste ${pluriel(B.stock(b).total, 'bouteille')}.`, {
-    action: () => remettreEnStock(b, B.annulerMouvement(b, mouvement.id)),
+  const reste = B.stock(b).total;
+  const n = sorties.length;
+  toast(n === 1 ? `Offerte à ${a}. Il reste ${pluriel(reste, 'bouteille')}.` : `${n} bouteilles offertes à ${a}. Il en reste ${reste}.`, {
+    duree: n === 1 ? 6000 : 8000,
+    action: () => remettreSorties(b, sorties),
   });
 }
 
@@ -3994,7 +4069,8 @@ function changerReglage(element) {
 /* ================================================================== */
 
 const ACTIONS = {
-  prendre,
+  prendre: ouvrirPrendre,
+  compteur: changerCompteur,
   offrir: ouvrirOffrir,
   'modifier-don': ouvrirDon,
   'supprimer-don': annulerSortie,
@@ -4073,6 +4149,7 @@ const FORMULAIRES = {
   embouteiller: validerEmbouteillage,
   capsules: validerCapsules,
   'dry-hop': validerDryHop,
+  prendre: validerPrendre,
   etiquettes: creerPdfEtiquettes,
   article: validerArticle,
   'import-stock': validerImportStock,

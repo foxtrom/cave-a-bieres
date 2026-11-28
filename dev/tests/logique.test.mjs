@@ -138,6 +138,37 @@ test('j’en prends une, puis annuler, puis rétablir', () => {
   assert.equal(b.mouvements.length, 1);
 });
 
+test('plusieurs bouteilles d’un coup : nombres vérifiés avant de rien retirer', () => {
+  const b = brassinEmbouteille(); // 60 × 33 cl, 4 × 66 cl
+  assert.deepEqual(B.verifierNombres(b, { 33: 2, 66: 1 }), { nombres: { 33: 2, 66: 1 }, total: 3 });
+  assert.deepEqual(B.verifierNombres(b, { 33: 3 }), { nombres: { 33: 3, 66: 0 }, total: 3 }); // format absent : 0
+  assert.equal(B.verifierNombres(b, { 33: 0, 66: 0 }).erreur, 'Choisir au moins une bouteille.');
+  assert.equal(B.verifierNombres(b, { 33: 1, 66: 5 }).erreur, 'Il ne reste que 4 bouteilles de 66 cl.');
+  assert.equal(B.verifierNombres(b, { 33: 1.5 }).erreur, 'Nombre de bouteilles de 33 cl invalide.');
+  assert.equal(B.verifierNombres(b, { 33: NaN }).erreur, 'Nombre de bouteilles de 33 cl invalide.');
+  const vide = brassinEmbouteille({ bouteilles: { 33: { depart: 60, restant: 2 }, 66: { depart: 4, restant: 0 } } });
+  assert.equal(B.verifierNombres(vide, { 66: 1 }).erreur, 'Plus de bouteille de 66 cl.');
+  assert.equal(B.stock(b).total, 64); // rien n'a été retiré
+});
+
+test('plusieurs bouteilles bues ou offertes : une sortie par bouteille, l’avis noté une fois', () => {
+  const b = brassinEmbouteille();
+  const bues = B.retirerBouteilles(b, { type: 'bue', nombres: { 33: 2, 66: 1 }, date: AUJ });
+  assert.deepEqual(bues.map((m) => [m.type, m.format]), [['bue', '33'], ['bue', '33'], ['bue', '66']]);
+  assert.deepEqual([b.bouteilles['33'].restant, b.bouteilles['66'].restant], [58, 3]);
+  // Trois bouteilles offertes à Pierre : trois dons (rendus un par un), son avis sur celui affiché en premier
+  const dons = B.retirerBouteilles(b, { type: 'offerte', nombres: { 33: 3, 66: 0 }, date: AUJ, a: 'Pierre', avis: 'Belle amertume' });
+  assert.equal(dons.length, 3);
+  assert.ok(dons.every((m) => m.a === 'Pierre' && m.rendue === null));
+  assert.deepEqual(B.offertes(b).map((m) => m.avis), ['Belle amertume', '', '']);
+  // Annulées toutes (dans l'ordre), puis rétablies dans l'ordre inverse : la liste revient à l'identique
+  const avant = b.mouvements.map((m) => m.id);
+  const annulations = dons.map((m) => B.annulerMouvement(b, m.id));
+  assert.equal(B.stock(b).total, 61);
+  for (const a of [...annulations].reverse()) B.retablirMouvement(b, a);
+  assert.deepEqual(b.mouvements.map((m) => m.id), avant);
+});
+
 test('bouteille offerte : destinataire et avis', () => {
   const b = brassinEmbouteille();
   B.retirerBouteille(b, { type: 'offerte', format: '66', date: AUJ, a: 'Pierre', avis: 'Belle amertume' });

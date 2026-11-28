@@ -1418,6 +1418,10 @@ try {
     await attendreToast(/Réglage enregistré/);
     assert.equal(await page.locator('#rapt-options').isVisible(), true);
     assert.equal(await page.locator('#bloc-notifications').isVisible(), true);
+    // Lien vers le mode d'emploi du relais (section 7 du README sur GitHub), ouvert dans un nouvel onglet
+    assert.equal(await page.locator('#guide-relais').isVisible(), true);
+    assert.equal(await page.getAttribute('#guide-relais', 'href'), 'https://github.com/foxtrom/cave-a-bieres#7-relais-rapt-pill-cloudflare-gratuit-une-seule-fois');
+    assert.equal(await page.getAttribute('#guide-relais', 'target'), '_blank');
     await reglage('raptRelais', 'relais.test');
     await attendreToast(/Adresse du relais invalide/);
     assert.equal(await page.inputValue('input[data-reglage="raptRelais"]'), '');

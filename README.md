@@ -246,18 +246,18 @@ Pour ajouter un style (NEIPA, Cold IPA…), compléter la liste `STYLES` au déb
 
 **Pourquoi un relais ?** RAPT n'autorise pas une page web à lire ses données : seuls ses propres sites le peuvent. Un petit programme hébergé gratuitement chez Cloudflare fait l'intermédiaire. Il reçoit les mesures de la Pill envoyées par RAPT Brew, les garde, et les donne à l'appli quand elle les demande avec la clé d'accès. Il garde aussi les copies de sauvegarde de l'appli (section 3). Le portail `app.rapt.io` et son ancienne API ferment le 31/12/2026 : le relais s'appuie donc sur les **Data Streams** de la nouvelle plateforme **RAPT Brew**.
 
-Dans ce qui suit, `<relais>` est le nom du Worker, `<sous-domaine>` le sous-domaine `workers.dev` du compte Cloudflare et `<CLE_ACCES>` la clé d'accès. Ces trois valeurs ne vont **jamais** dans le dépôt : les noter dans le dossier `prive/` du projet (exclu de Git) ou dans un gestionnaire de mots de passe.
+Dans ce qui suit, `<relais>` est le nom du Worker, `<sous-domaine>` le sous-domaine `workers.dev` du compte Cloudflare et `<CLE_ACCES>` la clé d'accès. Ces trois valeurs sont personnelles : les noter dans un gestionnaire de mots de passe (ou une note privée), ne jamais les publier ni les envoyer.
 
 ### a) Créer le relais (tableau de bord Cloudflare, libellés de novembre 2026)
 
 1. Créer un compte gratuit sur <https://dash.cloudflare.com/sign-up>. Cloudflare propose un sous-domaine `workers.dev` tiré de l'adresse e-mail : le remplacer par des lettres au hasard (**Workers & Pages** → **Account details** → **Subdomain** → **Change**), pour que l'adresse du relais ne porte pas votre nom.
 2. Menu de gauche **Compute** → **Workers & Pages** → **Create application** → **Start with Hello World!**. Nom : un nom difficile à deviner, par exemple `relais-` suivi de six lettres au hasard. Laisser **Protect with Cloudflare Access** désactivé (sinon ni RAPT ni l'appli ne passent), puis **Deploy**. L'adresse du relais s'affiche : `https://<relais>.<sous-domaine>.workers.dev`. Une adresse toute neuve peut répondre « There is nothing here yet » pendant quelques minutes.
 3. **Edit code** : effacer le code « Hello World » et coller tout le contenu du fichier [`relais-rapt/worker.js`](relais-rapt/worker.js) (aussi sur GitHub, avec un bouton de copie), puis **Deploy**. L'aperçu affiche « Relais incomplet » : normal, la clé vient à l'étape 6.
-4. Menu de gauche **Storage & databases** → **Workers KV** → **Create** : nommer l'espace `ensen-mesures`. Ne rien y mettre.
-5. Revenir au Worker → **Settings** → section **Bindings** → **+ Add binding** → **KV namespace** : nom de variable `MESURES` (en majuscules), espace `ensen-mesures`.
+4. Menu de gauche **Storage & databases** → **Workers KV** → **Create** : nommer l'espace, par exemple `mesures-pill` (le nom est libre). Ne rien y mettre.
+5. Revenir au Worker → **Settings** → section **Bindings** → **+ Add binding** → **KV namespace** : nom de variable `MESURES` (en majuscules), espace créé à l'étape 4.
 6. Même page, section **Runtime variables and secrets** (laisser **Production**) → **+ Add variable** :
    - `CLE_ACCES`, type **Secret** (jamais **Text** : la clé resterait lisible dans Cloudflare) : une vingtaine de lettres, chiffres et tirets tirés au hasard. Elle ne sert qu'au relais.
-   - `ORIGINE`, type **Text** : `https://foxtrom.github.io` (exactement, sans `/cave-a-bieres`)
+   - `ORIGINE`, type **Text** : `https://foxtrom.github.io` (exactement, sans `/cave-a-bieres` : c'est l'adresse où l'appli est publiée : aucune autre page web ne peut lire le relais depuis un navigateur)
 
    puis **Deploy**. Le message orange « Update your Wrangler configuration » ne concerne que ceux qui déploient depuis leur ordinateur : le fermer.
 7. **Contrôle** : ouvrir l'adresse du relais dans un navigateur. Sans clé, il refuse tout : c'est normal.
@@ -274,13 +274,13 @@ Dans ce qui suit, `<relais>` est le nom du Worker, `<sous-domaine>` le sous-doma
 
 1. Sur <https://brew.rapt.io> (ou dans l'appli RAPT Brew) : photo de profil → **Manage Account** → **My Integrations** → **RAPT Brew Data Stream** → **+ Create Stream**.
 2. Choisir **Custom**, la Pill, et comme adresse (URL) : `https://<relais>.<sous-domaine>.workers.dev/flux?cle=<CLE_ACCES>`. Méthode **POST** si elle est demandée. C'est le seul endroit où la clé passe dans une adresse : RAPT Brew ne sait pas envoyer d'en-tête.
-3. Le bouton de test de RAPT Brew envoie la dernière mesure connue de la Pill. Le relais garde le dernier envoi tel quel dans l'espace KV : **Storage & databases** → **Workers KV** → `ensen-mesures` → **KV Pairs** → `flux:dernier`. Par exemple :
+3. Le bouton de test de RAPT Brew envoie la dernière mesure connue de la Pill. Le relais garde le dernier envoi tel quel dans l'espace KV : **Storage & databases** → **Workers KV** → l'espace créé à l'étape 4 → **KV Pairs** → `flux:dernier`. Par exemple :
    `{"event":"telemetry","deviceId":"…","deviceType":"PillHydrometer","name":"RAPT Pill","timestamp":"…","data":{"temperature":19.5,"gravity":1.0436,"battery":88.4,…}}`.
 4. La Pill ne mesure une densité juste qu'en flottant : posée ou couchée, elle envoie des valeurs fausses (par exemple 1,284), que l'appli écarte. Pour un essai sans brassin, la faire flotter dans un seau d'eau : environ 1,000.
 
 ### c) Dans l'appli
 
-**Réglages** → **RAPT Pill** : cocher **J'utilise une RAPT Pill** (la Pill est facultative : décochée, l'appli ne montre ni relais, ni notifications, ni copies sur le relais, ni « Suivre avec une RAPT Pill » sur les fiches ; l'adresse et la clé restent gardées). Coller l'adresse du relais et la clé d'accès, puis **Tester la connexion**. Les données d'avant la version 2.0 dont le relais était réglé ont la case cochée d'office. La Pill apparaît dès que le relais a reçu sa première mesure. Sur la fiche d'un brassin en fermentation : **Suivre avec une RAPT Pill** (voir « Suivi de fermentation » plus haut).
+**Réglages** → **RAPT Pill** : cocher **J'utilise une RAPT Pill** (le lien **Mode d'emploi du relais**, juste dessous, ouvre cette section) (la Pill est facultative : décochée, l'appli ne montre ni relais, ni notifications, ni copies sur le relais, ni « Suivre avec une RAPT Pill » sur les fiches ; l'adresse et la clé restent gardées). Coller l'adresse du relais et la clé d'accès, puis **Tester la connexion**. Les données d'avant la version 2.0 dont le relais était réglé ont la case cochée d'office. La Pill apparaît dès que le relais a reçu sa première mesure. Sur la fiche d'un brassin en fermentation : **Suivre avec une RAPT Pill** (voir « Suivi de fermentation » plus haut).
 
 ### d) Mettre à jour le relais
 

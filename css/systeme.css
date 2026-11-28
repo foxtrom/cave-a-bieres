@@ -741,6 +741,10 @@ form[data-form="casse"] > .aide { margin: 0 0 var(--e-4); }
   cursor: pointer;
 }
 .e-menu-action + .e-menu-action { border-top: 1px solid var(--e-bordure); }
+/* Un lien présenté comme une action de menu (Mode d'emploi du relais) : sans soulignement */
+.e-page a.e-menu-action,
+.e-page a.e-menu-action small { color: var(--e-texte); text-decoration: none; }
+.e-page a.e-menu-action small { color: var(--e-texte-2); }
 .e-menu-action > .e-icone { width: min(1.5rem, 32px); height: min(1.5rem, 32px); color: var(--e-cuivre); }
 .e-menu-action > span { display: grid; gap: 2px; min-width: 0; }
 .e-menu-action b { color: var(--e-cuivre); font: 650 1rem/1.3 var(--e-police); }

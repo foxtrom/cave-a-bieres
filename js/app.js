@@ -430,6 +430,9 @@ function vueFiche(b) {
 
 /* ---------- Suivi de fermentation (RAPT Pill) ---------- */
 
+/** Mode d'emploi du relais RAPT (section 7 du README), lié depuis les Réglages. */
+const GUIDE_RELAIS = 'https://github.com/foxtrom/cave-a-bieres#7-relais-rapt-pill-cloudflare-gratuit-une-seule-fois';
+
 /** RAPT Pill cochée dans les Réglages : suivi, notifications et copies passent par le relais. */
 const raptActive = () => etat.donnees.reglages.raptActive === true;
 const relaisConfigure = () => Boolean(raptActive() && etat.donnees.reglages.raptRelais && etat.donnees.reglages.raptCle);
@@ -3023,7 +3026,10 @@ function vueReglages() {
         <label class="case-a-cocher"><input type="checkbox" data-reglage="raptActive" ${r.raptActive ? 'checked' : ''}><span>J’utilise une RAPT Pill</span></label>
         <p class="aide">Densité suivie pendant la fermentation, notifications et copies automatiques de sauvegarde, par un petit relais Cloudflare.</p>
         <div id="rapt-options" ${r.raptActive ? '' : 'hidden'}>
-        <p class="aide">Le relais s’installe une fois (mode d’emploi dans le README du dépôt GitHub). Indiquer ici son adresse et sa clé d’accès.</p>
+        <div class="e-actions-liste">
+          <a class="e-menu-action" id="guide-relais" href="${GUIDE_RELAIS}" target="_blank" rel="noopener">${SYMBOLES.fichier}<span><b>Mode d’emploi du relais</b><small>Sur GitHub : créer le relais Cloudflare (gratuit, une seule fois) et y faire envoyer les mesures par RAPT Brew.</small></span></a>
+        </div>
+        <p class="aide">Puis indiquer ici l’adresse du relais et sa clé d’accès.</p>
         <label class="champ"><span class="libelle">Adresse du relais</span>
           <input type="url" data-reglage="raptRelais" value="${r.raptRelais}" placeholder="https://….workers.dev" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
         <label class="champ"><span class="libelle">Clé d’accès</span>

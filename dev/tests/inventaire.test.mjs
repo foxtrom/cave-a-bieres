@@ -551,3 +551,9 @@ test('alerte d’un article dans le stock : périmé, bientôt, stock bas, ingr�
   assert.equal(I.articleSignale(article({ categorie: 'materiel', nom: 'Joints de clapets', quantite: 0 }), auj), false);
   assert.equal(I.articleSignale(article({ categorie: 'malt', nom: 'Carapils', quantite: 2 }), auj), false);
 });
+
+test('liste de courses partagée : titrée avec le nom de la brasserie', () => {
+  const liste = I.listeCourses(stockDeTest(), AUJ);
+  assert.match(I.texteCourses(liste, 'Brasserie Ensen'), /^Courses — Brasserie Ensen\n/);
+  assert.match(I.texteCourses(liste), /^Courses\n/);
+});

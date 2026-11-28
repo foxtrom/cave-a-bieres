@@ -499,7 +499,7 @@ export const nombrePastille = (liste) => liste.filter((x) => !x.muet).length;
 export const RAISONS = { perime: 'périmé', epuise: 'épuisé', bas: 'stock bas' };
 
 /** Liste en texte, à partager (Notes, Messages…). */
-export function texteCourses(liste) {
+export function texteCourses(liste, marque = '') {
   const lignes = liste.map((x) => {
     if (x.type === 'achat') {
       const q = formaterQuantite(x.achat.quantite, x.achat.unite);
@@ -508,7 +508,7 @@ export function texteCourses(liste) {
     const reste = x.raison === 'bas' ? ` (reste ${formaterQuantite(x.article.quantite, x.article.unite)})` : '';
     return `• ${x.article.nom} : ${RAISONS[x.raison]}${reste}`;
   });
-  return ['Courses — Brasserie Ensen', ...lignes].join('\n');
+  return [marque ? `Courses — ${marque}` : 'Courses', ...lignes].join('\n');
 }
 
 /**

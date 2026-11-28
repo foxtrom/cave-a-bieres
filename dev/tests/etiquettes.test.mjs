@@ -81,6 +81,9 @@ test('brassin : textes d’étiquette remis en forme', () => {
 
 /* ---------- Mise en page ---------- */
 
+/** Marque d'origine de l'appli (Réglages › Ma brasserie). */
+const ENSEN = { nom: 'Brasserie Ensen', devise: 'Vence · brassée avec l’eau de la Foux' };
+
 const bornes = (elements) =>
   elements
     .filter((e) => e.type === 'texte')
@@ -96,13 +99,35 @@ function verifierDansLEtiquette(d, volume = '33 cl') {
 }
 
 test('mise en page : tout tient dans l’étiquette', () => {
-  const textes = verifierDansLEtiquette(E.donneesEtiquette(brassin()));
+  const textes = verifierDansLEtiquette(E.donneesEtiquette(brassin(), [], ENSEN));
   const y = (debut) => textes.find((t) => t.texte.startsWith(debut)).y;
   assert.ok(y('BRASSERIE') < y('ENSEN') && y('ENSEN') < y('IPA') && y('IPA') < y('NAOURI COLD'));
   assert.ok(y('NAOURI COLD') < y('Vence') && y('Vence') < y('ALCOOL') && y('ALCOOL') < y('MALTS') && y('MALTS') < y('HOUBLONS'));
   assert.ok(textes.some((t) => t.texte === 'embouteillée le 26/11/2026'));
   assert.ok(textes.some((t) => t.texte === '33 CL'));
-  verifierDansLEtiquette(E.donneesEtiquette(brassin()), '66 cl');
+  verifierDansLEtiquette(E.donneesEtiquette(brassin(), [], ENSEN), '66 cl');
+});
+
+test('nom de la brasserie sur l’étiquette : « BRASSERIE » en petit, le nom en grand, rétréci s’il est long', () => {
+  assert.deepEqual(E.lettrageMarque('Brasserie Ensen'), { petit: 'BRASSERIE', grand: 'ENSEN' });
+  assert.deepEqual(E.lettrageMarque('  brasserie   de la Montagne '), { petit: 'BRASSERIE', grand: 'DE LA MONTAGNE' });
+  assert.deepEqual(E.lettrageMarque('Les Bières du Coin'), { petit: '', grand: 'LES BIÈRES DU COIN' });
+  assert.deepEqual(E.lettrageMarque('Brasserie'), { petit: '', grand: 'BRASSERIE' });
+  const marque = (nom, devise = '') => verifierDansLEtiquette(E.donneesEtiquette(brassin(), [], { nom, devise }));
+  const element = (d, texte) => E.composer(d, '33 cl').elements.find((e) => e.texte === texte);
+  // Ensen : exactement comme avant (7,8 mm, espacement 2,5)
+  const ensen = element(E.donneesEtiquette(brassin(), [], ENSEN), 'ENSEN');
+  assert.deepEqual([ensen.taille, ensen.espacement, ensen.y], [7.8, 2.5, 43.7]);
+  // Nom long : plus petit, toujours dans l'étiquette ; sans « Brasserie », une seule ligne centrée dans le bandeau
+  const long = element(E.donneesEtiquette(brassin(), [], { nom: 'Brasserie de la Montagne' }), 'DE LA MONTAGNE');
+  assert.ok(long.taille < 7.8 && long.taille >= 3, `taille ${long.taille}`);
+  marque('Brasserie de la Montagne');
+  marque('Les Bières du Coin', 'Brassées au village depuis 2024, avec l’eau de la source du Loup et beaucoup d’amour');
+  const coin = element(E.donneesEtiquette(brassin(), [], { nom: 'Les Bières du Coin' }), 'LES BIÈRES DU COIN');
+  assert.ok(coin.y > 36.9 && coin.y < 45, `ligne ${coin.y}`);
+  // Sans devise : pas de ligne vide ; sans marque donnée : « Ma brasserie »
+  assert.ok(!marque('Brasserie Ensen').some((t) => t.texte.startsWith('Vence')));
+  assert.ok(verifierDansLEtiquette(E.donneesEtiquette(brassin())).some((t) => t.texte === 'MA BRASSERIE'));
 });
 
 test('mise en page : nom très long sur deux lignes, listes trop longues raccourcies', () => {
@@ -148,7 +173,7 @@ test('nombre de planches A4', () => {
 });
 
 test('PDF : structure valide, pages, polices intégrées, textes', () => {
-  const octets = E.planchePdf(E.donneesEtiquette(brassin()), { 33: 12, 66: 4 }, octetsPolices, { maintenant: new Date('2026-11-12T10:00:00') });
+  const octets = E.planchePdf(E.donneesEtiquette(brassin(), [], ENSEN), { 33: 12, 66: 4 }, octetsPolices, { maintenant: new Date('2026-11-12T10:00:00') });
   const texte = Buffer.from(octets).toString('latin1');
   assert.ok(texte.startsWith('%PDF-1.7\n'));
   assert.ok(texte.endsWith('%%EOF\n'));
@@ -169,6 +194,7 @@ test('PDF : structure valide, pages, polices intégrées, textes', () => {
   assert.ok(texte.includes('(IPA-26/11-3) Tj'));
   assert.ok(texte.includes('(Vence \\267 brass\\351e avec l\\222eau de la Foux) Tj'));
   assert.ok(texte.includes('/MediaBox [0 0 595.276 841.89]'));
+  assert.ok(texte.includes('(Brasserie Ensen \\267 IPA-26/11-3 \\267 '), 'nom de la brasserie dans la légende de la planche');
 });
 
 test('silhouette du Puy de Naouri : tracé fermé, lissé', () => {

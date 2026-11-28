@@ -137,8 +137,33 @@ try {
   await etape('Accueil vide au premier lancement', async () => {
     await page.goto(BASE);
     await attendreTexte('#vue', 'La cave est vide');
-    assert.equal(await texte('.e-marque h1'), 'Brasserie Ensen');
+    assert.equal(await texte('.e-marque h1'), 'Ma brasserie'); // nom par défaut, sans devise
+    assert.equal(await page.locator('.e-marque-devise').count(), 0);
     await capture('01-accueil-vide');
+  });
+
+  await etape('Réglages › Ma brasserie : nom et devise dans l’en-tête et l’onglet', async () => {
+    await page.goto(`${BASE}#/reglages`);
+    const marque = async (cle, valeur) => {
+      await page.fill(`input[data-reglage="${cle}"]`, valeur);
+      await page.dispatchEvent(`input[data-reglage="${cle}"]`, 'change');
+    };
+    await marque('nomBrasserie', '   ');
+    await attendreToast(/Indiquer le nom de la brasserie/);
+    assert.equal(await page.inputValue('input[data-reglage="nomBrasserie"]'), 'Ma brasserie');
+    await marque('nomBrasserie', '  Brasserie   Ensen ');
+    await attendreToast(/Réglage enregistré/);
+    await marque('devise', 'Vence · brassée avec l’eau de la Foux');
+    await attendreToast(/Réglage enregistré/);
+    assert.equal(await page.inputValue('input[data-reglage="nomBrasserie"]'), 'Brasserie Ensen');
+    await attendreTexte('.e-reglages', 'Brasserie Ensen'); // « À propos »
+    assert.equal(await page.title(), 'Réglages · Brasserie Ensen');
+    assert.equal(await page.getAttribute('meta[name="apple-mobile-web-app-title"]', 'content'), 'Brasserie Ensen');
+    await page.waitForTimeout(300);
+    await capture('55-reglages-ma-brasserie');
+    await page.goto(BASE);
+    assert.equal(await texte('.e-marque h1'), 'Brasserie Ensen');
+    assert.equal(await texte('.e-marque-devise'), 'Vence · brassée avec l’eau de la Foux');
   });
 
   await etape('Formulaire : erreurs si champs manquants', async () => {
@@ -444,7 +469,7 @@ try {
     await page.goto(`${BASE}#/reglages`);
     const [selecteur] = await Promise.all([page.waitForEvent('filechooser'), page.click('[data-action="importer"]')]);
     await selecteur.setFiles(intrus);
-    await attendreToast(/pas une sauvegarde de Brasserie Ensen/);
+    await attendreToast(/pas une sauvegarde de la cave à bières/);
   });
 
   await etape('Rappel d’export après 30 jours, puis « Plus tard »', async () => {

@@ -21,6 +21,21 @@ function brassinEmbouteille(champs = {}) {
   });
 }
 
+/* ---------- Réglages : nom et devise de la brasserie ---------- */
+
+test('marque : « Ma brasserie » au premier lancement, Brasserie Ensen pour les données d’avant', () => {
+  assert.deepEqual([donneesVides().reglages.nomBrasserie, donneesVides().reglages.devise], ['Ma brasserie', '']);
+  // Données enregistrées avant la version 2.0 : des réglages, sans nom de brasserie
+  const anciennes = normaliserDonnees({ version: 4, brassins: [], reglages: { theme: 'sombre', seuilStockBas: 6 } });
+  assert.deepEqual([anciennes.reglages.nomBrasserie, anciennes.reglages.devise], ['Brasserie Ensen', 'Vence · brassée avec l’eau de la Foux']);
+  assert.equal(anciennes.reglages.theme, 'sombre');
+  // Nom choisi : gardé, devise vide gardée vide ; nom vidé : celui par défaut
+  const choisie = normaliserDonnees({ version: 4, brassins: [], reglages: { nomBrasserie: ' Les Bières du Coin ', devise: '' } });
+  assert.deepEqual([choisie.reglages.nomBrasserie, choisie.reglages.devise], ['Les Bières du Coin', '']);
+  assert.equal(normaliserDonnees({ version: 4, brassins: [], reglages: { nomBrasserie: '  ' } }).reglages.nomBrasserie, 'Ma brasserie');
+  assert.equal(normaliserDonnees({ version: 4, brassins: [] }).reglages.nomBrasserie, 'Ma brasserie');
+});
+
 /* ---------- Dates ---------- */
 
 test('dates : calculs sans décalage horaire', () => {
@@ -323,7 +338,7 @@ test('sauvegarde : aller-retour complet', () => {
 
 test('sauvegarde : fichiers refusés', () => {
   assert.throws(() => lireSauvegarde('pas du json'), /JSON/);
-  assert.throws(() => lireSauvegarde('{"autre":1}'), /Brasserie Ensen/);
+  assert.throws(() => lireSauvegarde('{"autre":1}'), /pas une sauvegarde de la cave à bières/);
   assert.throws(
     () => lireSauvegarde(JSON.stringify({ application: 'brasserie-ensen', donnees: { version: 99, brassins: [] } })),
     /plus récente/,
@@ -404,5 +419,5 @@ test('sauvegarde : copie du relais déjà lue (objet) acceptée', () => {
   const { donnees } = lireSauvegarde(creerSauvegarde(d));
   assert.equal(donnees.brassins.length, 1);
   assert.equal(donnees.meta.copieRelais, null);
-  assert.throws(() => lireSauvegarde({ autre: 1 }), /Brasserie Ensen/);
+  assert.throws(() => lireSauvegarde({ autre: 1 }), /pas une sauvegarde de la cave à bières/);
 });

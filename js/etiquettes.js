@@ -101,10 +101,26 @@ export function textesEtiquette(b, articles = []) {
 
 const dateCourte = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
 
-/** Tout ce qu'imprime l'étiquette d'un brassin (articles : stock, pour les ingrédients déduits). */
-export function donneesEtiquette(b, articles = []) {
+/**
+ * Nom de la brasserie sur l'étiquette : « Brasserie Ensen » → « BRASSERIE » en petit au-dessus de
+ * « ENSEN » en grand ; un nom qui ne commence pas par « Brasserie » s'écrit tout en grand.
+ */
+export function lettrageMarque(nom) {
+  const propre = String(nom ?? '').trim().replace(/\s+/g, ' ');
+  const majuscules = (t) => t.toLocaleUpperCase('fr-FR');
+  const m = /^(brasserie)\s+(.+)$/i.exec(propre);
+  return m ? { petit: majuscules(m[1]), grand: majuscules(m[2]) } : { petit: '', grand: majuscules(propre) };
+}
+
+/**
+ * Tout ce qu'imprime l'étiquette d'un brassin (articles : stock, pour les ingrédients déduits ;
+ * marque : nom et devise de la brasserie, réglés dans l'appli).
+ */
+export function donneesEtiquette(b, articles = [], { nom: marque = 'Ma brasserie', devise = '' } = {}) {
   const t = textesEtiquette(b, articles);
   return {
+    marque,
+    devise,
     nom: b.nom,
     style: t.style,
     couleur: COULEURS_STYLES[b.style] ?? PALETTE.soleil,
@@ -209,8 +225,23 @@ export function composer(d, volume) {
     });
   }
   elements.push({ type: 'rect', x: 0, y: 33.4, l: W, h: 11.6, couleur: d.couleur });
-  centre('BRASSERIE', 36.9, 'josefinFin', 2.2, PALETTE.sombre, 1.25);
-  centre('ENSEN', 43.7, 'josefinFin', 7.8, PALETTE.sombre, 2.5);
+  // Nom de la brasserie : le grand nom rétrécit jusqu'à tenir sur la largeur, l'espacement entre
+  // les lettres plus vite que les lettres (un nom long reste lisible) ; « ENSEN » garde 7,8 mm et
+  // 2,5 d'espacement. Le bloc reste centré dans le bandeau.
+  const lettrage = lettrageMarque(d.marque);
+  const espaceGrand = (t) => Math.round(2.5 * (t / 7.8) ** 2 * 100) / 100;
+  let tailleGrand = 7.8;
+  while (tailleGrand > 3 && largeurTexte(lettrage.grand, 'josefinFin', tailleGrand, espaceGrand(tailleGrand)) > 52) {
+    tailleGrand = Math.round((tailleGrand - 0.1) * 10) / 10;
+  }
+  const grand = tronquer(lettrage.grand, 'josefinFin', tailleGrand, 52, espaceGrand(tailleGrand));
+  const decalage = (0.7 * (7.8 - tailleGrand)) / 2; // moitié de la hauteur perdue par le grand nom
+  if (lettrage.petit) {
+    centre(lettrage.petit, 36.9 + decalage, 'josefinFin', 2.2, PALETTE.sombre, 1.25);
+    centre(grand, 43.7 - decalage, 'josefinFin', tailleGrand, PALETTE.sombre, espaceGrand(tailleGrand));
+  } else {
+    centre(grand, 39.2 + 0.35 * tailleGrand, 'josefinFin', tailleGrand, PALETTE.sombre, espaceGrand(tailleGrand));
+  }
 
   // Style, écrit à la main, entre deux flèches.
   const style = (d.style || '').trim();
@@ -246,7 +277,12 @@ export function composer(d, volume) {
     lignes.forEach((t, i) => centre(tronquer(t, 'josefinGras', taille, 52, espaceNom), ligneNom - 1.2 + i * 3.9, 'josefinGras', taille, PALETTE.creme, espaceNom));
     yMention = 62.6;
   }
-  centre('Vence · brassée avec l’eau de la Foux', yMention, 'josefinFinItalique', 2, PALETTE.doux);
+  // Devise de la brasserie (facultative), réduite puis coupée si elle est longue.
+  const devise = (d.devise || '').trim();
+  if (devise) {
+    const tailleDevise = tailleAjustee(devise, 'josefinFinItalique', { max: 2, min: 1.6, largeurMax: 52 });
+    centre(tronquer(devise, 'josefinFinItalique', tailleDevise, 52), yMention, 'josefinFinItalique', tailleDevise, PALETTE.doux);
+  }
 
   // Fiche technique en trois colonnes.
   const valeur = (n, unite) => (n == null ? '—' : `${n.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}${unite}`);
@@ -387,7 +423,7 @@ export function planchePdf(d, quantites, octetsPolices, { maintenant = new Date(
         page.ligne(x0 - 4.5, yc, x0 - 1, yc, '#000000', 0.15);
         page.ligne(x0 + colonnes * l + 1, yc, x0 + colonnes * l + 4.5, yc, '#000000', 0.15);
       }
-      const legende = `Brasserie Ensen · ${d.code} · étiquettes ${f.volume} · planche ${p + 1}/${pages}`;
+      const legende = `${d.marque} · ${d.code} · étiquettes ${f.volume} · planche ${p + 1}/${pages}`;
       page.texte(x0 + 2, y0 - 2, codesWinAnsi(legende), { police: ressources.josefinFin, taille: 2.2, couleur: gris });
       const conseil = 'Imprimer à 100 % (taille réelle)';
       const lc = largeurTexte(conseil, 'josefinFin', 2.2);

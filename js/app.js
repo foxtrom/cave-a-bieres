@@ -136,7 +136,7 @@ function afficher() {
   fermerFeuille();
   const vue = construireVue();
 
-  document.title = vue.titre ? `${vue.titre} · Brasserie Ensen` : 'Brasserie Ensen';
+  appliquerMarque(vue.titre);
   const entete = $('#entete');
   entete.innerHTML = String(vue.entete);
   entete.classList.toggle('collant', !vue.marque);
@@ -172,11 +172,25 @@ function afficher() {
 /* Morceaux de vues                                                    */
 /* ================================================================== */
 
+/** Nom et devise de la brasserie (Réglages › Ma brasserie) : en-tête, étiquettes, liste de courses. */
+const marque = () => ({ nom: etat.donnees.reglages.nomBrasserie, devise: etat.donnees.reglages.devise });
+
+/** Titre de l'onglet, et nom proposé par l'iPhone à l'ajout sur l'écran d'accueil (lu au moment de l'ajout). */
+function appliquerMarque(titreVue) {
+  const { nom } = marque();
+  document.title = titreVue ? `${titreVue} · ${nom}` : nom;
+  document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute('content', nom);
+}
+
+/** « À propos » des Réglages : le nom de la brasserie, et sa devise s'il y en a une. */
+const texteAPropos = () => html`${marque().nom}${marque().devise ? html`<br>${marque().devise}` : ''}`;
+
 function enteteMarque(resume) {
+  const { nom, devise } = marque();
   return html`<div class="e-marque">
     ${COLLINE}
-    <h1>Brasserie Ensen</h1>
-    <p class="e-marque-devise">Vence · brassée avec l’eau de la Foux</p>
+    <h1>${nom}</h1>
+    ${devise ? html`<p class="e-marque-devise">${devise}</p>` : ''}
     ${resume ? html`<p class="e-marque-resume">${resume}</p>` : ''}
   </div>`;
 }
@@ -366,7 +380,7 @@ function vueFiche(b) {
       ${st === 'fermentation' ? '' : html`${blocSuivi(b, auj)}${blocDryHop(b, auj, false)}`}
 
       <a class="bloc lien-etiquettes" href="${lienBrassin(b, '/etiquettes')}">
-        ${brut(E.etiquetteSvg(E.donneesEtiquette(b, etat.donnees.inventaire.articles), '33 cl', { classe: 'etiquette etiquette-vignette' }))}
+        ${brut(E.etiquetteSvg(E.donneesEtiquette(b, etat.donnees.inventaire.articles, marque()), '33 cl', { classe: 'etiquette etiquette-vignette' }))}
         <span class="lien-etiquettes-texte"><strong>Étiquettes</strong><small>Aperçu et planche PDF à imprimer</small></span>
         ${ICONES.suivant}
       </a>
@@ -1900,7 +1914,7 @@ function vueEtiquettes(b) {
     titre: `Étiquettes ${b.code}`,
     entete: enteteBarre({ retour: { href: lienBrassin(b), texte: b.code }, titre: 'Étiquettes' }),
     contenu: html`<div class="e-page e-etiquettes">
-      <div class="apercu-etiquette" id="apercu-etiquette">${brut(E.etiquetteSvg(E.donneesEtiquette(b, etat.donnees.inventaire.articles), '33 cl'))}</div>
+      <div class="apercu-etiquette" id="apercu-etiquette">${brut(E.etiquetteSvg(E.donneesEtiquette(b, etat.donnees.inventaire.articles, marque()), '33 cl'))}</div>
       <p class="aide centre">Taille réelle : ${E.FORMATS_ETIQUETTE.map((f) => `${dimensionsEtiquette(f)} (${f.volume})`).join(' · ')}</p>
       <form id="form-etiquettes" class="e-formulaire" data-form="etiquettes" novalidate>
         <fieldset>
@@ -1967,7 +1981,7 @@ function brancherEtiquettes(b) {
       }),
     );
     b.etiquette = Object.values(saisis).some((v) => v !== null) ? saisis : null;
-    $('#apercu-etiquette').innerHTML = E.etiquetteSvg(E.donneesEtiquette(b, etat.donnees.inventaire.articles), '33 cl');
+    $('#apercu-etiquette').innerHTML = E.etiquetteSvg(E.donneesEtiquette(b, etat.donnees.inventaire.articles, marque()), '33 cl');
     clearTimeout(minuteur);
     minuteur = setTimeout(() => {
       b.modifieLe = new Date().toISOString();
@@ -1995,7 +2009,7 @@ async function creerPdfEtiquettes(form) {
   if (!E.nombrePlanches(quantites)) return toast('Indiquer au moins une étiquette.');
   // Polices déjà chargées : tout se fait tout de suite, iOS n'autorise le partage que juste après le toucher.
   const polices = octetsPolices ?? (await chargerPolices());
-  const pdf = E.planchePdf(E.donneesEtiquette(b, etat.donnees.inventaire.articles), quantites, polices);
+  const pdf = E.planchePdf(E.donneesEtiquette(b, etat.donnees.inventaire.articles, marque()), quantites, polices);
   const fichier = new File([pdf], `etiquettes-${b.code}.pdf`, { type: 'application/pdf' });
   const message = `PDF prêt : ${pluriel(E.nombrePlanches(quantites), 'planche')} A4.`;
   if (navigator.canShare?.({ files: [fichier] })) {
@@ -2697,7 +2711,7 @@ function retirerAchat(bouton) {
 }
 
 async function partagerCourses() {
-  const texte = I.texteCourses(I.listeCourses(etat.donnees.inventaire, aujourdhui()));
+  const texte = I.texteCourses(I.listeCourses(etat.donnees.inventaire, aujourdhui()), marque().nom);
   if (navigator.share) {
     try {
       await navigator.share({ text: texte }); // Notes, Messages, Rappels…
@@ -2958,6 +2972,9 @@ async function desactiverNotifications() {
   return afficherNotifications();
 }
 
+const LONGUEUR_NOM_MAX = 40; // nom de la brasserie : en-tête et étiquette
+const LONGUEUR_DEVISE_MAX = 80;
+
 function vueReglages() {
   const r = etat.donnees.reglages;
   const { derniereSauvegarde } = etat.donnees.meta;
@@ -2971,6 +2988,15 @@ function vueReglages() {
     titre: 'Réglages',
     entete: enteteBarre({ titre: 'Réglages' }),
     contenu: html`<div class="e-page e-reglages">
+      <section class="bloc">
+        <h3>Ma brasserie</h3>
+        <label class="champ"><span class="libelle">Nom</span>
+          <input data-reglage="nomBrasserie" value="${r.nomBrasserie}" maxlength="${LONGUEUR_NOM_MAX}" autocomplete="off" autocapitalize="words"></label>
+        <label class="champ"><span class="libelle">Devise <small>(facultative)</small></span>
+          <input data-reglage="devise" value="${r.devise}" maxlength="${LONGUEUR_DEVISE_MAX}" placeholder="Ex. brassée avec l’eau de la source" autocomplete="off"></label>
+        <p class="aide">En haut de la Cave, sur les étiquettes, la planche PDF et la liste de courses partagée. « Brasserie … » s’écrit sur l’étiquette avec « BRASSERIE » en petit au-dessus du nom.</p>
+      </section>
+
       <section class="bloc">
         <h3>Apparence</h3>
         <div class="segments" role="radiogroup" aria-label="Thème">
@@ -3024,7 +3050,7 @@ function vueReglages() {
 
       <section class="bloc">
         <h3>À propos</h3>
-        <p>Brasserie Ensen · Vence<br>Brassée avec l’eau de la Foux.</p>
+        <p id="a-propos-marque">${texteAPropos()}</p>
         <p class="aide">Version <span id="version">…</span> · Stockage ${etat.persistant ? 'persistant' : 'standard'}</p>
       </section>
     </div>`,
@@ -4046,6 +4072,16 @@ function changerReglage(element) {
     }
     valeur = n;
   }
+  if (cle === 'nomBrasserie' || cle === 'devise') {
+    valeur = String(valeur).trim().replace(/\s+/g, ' ');
+    if (cle === 'nomBrasserie' && !valeur) {
+      element.value = reglages[cle];
+      toast('Indiquer le nom de la brasserie.');
+      return;
+    }
+    valeur = valeur.slice(0, cle === 'devise' ? LONGUEUR_DEVISE_MAX : LONGUEUR_NOM_MAX);
+    element.value = valeur; // le champ montre le nom nettoyé (espaces en trop retirés)
+  }
   if (cle === 'raptRelais' || cle === 'raptCle') valeur = String(valeur).trim();
   if (cle === 'raptRelais' && valeur && !/^https:\/\/[^\s/]+\.[^\s/]+/i.test(valeur) && !/^http:\/\/localhost[:/]/i.test(valeur)) {
     element.value = reglages[cle];
@@ -4061,7 +4097,16 @@ function changerReglage(element) {
   }
   sauver();
   if (cle === 'theme' || cle.startsWith('tri')) afficher();
-  else toast('Réglage enregistré.', { duree: 2500 });
+  else {
+    // Nom ou devise : mis à jour sur place (titre de l'onglet, « À propos ») ; redessiner la page
+    // pendant que le champ perd le focus ferait repartir un second « change ».
+    if (cle === 'nomBrasserie' || cle === 'devise') {
+      appliquerMarque('Réglages');
+      const zone = $('#a-propos-marque');
+      if (zone) zone.innerHTML = String(texteAPropos());
+    }
+    toast('Réglage enregistré.', { duree: 2500 });
+  }
 }
 
 /* ================================================================== */

@@ -19,6 +19,8 @@ export const DELAI_RAPPEL_SAUVEGARDE = 30; // jours
 export const DELAI_COPIE_RELAIS = 3_600_000; // une copie automatique sur le relais au plus toutes les heures
 
 export const REGLAGES_DEFAUT = {
+  nomBrasserie: 'Ma brasserie', // en haut de la Cave, sur les étiquettes, le PDF et la liste de courses
+  devise: '', // sous le nom, facultative (ex. « Vence · brassée avec l'eau de la Foux »)
   theme: 'auto', // 'auto' | 'clair' | 'sombre'
   seuilStockBas: 6, // bouteilles
   gardeSemaines: 3, // durée de refermentation proposée pour un nouveau brassin
@@ -52,9 +54,22 @@ export function normaliserDonnees(source) {
   const donnees = donneesVides();
   donnees.brassins = source.brassins.map(normaliserBrassin);
   donnees.inventaire = normaliserInventaire(source.inventaire);
-  donnees.reglages = { ...REGLAGES_DEFAUT, ...(source.reglages ?? {}) };
+  donnees.reglages = normaliserReglages(source.reglages);
   donnees.meta = { ...donnees.meta, ...(source.meta ?? {}) };
   return donnees;
+}
+
+/** Marque des données d'avant la version 2.0 (réglages sans nom de brasserie) : celle d'origine de l'appli. */
+const MARQUE_ENSEN = { nomBrasserie: 'Brasserie Ensen', devise: 'Vence · brassée avec l’eau de la Foux' };
+
+/** Réglages lus, complétés ; nom de la brasserie jamais vide, devise facultative. */
+function normaliserReglages(source) {
+  const lus = source && typeof source === 'object' ? source : {};
+  const anciens = source && !('nomBrasserie' in lus) ? MARQUE_ENSEN : {};
+  const reglages = { ...REGLAGES_DEFAUT, ...anciens, ...lus };
+  reglages.nomBrasserie = String(reglages.nomBrasserie ?? '').trim() || REGLAGES_DEFAUT.nomBrasserie;
+  reglages.devise = String(reglages.devise ?? '').trim();
+  return reglages;
 }
 
 /* ------------------------------------------------------------------ */
@@ -81,7 +96,7 @@ export function lireSauvegarde(texte) {
     }
   }
   if (objet?.application !== APPLICATION || !objet.donnees) {
-    throw new Error('Ce fichier n’est pas une sauvegarde de Brasserie Ensen.');
+    throw new Error('Ce fichier n’est pas une sauvegarde de la cave à bières.');
   }
   return { donnees: normaliserDonnees(objet.donnees), exporteLe: objet.exporteLe ?? null };
 }

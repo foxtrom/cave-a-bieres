@@ -223,7 +223,7 @@ export class DocumentPdf {
     this.objets[this.idPages - 1] = { dict: `<< /Type /Pages /Kids [${this.pages.map((id) => `${id} 0 R`).join(' ')}] /Count ${this.pages.length} >>` };
     const d = (n) => String(n).padStart(2, '0');
     const date = `${maintenant.getFullYear()}${d(maintenant.getMonth() + 1)}${d(maintenant.getDate())}${d(maintenant.getHours())}${d(maintenant.getMinutes())}${d(maintenant.getSeconds())}`;
-    const info = this.#ajouter(`<< /Title ${chaineUnicode(this.titre)} /Producer ${chaineUnicode('Brasserie Ensen')} /CreationDate (D:${date}) >>`);
+    const info = this.#ajouter(`<< /Title ${chaineUnicode(this.titre)} /Producer ${chaineUnicode('Cave à bières')} /CreationDate (D:${date}) >>`);
 
     const morceaux = [];
     let taille = 0;
